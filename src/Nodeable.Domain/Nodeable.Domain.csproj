@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Deliberately has no package or project references: the Domain knows nothing about EF Core, HTTP or Redis. -->
+
+</Project>

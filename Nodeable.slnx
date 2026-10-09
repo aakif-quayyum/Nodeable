@@ -2,11 +2,14 @@
   <Folder Name="/src/">
     <Project Path="src/Nodeable.Api/Nodeable.Api.csproj" />
     <Project Path="src/Nodeable.AppHost/Nodeable.AppHost.csproj" />
+    <Project Path="src/Nodeable.Domain/Nodeable.Domain.csproj" />
+    <Project Path="src/Nodeable.Infrastructure/Nodeable.Infrastructure.csproj" />
     <Project Path="src/Nodeable.ServiceDefaults/Nodeable.ServiceDefaults.csproj" />
     <Project Path="src/Nodeable.Worker/Nodeable.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Nodeable.Api.Tests/Nodeable.Api.Tests.csproj" />
+    <Project Path="tests/Nodeable.Infrastructure.Tests/Nodeable.Infrastructure.Tests.csproj" />
     <Project Path="tests/Nodeable.Worker.Tests/Nodeable.Worker.Tests.csproj" />
   </Folder>
 </Solution>
