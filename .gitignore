@@ -1,0 +1,50 @@
+# --- .NET ---
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.DotSettings.user
+TestResults/
+coverage/
+*.trx
+*.nupkg
+# User secrets live outside the repo, but guard against local copies (NFR-SEC-01)
+secrets.json
+appsettings.*.local.json
+.env
+.env.*
+!.env.example
+
+# --- Node / web ---
+node_modules/
+web/dist/
+web/coverage/
+*.tsbuildinfo
+npm-debug.log*
+.vite/
+
+# --- Playwright / k6 ---
+playwright-report/
+test-results/
+e2e/.auth/
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# --- Learning guides: PDFs are built by CI and attached to releases (spec section 16) ---
+docs/learning/pdf/
+
+# --- Editors / OS ---
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# --- Claude Code local settings ---
+.claude/settings.local.json
