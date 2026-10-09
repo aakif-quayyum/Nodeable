@@ -669,6 +669,8 @@ The biggest risk is data, not code: MusicBrainz credit coverage is uneven and it
 | 2026-10-08 | Export through M3U and CSV first, Spotify only for allowlisted accounts | Spotify Development Mode restrictions from February 2026 |
 | 2026-10-08 | Deezer for previews | Public API with 30-second previews and no key required |
 | 2026-10-09 | The app is named Nodeable | Replaces the working title Credits Graph |
+| 2026-10-09 | Lint the web app with ESLint 9 and type-checked typescript-eslint plus jsx-a11y, not oxlint ([0001](decisions/0001-eslint-with-typescript-eslint.md)) | Type-aware rules teach TypeScript and catch real bugs; ESLint is the industry standard |
+| 2026-10-09 | Keep the 250 KB first-load budget; split code by route and load the OpenTelemetry web SDK after first paint ([0002](decisions/0002-bundle-budget-and-loading-strategy.md)) | Keeps the constraint real; measure at the end of M1 and propose a spec change with numbers if it is exceeded |
 
 ## 16. Learning guides
 
