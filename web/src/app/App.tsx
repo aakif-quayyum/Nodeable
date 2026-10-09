@@ -1,9 +1,14 @@
-// The app shell. Routing, the MUI theme and providers are added in the next commits.
+import { RouterProvider } from 'react-router/dom'
+import { Providers } from './providers.tsx'
+import { createAppRouter } from './router.tsx'
+
+// Created once at module level: the router owns the browser history, so it must not be rebuilt on every render.
+const router = createAppRouter()
+
 export function App() {
   return (
-    <main>
-      <h1>Nodeable</h1>
-      <p>Discover music through the people who made it.</p>
-    </main>
+    <Providers>
+      <RouterProvider router={router} />
+    </Providers>
   )
 }
