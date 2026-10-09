@@ -1,2 +1,5 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Nodeable.ServiceDefaults/Nodeable.ServiceDefaults.csproj" />
+  </Folder>
 </Solution>
