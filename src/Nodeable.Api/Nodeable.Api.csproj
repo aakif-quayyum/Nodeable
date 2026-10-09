@@ -1,5 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <!--
+      LEARN: LG-01 build-time-openapi | With these two properties, every build also writes the OpenAPI document to disk (by starting the app's startup code up to Build() and asking it to describe itself), so the web app can generate its TypeScript types without a running server
+    -->
+    <OpenApiGenerateDocuments>true</OpenApiGenerateDocuments>
+    <OpenApiDocumentsDirectory>$(MSBuildProjectDirectory)/obj/openapi</OpenApiDocumentsDirectory>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Nodeable.ServiceDefaults\Nodeable.ServiceDefaults.csproj" />
     <ProjectReference Include="..\Nodeable.Infrastructure\Nodeable.Infrastructure.csproj" />
@@ -8,6 +16,10 @@
   <ItemGroup>
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.Extensions.ApiDescription.Server">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
   </ItemGroup>
 
 </Project>

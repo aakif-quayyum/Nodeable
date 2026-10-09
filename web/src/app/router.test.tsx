@@ -1,20 +1,7 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { createMemoryRouter } from 'react-router'
-import { RouterProvider } from 'react-router/dom'
 import { describe, expect, it } from 'vitest'
-import { Providers } from './providers.tsx'
-import { routes } from './router.tsx'
-
-// A memory router runs the same routes without a browser address bar, so each test picks its starting URL.
-function renderAt(path: string) {
-  const router = createMemoryRouter(routes, { initialEntries: [path] })
-  return render(
-    <Providers>
-      <RouterProvider router={router} />
-    </Providers>,
-  )
-}
+import { renderAt } from '../test/renderApp.tsx'
 
 describe('app shell and routes', () => {
   // Screen readers jump between landmarks, so every page needs a banner, navigation and main, with one h1 (NFR-A11Y-01).

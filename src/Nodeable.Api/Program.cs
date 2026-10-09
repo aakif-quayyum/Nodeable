@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Nodeable.Api.Endpoints;
 using Nodeable.Infrastructure.Persistence;
@@ -16,6 +17,10 @@ builder.AddNpgsqlDbContext<NodeableDbContext>(
 
 // LEARN: LG-01 openapi-document | AddOpenApi makes ASP.NET Core describe every endpoint (paths, parameters, response types) as an OpenAPI document; the web app's TypeScript types are generated from it, so frontend and backend cannot drift (spec principle 6)
 builder.Services.AddOpenApi();
+
+// LEARN: LG-01 json-number-handling | ASP.NET's web defaults also accept numbers written as strings ("5"), and OpenAPI then describes every number as "integer or string"; Strict says numbers are numbers, so the generated TypeScript type is plain `number`
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.NumberHandling = JsonNumberHandling.Strict);
 
 var app = builder.Build();
 
