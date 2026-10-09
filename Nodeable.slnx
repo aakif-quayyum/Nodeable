@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Nodeable.Api/Nodeable.Api.csproj" />
+    <Project Path="src/Nodeable.AppHost/Nodeable.AppHost.csproj" />
     <Project Path="src/Nodeable.ServiceDefaults/Nodeable.ServiceDefaults.csproj" />
     <Project Path="src/Nodeable.Worker/Nodeable.Worker.csproj" />
   </Folder>

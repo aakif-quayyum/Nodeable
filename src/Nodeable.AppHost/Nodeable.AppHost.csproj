@@ -1,0 +1,17 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.1">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Secrets for the AppHost (for example database passwords chosen by hand) live in user secrets, never in the repo (NFR-SEC-01). -->
+    <UserSecretsId>nodeable-apphost-6b3e1f0a-52c7-4d7e-9a41-0c8d2f5b7e19</UserSecretsId>
+    <!-- ASPIRE010 only says some optional CLI-bundle features are off. We start the stack with "dotnet run", so none are needed. -->
+    <NoWarn>$(NoWarn);ASPIRE010</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Referencing a project here makes Aspire generate a matching type in the Projects namespace (Projects.Nodeable_Api). -->
+    <ProjectReference Include="..\Nodeable.Api\Nodeable.Api.csproj" />
+    <ProjectReference Include="..\Nodeable.Worker\Nodeable.Worker.csproj" />
+  </ItemGroup>
+
+</Project>
