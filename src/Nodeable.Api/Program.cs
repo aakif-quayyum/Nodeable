@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Nodeable.Api.Endpoints;
 using Nodeable.Infrastructure.Persistence;
 using Nodeable.ServiceDefaults;
 
@@ -13,6 +14,9 @@ builder.AddNpgsqlDbContext<NodeableDbContext>(
     "nodeabledb",
     configureDbContextOptions: options => options.UseNodeableConventions());
 
+// LEARN: LG-01 openapi-document | AddOpenApi makes ASP.NET Core describe every endpoint (paths, parameters, response types) as an OpenAPI document; the web app's TypeScript types are generated from it, so frontend and backend cannot drift (spec principle 6)
+builder.Services.AddOpenApi();
+
 var app = builder.Build();
 
 // Development only: apply pending migrations at startup. Production runs migrations as a separate one-off step (spec section 13).
@@ -25,6 +29,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapDefaultEndpoints();
+
+// Serves the OpenAPI document at /openapi/v1.json (spec section 9).
+app.MapOpenApi();
+
+app.MapStatusEndpoints();
 
 app.Run();
 
