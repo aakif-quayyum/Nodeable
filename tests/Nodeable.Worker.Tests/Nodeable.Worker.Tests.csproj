@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Nodeable.Worker\Nodeable.Worker.csproj" />
+  </ItemGroup>
+
+</Project>
