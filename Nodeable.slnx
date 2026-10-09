@@ -1,5 +1,9 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Nodeable.Api/Nodeable.Api.csproj" />
     <Project Path="src/Nodeable.ServiceDefaults/Nodeable.ServiceDefaults.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Nodeable.Api.Tests/Nodeable.Api.Tests.csproj" />
   </Folder>
 </Solution>
