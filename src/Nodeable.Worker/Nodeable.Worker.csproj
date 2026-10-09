@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk.Worker">
+
+  <PropertyGroup>
+    <!-- Secrets (for example the MusicBrainz contact email in M2) go in dotnet user secrets, never in the repo (NFR-SEC-01). -->
+    <UserSecretsId>dotnet-Nodeable.Worker-cfe6d965-a75c-4640-97bc-ec747688f729</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Nodeable.ServiceDefaults\Nodeable.ServiceDefaults.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,32 @@
+<Project>
+  <!--
+    LEARN: LG-01 build-props | Directory.Build.props is picked up automatically by every .csproj below this folder, like a shared base config (think a root tsconfig "extends" or .eslintrc) that you never have to import.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+
+    <!--
+      LEARN: LG-01 nullable | Nullable reference types make the compiler track "can this be null?" in the type system, like TypeScript strictNullChecks. string means never null; string? means maybe null.
+    -->
+    <Nullable>enable</Nullable>
+
+    <!-- Auto-adds common using directives (System, System.Linq, ...) so files need fewer imports. -->
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Warnings are errors: the build is the lint step, so problems cannot pile up silently. -->
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+
+    <!-- NFR-SEC-04: restore reports known-vulnerable packages. High and critical fail the build; low and moderate only warn. -->
+    <NuGetAudit>true</NuGetAudit>
+    <NuGetAuditMode>all</NuGetAuditMode>
+    <NuGetAuditLevel>low</NuGetAuditLevel>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1901;NU1902</WarningsNotAsErrors>
+
+    <!-- Same build output on every machine, which keeps CI and local results comparable. -->
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+  </PropertyGroup>
+</Project>
