@@ -1,0 +1,13 @@
+<Project>
+  <!--
+    LEARN: LG-01 central-packages | Central Package Management: every NuGet version lives in this one file. A .csproj lists <PackageReference Include="X" /> with no version. It works like npm workspaces plus a single shared lockfile policy.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Package versions are added here as each project needs them. -->
+  </ItemGroup>
+</Project>
