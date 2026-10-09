@@ -1,16 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Nodeable.Api\Nodeable.Api.csproj" />
+    <ProjectReference Include="..\..\src\Nodeable.Infrastructure\Nodeable.Infrastructure.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- One shared source file, compiled into every test project that needs a database. -->
     <Compile Include="..\Shared\PostgresFixture.cs" Link="PostgresFixture.cs" />
   </ItemGroup>
 

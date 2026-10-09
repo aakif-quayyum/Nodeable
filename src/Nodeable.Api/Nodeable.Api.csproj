@@ -2,6 +2,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Nodeable.ServiceDefaults\Nodeable.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Nodeable.Infrastructure\Nodeable.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
   </ItemGroup>
 
 </Project>

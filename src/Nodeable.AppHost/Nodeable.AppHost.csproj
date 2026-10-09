@@ -14,4 +14,9 @@
     <ProjectReference Include="..\Nodeable.Worker\Nodeable.Worker.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.Redis" />
+  </ItemGroup>
+
 </Project>

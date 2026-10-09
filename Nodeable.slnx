@@ -9,6 +9,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/Nodeable.Api.Tests/Nodeable.Api.Tests.csproj" />
+    <Project Path="tests/Nodeable.Infrastructure.Tests/Nodeable.Infrastructure.Tests.csproj" />
     <Project Path="tests/Nodeable.Worker.Tests/Nodeable.Worker.Tests.csproj" />
   </Folder>
 </Solution>
