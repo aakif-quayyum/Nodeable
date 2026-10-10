@@ -113,11 +113,26 @@ function listSourceFiles() {
     .filter((file) => !EXCLUDED.some((pattern) => pattern.test(file)))
 }
 
-function repoFromRemote() {
+/** Absolute path of the repository root; the scripts run from here so file paths are repo-relative. */
+export function repoRoot() {
+  return git('rev-parse', '--show-toplevel')
+}
+
+/** The `owner/repo` of the origin remote, for building permalinks. */
+export function repoFromRemote() {
   const url = git('remote', 'get-url', 'origin')
   const match = /github\.com[:/]([^/]+\/[^/]+?)(?:\.git)?$/.exec(url)
   if (!match) throw new Error(`Cannot read owner/repo from the origin remote "${url}". Pass --repo owner/repo.`)
   return match[1]
+}
+
+/** Every anchor in the working tree, plus comments that look like anchors but are malformed. Run from the repo root. */
+export function collectAnchors() {
+  const found = listSourceFiles().map((file) => parseAnchors(readFileSync(file, 'utf8'), file))
+  return {
+    anchors: found.flatMap((result) => result.anchors),
+    problems: found.flatMap((result) => result.problems),
+  }
 }
 
 function parseArgs(argv) {
@@ -136,11 +151,9 @@ function parseArgs(argv) {
 
 function main() {
   const options = parseArgs(process.argv.slice(2))
-  process.chdir(git('rev-parse', '--show-toplevel'))
+  process.chdir(repoRoot())
 
-  const found = listSourceFiles().map((file) => parseAnchors(readFileSync(file, 'utf8'), file))
-  const anchors = found.flatMap((result) => result.anchors)
-  const problems = found.flatMap((result) => result.problems)
+  const { anchors, problems } = collectAnchors()
   const duplicates = findDuplicates(anchors)
 
   for (const problem of problems) console.error(`${problem.file}:${problem.line}: ${problem.message}`)

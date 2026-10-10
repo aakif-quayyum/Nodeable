@@ -41,12 +41,17 @@ Use the guide ID for the current milestone (LG-01 for M1, LG-02 for M2, and so o
 2. LEARN anchors added.
 3. Learning guide drafted at `docs/learning/LG-xx-<name>.md` from `docs/learning/_template.md`: sections 1 to 4 drafted from the anchors and diff; sections 5 to 11 left as outlines for the developer to write.
 4. Spec updated with anything learned, and a decision record added for any significant choice.
+5. The learning guide PDF is a deliverable, not an extra:
+   - the "Learning guides" workflow builds it from the guide's Markdown (as an artifact on pull requests), so the pull request that finishes a milestone must show a green PDF build;
+   - when the milestone is tagged (`vX.Y.Z`), the same workflow attaches every guide PDF to that tag's GitHub release, with the code map links pinned to the tagged commit.
+   Pandoc is not installed on the developer's machine: PDFs are built by the workflow, not locally. Do not ask the developer to install it.
 
 ## Commands
 
-Fill these in as the project takes shape.
-
-- Run everything: `dotnet run --project src/Nodeable.AppHost`
+- Run everything: `dotnet run --project src/Nodeable.AppHost` (Docker must be running)
 - Backend tests: `dotnet test`
 - Frontend tests: `cd web && npm test`
-- Build a learning guide PDF: `tools/learning/build LG-xx`
+- Regenerate the web app's API types: `cd web && npm run gen:api`
+- Check LEARN anchors (format and unique ids): `node tools/learning/collect-anchors.mjs --check`
+- Code map for a guide: `tools/learning/collect-anchors LG-xx` (PowerShell: `node tools/learning/collect-anchors.mjs LG-xx`)
+- Build a learning guide PDF: `tools/learning/build LG-xx`. This needs Pandoc and WeasyPrint, which only the CI runner has; locally use `--prepare-only` to check the Markdown the PDF is built from.
