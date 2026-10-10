@@ -95,6 +95,24 @@ jobs:
       - name: Audit npm dependencies
         run: npm audit --audit-level=high
 
+  learning-tools:
+    name: Learning anchors (well-formed, unique ids)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Test the anchors script
+        run: node --test "tools/learning/*.test.mjs"
+
+      # Spec section 16: every LEARN comment follows the fixed format and each id points at one place.
+      - name: Check anchors
+        run: node tools/learning/collect-anchors.mjs --check
+
   api-contract:
     name: API contract (generated types are current)
     runs-on: ubuntu-latest
