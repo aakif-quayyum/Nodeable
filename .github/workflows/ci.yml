@@ -1,0 +1,126 @@
+name: CI
+
+# Spec section 13: build, test and lint both halves in parallel. Every job maps to a requirement named in its steps.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A newer push to the same branch makes the older run pointless.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Least privilege (NFR-SEC-01): the workflow only reads the repository.
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  backend:
+    name: Backend (build, format, test, audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          # Latest 10.0 SDK; global.json allows any 10.0.x feature band at or above its version.
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore Nodeable.slnx
+
+      # Warnings are errors (Directory.Build.props), so this is also the C# analyser lint.
+      - name: Build
+        run: dotnet build Nodeable.slnx --no-restore --configuration Release
+
+      - name: Check formatting
+        run: dotnet format Nodeable.slnx --no-restore --verify-no-changes
+
+      # Integration tests start PostgreSQL with Testcontainers; the hosted runner provides Docker.
+      - name: Test
+        run: dotnet test --no-build --configuration Release
+
+      # NFR-SEC-04. `dotnet list package` exits 0 even when it finds advisories, so the output is checked.
+      - name: Check NuGet packages for known vulnerabilities
+        run: |
+          dotnet list Nodeable.slnx package --vulnerable --include-transitive 2>&1 | tee vulnerable.txt
+          if grep -q "has the following vulnerable packages" vulnerable.txt; then
+            echo "::error::Vulnerable NuGet packages found, see the log above"
+            exit 1
+          fi
+
+  web:
+    name: Web (typecheck, lint, test, build, audit)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      # `npm ci` installs exactly what package-lock.json says and fails if it is out of sync with package.json.
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Spec section 12 and decision 0002: JavaScript on first load stays under 250 KB gzipped.
+      - name: Check first-load bundle budget
+        run: node scripts/check-bundle-size.mjs 250
+
+      # NFR-SEC-04
+      - name: Audit npm dependencies
+        run: npm audit --audit-level=high
+
+  api-contract:
+    name: API contract (generated types are current)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web dependencies
+        working-directory: web
+        run: npm ci
+
+      # Builds the Api (which writes its OpenAPI document) and regenerates web/src/api/schema.d.ts from it.
+      - name: Regenerate API types
+        working-directory: web
+        run: npm run gen:api
+
+      # Principle 6: if the Api's contract changed, the committed types must change in the same pull request.
+      - name: Fail if the generated types changed
+        run: git diff --exit-code -- web/src/api/schema.d.ts
