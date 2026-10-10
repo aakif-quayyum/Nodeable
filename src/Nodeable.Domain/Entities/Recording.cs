@@ -3,10 +3,8 @@ using Nodeable.Domain.Enums;
 namespace Nodeable.Domain.Entities;
 
 /// <summary>A specific performance of a song, keyed by its MusicBrainz ID (spec section 8, <c>recordings</c>).</summary>
-// LEARN: LG-01 entity-class | Entities are plain classes, not records: EF Core tracks each row as one object instance and mutates it, while a record compares by value and is meant to be immutable
 public class Recording
 {
-    // LEARN: LG-01 init-vs-set | "init" can only be assigned when the object is created (the key never changes); "set" stays writable because a re-crawl updates the other columns. "required" makes the compiler reject any new Recording that omits the property
     public required Guid Mbid { get; init; }
 
     public required string Title { get; set; }
