@@ -130,7 +130,13 @@ function runPandoc(input, output, root) {
     `--resource-path=${join(root, 'docs', 'learning')}`,
     '--metadata=lang:en',
   ]
-  const result = spawnSync('pandoc', args, { stdio: 'inherit' })
+  // Run from the guides folder: WeasyPrint resolves the guide's relative image paths (images/...) against the
+  // working directory, and Pandoc does not embed them when the output is a PDF.
+  const result = spawnSync('pandoc', args, {
+    cwd: join(root, 'docs', 'learning'),
+    encoding: 'utf8',
+    stdio: ['ignore', 'inherit', 'pipe'],
+  })
 
   if (result.error && result.error.code === 'ENOENT') {
     throw new Error(
@@ -138,7 +144,14 @@ function runPandoc(input, output, root) {
         '(.github/workflows/learning-guides.yml); use --prepare-only to check the Markdown locally.',
     )
   }
+
+  if (result.stderr) process.stderr.write(result.stderr)
   if (result.status !== 0) throw new Error(`Pandoc failed with exit code ${result.status}`)
+
+  // Pandoc exits 0 even when WeasyPrint could not load an image or font, which would publish a broken PDF as a success.
+  if (/^ERROR:/m.test(result.stderr ?? '')) {
+    throw new Error('WeasyPrint reported an error (for example a missing image); the PDF would be incomplete. See the log above.')
+  }
 }
 
 function main() {
