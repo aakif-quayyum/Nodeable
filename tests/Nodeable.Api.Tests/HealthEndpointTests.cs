@@ -2,7 +2,6 @@ using System.Net;
 
 namespace Nodeable.Api.Tests;
 
-// LEARN: LG-01 web-app-factory | WebApplicationFactory<Program> boots the real Api in memory and gives an HttpClient wired straight to it: no port, no network, and the same DI container and middleware as production
 // IClassFixture: xUnit builds one ApiFactory and shares it across this class's tests, like a beforeAll() that returns a value.
 // The (ApiFactory factory) after the class name is a C# 12 primary constructor; "factory" is usable in every method.
 public class HealthEndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>

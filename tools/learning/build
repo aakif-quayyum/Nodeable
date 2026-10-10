@@ -1,0 +1,5 @@
+#!/bin/sh
+# Spec section 16: `tools/learning/build LG-01` renders docs/learning/pdf/LG-01-<name>.pdf with Pandoc.
+# Pandoc and WeasyPrint are installed by the "Learning guides" GitHub Actions workflow, not locally.
+# On Windows PowerShell, run the script directly instead: node tools/learning/build.mjs LG-01 --prepare-only
+exec node "$(dirname "$0")/build.mjs" "$@"

@@ -1,0 +1,87 @@
+name: Learning guides
+
+# Spec section 16: every guide is rebuilt as a PDF. On a pull request the PDFs are an artifact, so the pipeline is
+# exercised before any release; when a version tag is pushed they are attached to that tag's GitHub release.
+on:
+  pull_request:
+    paths:
+      - docs/learning/**
+      - tools/learning/**
+      - .github/workflows/learning-guides.yml
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build guide PDFs
+    # Pinned image: the apt package versions of Pandoc and WeasyPrint are what the build was verified with.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      # Pandoc converts Markdown to HTML with syntax highlighting; WeasyPrint turns the HTML into the PDF.
+      # DejaVu fonts cover the arrows and box-drawing characters used in the diagrams.
+      - name: Install Pandoc and WeasyPrint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pandoc weasyprint fonts-dejavu
+          pandoc --version | head -1
+          weasyprint --version
+
+      - name: Test the build tool
+        run: node --test "tools/learning/*.test.mjs"
+
+      # The code map in every guide is regenerated here, so its links point at the commit being built:
+      # the pull request's head commit, or the tagged commit for a release (spec section 16 acceptance criteria).
+      - name: Build every guide
+        env:
+          LINK_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+        run: |
+          args=(--all --ref "$LINK_REF")
+          if [ -n "$RELEASE_TAG" ]; then args+=(--tag "$RELEASE_TAG"); fi
+          node tools/learning/build.mjs "${args[@]}"
+          ls -la docs/learning/pdf
+
+      - name: Upload the PDFs
+        uses: actions/upload-artifact@v7
+        with:
+          name: learning-guides
+          path: docs/learning/pdf/*.pdf
+          if-no-files-found: warn
+
+  release:
+    name: Attach PDFs to the release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    # The only job that can write: it creates or updates the release for the pushed tag.
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: learning-guides
+          path: pdf
+
+      - name: Create the release if needed and upload the PDFs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --title "$TAG" --notes "Learning guides for $TAG, built from the tagged commit."
+          fi
+          gh release upload "$TAG" pdf/*.pdf --clobber
+          gh release view "$TAG" --json assets --jq '.assets[].name'

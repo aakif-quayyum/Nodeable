@@ -21,7 +21,6 @@ internal sealed class RecordingConfiguration : IEntityTypeConfiguration<Recordin
         builder.Property(r => r.CreditsStatus).HasConversion<LowerCaseEnumConverter<CreditsStatus>>();
         builder.Property(r => r.FetchedAt).HasDefaultValueSql("now()");
 
-        // LEARN: LG-01 trigram-index | A GIN index with gin_trgm_ops makes ILIKE and similarity searches on title fast, so search can hit the local cache before MusicBrainz (spec section 8)
         builder.HasIndex(r => r.Title).HasMethod("gin").HasOperators("gin_trgm_ops");
 
         builder.ToTable(t => t.HasCheckConstraint("ck_recordings_credits_status", EnumColumn.CheckSql<CreditsStatus>("credits_status")));

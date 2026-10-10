@@ -230,6 +230,8 @@ The stack keeps React, MUI and D3 at the centre and deliberately adds tools outs
 
 Version notes: [.NET 10 is the current LTS release, supported until November 14, 2028](https://dotnet.microsoft.com/en-US/platform/support/policy). [Material UI jumped from v7 straight to v9 in April 2026 to align with MUI X](https://mui.com/blog/introducing-mui-v9/). [The Aspire dashboard shows logs, traces and metrics from OpenTelemetry-instrumented apps](https://aspire.dev/hub/glossary/aspire-dashboard/).
 
+Versions M1 was built and tested against: .NET SDK 10.0 (pinned in `global.json`), Aspire 13.6, EF Core 10.0, Npgsql provider 10.0, PostgreSQL 18 and Redis 8.6 (Aspire's defaults), React 19.2, Vite 8, TypeScript 6.0, Material UI 9.5, React Router 8, TanStack Query 5, ESLint 9. TypeScript stays below 6.1 and ESLint at 9 until typescript-eslint and `eslint-plugin-jsx-a11y` support more (decision 0001).
+
 ## 7. System architecture
 
 The system is two .NET processes, an API and a Worker, sharing PostgreSQL and Redis; only the Worker talks to external APIs, so one place enforces the MusicBrainz rate limit. The API never waits on MusicBrainz: it queues work and returns immediately.
@@ -242,9 +244,9 @@ Solid arrows carry requests and data; dashed arrows carry telemetry to the Colle
 
 1. The browser sends `POST /graphs/{id}/songs` with a `traceparent` header.
 2. The API checks PostgreSQL. Cached credits return in the response and the flow ends.
-3. Otherwise the API inserts up to four `crawl_jobs` rows (recording, work, release, preview), stores the trace context on each, and returns 202 with the song node.
+3. Otherwise the API upserts the `recordings` row, inserts one `crawl_jobs` row for the recording fetch with the trace context stored on it, and returns 202 with the song node (decision 0009).
 4. The Worker claims jobs with `FOR UPDATE SKIP LOCKED`, highest priority first, and waits for a token from the Redis rate gate.
-5. The Worker fetches from MusicBrainz, maps relationships to roles, and upserts `people` and `credits`.
+5. The Worker fetches from MusicBrainz, maps relationships to roles, and upserts `people` and `credits`. From the recording response it queues the follow-up jobs itself: a `work` job per linked work, a `preview` job when an ISRC is known, and a `release` job only when no producer credit was found. Each carries the same trace context and priority.
 6. The Worker publishes `CreditsResolved` and `HubsUpdated` through SignalR, using the Redis backplane, to every client in the graph's group.
 7. The browser merges each event into the TanStack Query cache, and new nodes animate into the graph.
 
@@ -261,26 +263,35 @@ All music data is keyed by MusicBrainz IDs (MBIDs), and every credit is stored o
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
-| `recordings` | A specific performance of a song | `mbid` PK, `title`, `artist_credit`, `first_release_date`, `length_ms`, `credits_status` (complete, partial, none), `fetched_at` |
+| `recordings` | A specific performance of a song | `mbid` PK, `title`, `artist_credit`, `first_release_date`, `first_release_date_precision` (year, month, day), `length_ms`, `credits_status` (complete, partial, none), `fetched_at` |
 | `works` | The underlying composition | `mbid` PK, `title`, `fetched_at` |
-| `releases` | Albums and singles | `mbid` PK, `title`, `date`, `fetched_at` |
+| `releases` | Albums and singles | `mbid` PK, `title`, `date`, `date_precision` (year, month, day), `fetched_at` |
 | `recording_works` | Recording to work links | (`recording_mbid`, `work_mbid`) PK |
 | `recording_releases` | Recording to release links | (`recording_mbid`, `release_mbid`) PK |
 | `people` | Artists, producers, engineers, musicians | `mbid` PK, `name`, `sort_name`, `type`, `disambiguation`, `fetched_at` |
-| `credits` | One person, one role, on one subject | `id` PK, `person_mbid`, `subject_type` (recording, work, release), `subject_mbid`, `role`, `detail`, `source` (musicbrainz, discogs) |
-| `previews` | Cached 30-second preview links | `recording_mbid`, `provider`, `provider_track_id, fetched_at (preview URLs expire, so they are fetched on demand)` |
-| `graphs` | A user's set of songs | `id` PK, `owner_id` (nullable), `anon_token`, `name`, `is_public`, `share_slug` |
+| `credits` | One person, one role, on one subject | `id` PK, `person_mbid`, `subject_type` (recording, work, release), `subject_mbid`, `role`, `detail` (never null, empty string when there is none), `source` (musicbrainz, discogs) |
+| `previews` | A recording's track at a preview provider; only the track ID is stored | (`recording_mbid`, `provider`) PK, `provider_track_id`, `fetched_at` |
+| `graphs` | A user's set of songs | `id` PK, `owner_id` (nullable), `anon_token_hash` (SHA-256 of the token, decision 0007), `name`, `is_public`, `share_slug` |
 | `graph_songs` | Songs in a graph | (`graph_id`, `recording_mbid`) PK, `added_at` |
-| `crawl_jobs` | Durable queue of external fetches | `id` PK, `kind`, `target_mbid`, `priority`, `status`, `attempts`, `run_after`, `locked_by`, `locked_at`, `last_error`, `traceparent` |
+| `crawl_jobs` | Durable queue of external fetches | `id` PK, `kind` (recording, work, release, preview, artist), `target_mbid`, `priority`, `status` (pending, running, done, failed), `attempts`, `run_after`, `locked_by`, `locked_at`, `last_error`, `traceparent` |
 | `saved_recordings` | Discovery list (v2) | (`user_id`, `recording_mbid`) PK, `saved_at`, `reason` |
 | `follows` | Producer radar (v2) | (`user_id`, `person_mbid`) PK, `last_checked_at` |
 | `notifications` | In-app alerts (v2) | `id` PK, `user_id`, `kind`, `payload` jsonb, `read_at` |
 
 User accounts use the standard ASP.NET Core Identity tables. The `traceparent` column on `crawl_jobs` stores the W3C trace context of the request that queued the job, so a background fetch appears in the same trace as the click that caused it.
 
+### Conventions
+
+- Tables and columns are `snake_case`; MusicBrainz IDs are `uuid`; timestamps are `timestamptz`.
+- Enumerated columns (`credits_status`, `subject_type`, `role`, `source`, `provider`, and the crawl job `kind` and `status`) are lower-case text with a CHECK constraint listing the allowed values (decision 0006).
+- Foreign keys are declared wherever the target is a single table: link tables to `recordings`, `works` and `releases`; `credits.person_mbid` to `people`; `previews.recording_mbid` to `recordings`; `graph_songs` to `graphs` (cascade) and `recordings`. `credits.subject_mbid` and `crawl_jobs.target_mbid` are polymorphic and have none. The ingestion order in M2 follows from this: a recording or person row exists before rows that reference it.
+- `graphs.owner_id` has no foreign key until ASP.NET Core Identity arrives in v2.
+- MusicBrainz dates can be partial. A date is stored as its earliest possible day plus a precision (`1995` is `1995-01-01` with `year`), and the precision is null exactly when the date is null. Ordering uses the date; the UI formats by precision (decision 0008).
+- Schema changes go through EF Core migrations, applied at Api startup in Development and as a separate step in production (decision 0003).
+
 ### Indexes and constraints
 
-- `credits`: unique on (`person_mbid`, `subject_type`, `subject_mbid`, `role`, `detail`) to make re-crawls idempotent; index on (`subject_type`, `subject_mbid`) and on `person_mbid`.
+- `credits`: unique on (`person_mbid`, `subject_type`, `subject_mbid`, `role`, `detail`) to make re-crawls idempotent (`detail` is never null, because PostgreSQL treats NULLs as distinct in a unique index); index on (`subject_type`, `subject_mbid`). A separate index on `person_mbid` is not needed: the unique index starts with that column and serves the same lookups.
 - `crawl_jobs`: unique on (`kind`, `target_mbid`) where `status` is pending or running, so the same fetch is never queued twice; partial index on (`priority` desc, `run_after`) where `status = 'pending'`.
 - `recordings.title`: trigram index (`pg_trgm`) for fast local search before falling back to MusicBrainz.
 
@@ -337,7 +348,13 @@ The API is REST over JSON under `/api/v1`, described by an OpenAPI document gene
 | POST, DELETE | `/api/v1/me/follows/{personMbid}` | Follow or unfollow a person (v2) | FR-RADAR-01 |
 | PATCH | `/api/v1/graphs/{id}/sharing` | Make public and get a share slug (v2) | FR-SHARE-01 |
 
-Anonymous graphs are authorised by an `X-Graph-Token` header holding the `anonToken`. Errors use RFC 9457 Problem Details with a stable `type` URI per error, for example `/errors/rate-limited`.
+Anonymous graphs are authorised by an `X-Graph-Token` header holding the `anonToken`; the server stores only its hash (decision 0007). Errors use RFC 9457 Problem Details with a stable `type` URI per error, for example `/errors/rate-limited`.
+
+The OpenAPI document is written on every build and the frontend's `web/src/api/schema.d.ts` is generated from it, committed, and checked for drift in CI (decision 0005). JSON numbers are strict, so the contract says `integer` or `number`, and a value that is not measured yet is `null`, never `0`.
+
+`GET /api/v1/status/crawl` returns `{ queueDepth, fetchRatePerMinute, cacheHitRatio }`. `queueDepth` is the number of pending `crawl_jobs`; the other two are `null` until the Worker records the telemetry behind them (M2).
+
+`creditsStatus` in the API takes the stored values `complete`, `partial` and `none`, plus `loading`. `loading` is not stored: the Api reports it while crawl jobs for the song are still pending or running.
 
 ### Example: add a song
 
@@ -348,9 +365,11 @@ POST /api/v1/graphs/7c1e.../songs
 202 Accepted
 {
   "song": { "mbid": "b1a9...", "title": "Redbone", "artist": "Childish Gambino", "creditsStatus": "loading" },
-  "pendingJobs": 4
+  "pendingJobs": 1
 }
 ```
+
+`pendingJobs` counts the jobs outstanding for the song and starts at 1: the Worker queues the work, release and preview jobs after it has fetched the recording (decision 0009). Progress is therefore reported as a growing queue, never as "n of 4".
 
 ### SignalR hub events
 
@@ -385,7 +404,7 @@ MusicBrainz is the primary source for all credit data; Discogs fills gaps, Deeze
 4. `GET /ws/2/release/{releaseMbid}?inc=artist-rels` only when steps 2 and 3 found no producer.
 5. `GET /ws/2/artist/{mbid}?inc=recording-rels+work-rels` when a user opens a person drawer.
 
-Each step is a separate `crawl_jobs` row, so a failure retries only that step. The User-Agent is `Nodeable/{version} ( {contact-email} )`, the format MusicBrainz asks for.
+Each step is a separate `crawl_jobs` row, so a failure retries only that step. The Api queues only the recording job: the work and release IDs and the ISRC are only known from its response, and the release step is conditional, so the Worker queues steps 3 and 4 and the preview job itself (decision 0009). The User-Agent is `Nodeable/{version} ( {contact-email} )`, the format MusicBrainz asks for.
 
 ### Role mapping
 
@@ -482,7 +501,10 @@ web/
     stores/         Zustand stores (selection, filters, layout)
     telemetry/      OpenTelemetry web setup
     test/           test utilities and MSW handlers
+  scripts/          build-time scripts (first-load bundle budget check)
 ```
+
+Routes in M1: `/` (home; search and graph from M3), `/about` (a lazy route) and a not-found page for every other address. `/g/:slug` for shared graphs arrives with v2.
 
 ### State
 
@@ -490,10 +512,17 @@ web/
 - **UI state** (selected node, active role filters, hover, layout settings) lives in small Zustand stores.
 - **Anonymous graphs** store their `id` and `anonToken` in `localStorage`, wrapped in try/catch.
 
+### Networking
+
+- The browser only makes **same-origin** requests: `/api` for the Api and `/otlp` for telemetry. Vite's dev server proxies both in development and Caddy does in production, so there is no CORS configuration (decision 0004).
+- The API client is `openapi-fetch`, typed by the generated `paths`, and looks `fetch` up on each call so that tracing installed after first paint still applies.
+
 ### MUI theming
 
 - A custom dark-first "studio" theme with a light variant, built from design tokens in `theme.ts`.
-- One colour per credit role, each paired with an icon so colour is never the only signal: Producer (tune), Songwriter (edit), Mixing (sliders), Engineering (settings), Instrument (guitar), Vocal (mic).
+- One colour per credit role, each paired with an icon so colour is never the only signal: Producer (tune), Songwriter (edit), Mixing (equalizer), Engineering (settings), Instrument (piano), Vocal (mic). The icon set is `@mui/icons-material`, which has no guitar or mixer-sliders glyph. Role colours are defined per colour scheme and tested for at least 3:1 contrast against both background colours (WCAG 1.4.11); text is tested for at least 4.5:1.
+- The backend's `other` role (unmapped MusicBrainz relationship types) is shown in a neutral grey with a generic icon, labelled from its `detail` ("Arranger"), has its own filter chip that is on by default, and counts towards hubs like any other credit. M3 implements it; the grey is covered by the same contrast test (decision 0010).
+- Pages that are not needed for the first render are lazy routes, with a loading bar while their code downloads; the app bar has a skip link and labelled landmarks (NFR-A11Y-01).
 - Layout: an app bar with search, a full-bleed graph canvas, a collapsible left panel for hubs and filters, and a right drawer for person details. On phones the panels become bottom sheets.
 
 ### D3 visualisations
@@ -516,7 +545,8 @@ Graph rules:
 
 ### Performance budgets
 
-- JavaScript under 250 KB gzipped on first load; D3 visualisations for v3 load lazily.
+- JavaScript under 250 KB gzipped on first load; D3 visualisations for v3 load lazily. "First load" means the scripts `index.html` loads or preloads. Lazy route chunks and the OpenTelemetry web SDK, which loads after first paint, are reported separately and do not count (decision 0002). CI enforces the 250 KB limit on first-load scripts and prints the full table on each run.
+- Measured at the end of M1 (gzip, as reported by the CI script): first load about 150 KB, About route about 10 KB, OpenTelemetry SDK about 23 KB.
 - Lighthouse performance score at least 90 on the home page, checked in CI.
 
 ## 13. Testing, CI/CD and deployment
@@ -527,7 +557,7 @@ Every acceptance criterion in section 3 maps to at least one automated test, and
 
 | Layer | Tools | What it covers | Runs |
 | --- | --- | --- | --- |
-| Backend unit | xUnit, FluentAssertions | Role mapping, recommendation scoring, path search, dedup logic | Every push |
+| Backend unit | xUnit, AwesomeAssertions | Role mapping, recommendation scoring, path search, dedup logic | Every push |
 | Backend integration | xUnit, Testcontainers (PostgreSQL, Redis), WireMock.Net | Endpoints, EF Core queries, crawl worker, rate gate, retries | Every push |
 | Contract | OpenAPI diff | Breaking API changes fail the build unless the version changes | Every pull request |
 | Frontend unit | Vitest, React Testing Library, MSW | Components, stores, SignalR cache updates | Every push |
@@ -536,12 +566,28 @@ Every acceptance criterion in section 3 maps to at least one automated test, and
 
 Test naming carries the requirement ID, for example `FR_GRAPH_03_credits_from_work_are_attached_to_recording`, so a search for an ID finds its tests.
 
+How the layers run in practice (M1):
+
+- Backend tests use **xUnit v3**, which needs `global.json` to opt in to the Microsoft Testing Platform (`"test": { "runner": "Microsoft.Testing.Platform" }`) on the .NET 10 SDK. `dotnet test` from the repository root runs every project.
+- Integration tests start a real PostgreSQL 18 container with Testcontainers, so **Docker must be running**. One container is shared by each test project (an xUnit assembly fixture) and every test gets its own database.
+- Frontend tests use Vitest with MSW: the real client and components run against a fake Api, and any request without a matching handler fails the test.
+- Backend assertions use **AwesomeAssertions**, a free fork of FluentAssertions 7 with the same `.Should()` syntax; FluentAssertions 8 and later is commercially licensed (decision 0012). The package is added in M2 with the first role-mapping tests; until then the tests use xUnit's `Assert`.
+
 ### Repository layout
 
 ```text
 nodeable/
   CLAUDE.md                        Working rules for AI coding assistants; points to the spec
   README.md                        Project overview, how to run, links to spec and guides
+  global.json                      Pins the .NET SDK and selects the Microsoft Testing Platform
+  Directory.Build.props            Shared compiler settings: nullable, warnings as errors, NuGet audit
+  Directory.Packages.props         Central package management: every NuGet version in one file
+  Nodeable.slnx                    Solution file
+  .editorconfig                    Code style and naming rules, enforced at build time
+  .config/dotnet-tools.json        Local tools (dotnet-ef)
+  .github/
+    workflows/                     CI pipeline and learning guide release workflow
+    dependabot.yml                 Weekly dependency updates
   src/
     Nodeable.AppHost/              Aspire orchestration for local dev
     Nodeable.ServiceDefaults/      OpenTelemetry, health checks, resilience defaults
@@ -550,7 +596,8 @@ nodeable/
     Nodeable.Domain/               Entities, role mapping, scoring, path search
     Nodeable.Infrastructure/       EF Core, MusicBrainz, Discogs, Deezer clients, rate gate
   web/                             React app
-  tests/                           Backend unit and integration tests
+  tests/                           Backend unit and integration tests (one project per source project)
+    Shared/                        Source files compiled into several test projects (PostgreSQL fixture)
   e2e/                             Playwright tests
   load/                            k6 scripts
   infra/                           Terraform, Docker Compose, Caddyfile, Collector config
@@ -570,9 +617,11 @@ nodeable/
 5. Run Playwright end-to-end tests against the composed stack.
 6. On `main`, push images to GitHub Container Registry and deploy.
 
+Implemented in M1 (`.github/workflows/ci.yml`, four parallel jobs): **backend** (restore, Release build with warnings as errors, `dotnet format --verify-no-changes`, tests, NuGet vulnerability check), **web** (`npm ci`, typecheck, ESLint, tests, build, the 250 KB first-load budget, `npm audit`), **api-contract** (regenerate `web/src/api/schema.d.ts` and fail on any difference) and **learning-tools** (anchor script tests and `--check`). Not yet in place: the 80% coverage gate on `Domain` (it has no logic until M2), the OpenAPI diff against `main`, image build and scanning, Playwright, and the deploy step (M4).
+
 ### Deployment
 
-- **Local:** `dotnet run` on the AppHost starts PostgreSQL, Redis, Api, Worker, the Vite dev server and the Aspire dashboard together.
+- **Local:** `dotnet run --project src/Nodeable.AppHost` starts PostgreSQL, Redis, Api, Worker, the Vite dev server and the Aspire dashboard together. Docker must be running. The dashboard is at `http://localhost:15180`; Aspire assigns the web app's port on every run and shows it in the dashboard. Running `npm run dev` on its own serves the web app on port 5173 and proxies `/api` to the Api's launch-profile port 5029. Until M3 the local database is ephemeral: every run starts empty. From M3 PostgreSQL uses a named data volume with its password remembered in user secrets, and a documented command resets it (decision 0011).
 - **Production:** one small VPS provisioned by Terraform, running Docker Compose with Caddy for HTTPS, Api, Worker, Web (static files served by Caddy), PostgreSQL, Redis and the OpenTelemetry Collector.
 - **Releases:** images tagged by commit SHA; deploys pull new images and restart with health checks; EF Core migrations run as a separate one-off step before the Api starts.
 - **Backups:** nightly `pg_dump` to object storage, keeping 14 days; a restore drill runs monthly.
@@ -588,19 +637,19 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 
 ### M0 Learning spike (2 weeks)
 
-- [ ] Complete a C# fundamentals course focused on records, LINQ, async and nullable types
-- [ ] Build a throwaway console app that searches MusicBrainz and prints credits for one song
-- [ ] Create a starter Aspire app and explore traces in the Aspire dashboard
-- [ ] Convert one small existing React component to TypeScript
+- [x] Complete a C# fundamentals course focused on records, LINQ, async and nullable types
+- [x] Build a throwaway console app that searches MusicBrainz and prints credits for one song
+- [x] Create a starter Aspire app and explore traces in the Aspire dashboard
+- [x] Convert one small existing React component to TypeScript
 
 ### M1 Foundations (2 weeks)
 
-- [ ] Create the repository layout from section 13 with AppHost and ServiceDefaults
-- [ ] Add PostgreSQL and Redis to the AppHost; first EF Core migration with all MVP tables (section 8)
-- [ ] Scaffold the Vite + TypeScript + MUI app with the studio theme and routing
-- [ ] Generate OpenAPI types into `web/src/api`
-- [ ] GitHub Actions: build, test, lint for both halves
-- [ ] OpenTelemetry wired in Api, Worker and the browser; one trace visible end to end
+- [x] Create the repository layout from section 13 with AppHost and ServiceDefaults
+- [x] Add PostgreSQL and Redis to the AppHost; first EF Core migration with all MVP tables (section 8)
+- [x] Scaffold the Vite + TypeScript + MUI app with the studio theme and routing
+- [x] Generate OpenAPI types into `web/src/api`
+- [ ] GitHub Actions: build, test, lint for both halves (workflow added; tick after its first green run on GitHub)
+- [x] OpenTelemetry wired in Api, Worker and the browser; one trace visible end to end
 
 ### M2 Ingestion (3 weeks)
 
@@ -610,6 +659,9 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [ ] `crawl_jobs` queue with `SKIP LOCKED` claiming and trace context propagation (NFR-REL-01)
 - [ ] Role mapping and credit upserts for recording, work and release levels (FR-GRAPH-03)
 - [ ] Integration tests with Testcontainers and WireMock.Net recordings
+- [ ] Store partial MusicBrainz dates with a precision column (decision 0008)
+- [ ] The Api queues only the recording job; the Worker queues the work, release and preview jobs (decision 0009)
+- [ ] Add AwesomeAssertions to the backend test projects (decision 0012)
 
 ### M3 Graph UI (3 weeks)
 
@@ -619,6 +671,8 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [ ] Accessible list view of the same graph (NFR-A11Y-01)
 - [ ] Your hubs panel and role filters (FR-HUB-02, FR-HUB-03)
 - [ ] Credits incomplete badge (FR-GRAPH-04)
+- [ ] Neutral style and filter chip for the `other` role (decision 0010)
+- [ ] Persistent local database: data volume and remembered password, with a documented reset (decision 0011)
 
 ### M4 Discovery and launch (2 weeks)
 
@@ -658,6 +712,15 @@ The biggest risk is data, not code: MusicBrainz credit coverage is uneven and it
 - [ ] Is Google sign-in enough for v2, or add GitHub for the developer audience?
 - [ ] Which 5 to 10 albums should seed the demo cache?
 
+Raised while building M1 and decided on 2026-10-11 (each has a decision record, a row in the log below, and a task in the milestone that implements it):
+
+- [x] **Partial dates.** A date plus a precision column (`year`, `month`, `day`). Decision 0008, implemented in M2.
+- [x] **Which jobs the Api queues.** The Api queues only the recording job; the Worker queues the work, release and preview jobs, and `pendingJobs` starts at 1 and grows. Decision 0009, implemented in M2.
+- [x] **How the `other` role looks.** Neutral grey with a generic icon, labelled from `detail`, with its own filter chip; promote common types to real roles later with real data. Decision 0010, implemented in M3.
+- [x] **Persistent local database.** A Docker data volume with the password remembered in user secrets and a documented reset; fall back to an ephemeral database plus a seed script if Aspire cannot remember the password. Decision 0011, implemented in M3.
+- [x] **Assertion library.** AwesomeAssertions. Decision 0012, added in M2.
+- [x] **ESLint 10 and TypeScript 7.** Stay on ESLint 9 and TypeScript 6.0, with Dependabot ignoring those majors and a check at the start of each milestone. Decision 0013.
+
 ### Decision log
 
 | Date | Decision | Reason |
@@ -671,6 +734,19 @@ The biggest risk is data, not code: MusicBrainz credit coverage is uneven and it
 | 2026-10-09 | The app is named Nodeable | Replaces the working title Credits Graph |
 | 2026-10-09 | Lint the web app with ESLint 9 and type-checked typescript-eslint plus jsx-a11y, not oxlint ([0001](decisions/0001-eslint-with-typescript-eslint.md)) | Type-aware rules teach TypeScript and catch real bugs; ESLint is the industry standard |
 | 2026-10-09 | Keep the 250 KB first-load budget; split code by route and load the OpenTelemetry web SDK after first paint ([0002](decisions/0002-bundle-budget-and-loading-strategy.md)) | Keeps the constraint real; measure at the end of M1 and propose a spec change with numbers if it is exceeded |
+| 2026-10-11 | Apply EF Core migrations at Api startup in Development only; production runs a separate step ([0003](decisions/0003-migrations-at-startup-in-development.md)) | One command starts the stack without a migration-service project; production keeps the safer separate step |
+| 2026-10-11 | The browser makes same-origin requests only: `/api` and `/otlp` are proxied by Vite and, in production, Caddy ([0004](decisions/0004-same-origin-api-and-telemetry.md)) | No CORS rules, `traceparent` travels same-origin, and the browser never learns where telemetry goes |
+| 2026-10-11 | The OpenAPI document is written at build time, generated types are committed and checked in CI, and JSON numbers are strict ([0005](decisions/0005-generated-api-contract.md)) | Principle 6 without needing a running server; the default number handling produced `number \| string` |
+| 2026-10-11 | Enum columns are lower-case text with CHECK constraints ([0006](decisions/0006-enums-stored-as-lowercase-text.md)) | Readable rows, the section 8 SQL compares against lower-case literals, and the database rejects unknown values |
+| 2026-10-11 | Anonymous graph tokens are stored as a SHA-256 hash ([0007](decisions/0007-anonymous-graph-tokens-are-hashed.md)) | The token is a bearer credential; a database leak must not expose usable tokens |
+| 2026-10-11 | `credits.detail` is never null; foreign keys are declared where the target is a single table; no separate `person_mbid` index on `credits`; `previews` is keyed by (`recording_mbid`, `provider`); `crawl_jobs.kind` gains `artist` | PostgreSQL treats NULLs as distinct in unique indexes, so a NULL detail would defeat idempotent re-crawls; the unique index already serves `person_mbid` lookups; section 10's person fetch needs its own kind |
+| 2026-10-11 | Instrument and mixing roles use the piano and equalizer icons | `@mui/icons-material` has no guitar or mixer-sliders glyph; the icons remain distinct from the other four |
+| 2026-10-11 | Partial MusicBrainz dates are stored as the earliest possible day plus a `year`, `month` or `day` precision ([0008](decisions/0008-partial-dates-keep-their-precision.md)) | Principle 5: a year-only date must not be shown as a precise day, while ordering stays simple |
+| 2026-10-11 | The Api queues only the recording job; the Worker queues the work, release and preview jobs, and `pendingJobs` starts at 1 ([0009](decisions/0009-api-queues-only-the-recording-job.md)) | The work and release IDs and the ISRC are only known from the recording response, and the release step is conditional |
+| 2026-10-11 | The `other` role is shown in neutral grey with a generic icon, labelled from `detail`, with its own filter chip ([0010](decisions/0010-other-role-is-shown-neutrally.md)) | Principle 5: incomplete data is shown, never hidden; promote common types once there is real data |
+| 2026-10-11 | From M3 the local PostgreSQL uses a data volume with its password remembered in user secrets, with a documented reset ([0011](decisions/0011-persistent-local-database.md)) | Re-fetching at one request per second makes losing the cache on every restart expensive; falls back to a seed script if the password cannot be remembered |
+| 2026-10-11 | Backend assertions use AwesomeAssertions, not FluentAssertions ([0012](decisions/0012-awesomeassertions.md)) | Same syntax, Apache-2.0 licence, no commercial-licence question for a portfolio project |
+| 2026-10-11 | Hold ESLint at 9 and TypeScript at 6.0; Dependabot ignores those majors; review at each milestone start ([0013](decisions/0013-hold-eslint-and-typescript-majors.md)) | The accessibility plugin and typescript-eslint do not support newer majors yet; upgrades should be deliberate |
 
 ## 16. Learning guides
 
@@ -718,8 +794,8 @@ The script `tools/learning/collect-anchors` scans the repository for `LEARN:` co
 
 1. At the end of a milestone, run `tools/learning/collect-anchors LG-02` to generate the code map.
 2. Write or draft the guide in Markdown from the template at `docs/learning/_template.md`. An AI coding assistant can draft sections 1 to 4 from the anchors and the diff; sections 5 to 10 are written or reviewed by hand, since writing them is where the learning happens.
-3. Run `tools/learning/build LG-02`, which uses Pandoc with syntax highlighting to render `docs/learning/pdf/LG-02-ingestion.pdf`.
-4. A GitHub Actions workflow rebuilds every guide when a release is tagged and attaches the PDFs to the release, so the published guides always match the published code.
+3. Run `tools/learning/build LG-02`, which uses Pandoc with syntax highlighting to render `docs/learning/pdf/LG-02-ingestion.pdf`. The build regenerates the code map between the `code-map` markers in section 3, sets `commit` and `release` in the front matter, and renders the HTML to PDF with WeasyPrint. Pandoc and WeasyPrint are installed on the CI runner, not on the developer's machine. Run it with `--write` once, when a guide is finalised, so the committed Markdown carries the same code map and commit as the PDF; it is not run on every commit, to keep diffs quiet.
+4. The `learning-guides.yml` workflow rebuilds every guide: on each pull request that touches the guides or the tools, as an artifact (so the pipeline is exercised before any release), and when a `v*` tag is pushed, attaching the PDFs to that tag's GitHub release, so the published guides always match the published code.
 
 ### Guide plan
 
