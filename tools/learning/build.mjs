@@ -4,7 +4,12 @@
 //   node tools/learning/build.mjs --all                       build every docs/learning/LG-xx-*.md
 //   node tools/learning/build.mjs LG-01 --ref <sha> --tag v0.1.0
 //   node tools/learning/build.mjs LG-01 --prepare-only        write the prepared Markdown, skip Pandoc
+//   node tools/learning/build.mjs LG-01 --write               update the committed guide's code map and front matter
 //   node tools/learning/build.mjs --input docs/learning/_template.md --prepare-only
+//
+// Use --write once, when a guide is finalised (just before tagging a milestone), so the committed Markdown carries
+// the same code map and commit as the PDF. It is not run on every commit: the code map would change in every diff.
+// The PDF build always regenerates the map itself, so a stale committed table never reaches a PDF.
 //
 // For each guide the script:
 //   1. regenerates the code map between the code-map markers with collect-anchors, pinned to --ref
@@ -40,21 +45,27 @@ export function setFrontMatter(markdown, key, value) {
 }
 
 /**
- * Returns the guide ready for Pandoc: code map regenerated, commit and release set.
+ * Returns the guide with its code map regenerated and `commit` (and `release`) set. Nothing else changes, so the
+ * result is safe to write back over the committed Markdown (`--write`). Running it twice gives the same text.
  * @param {string} markdown the guide as written
  * @param {{ table: string, sha: string, tag?: string }} options
  */
-export function prepareGuide(markdown, { table, sha, tag }) {
+export function updateGuide(markdown, { table, sha, tag }) {
   const start = markdown.indexOf(CODE_MAP_START)
   const end = markdown.indexOf(CODE_MAP_END)
   if (start === -1 || end === -1 || end < start) {
     throw new Error(`Section 3 must contain ${CODE_MAP_START} and ${CODE_MAP_END} around the code map table`)
   }
 
-  let prepared = `${markdown.slice(0, start + CODE_MAP_START.length)}\n\n${table}\n\n${markdown.slice(end)}`
-  prepared = setFrontMatter(prepared, 'commit', sha)
-  if (tag) prepared = setFrontMatter(prepared, 'release', tag)
-  return stripForPdf(prepared)
+  let updated = `${markdown.slice(0, start + CODE_MAP_START.length)}\n\n${table}\n\n${markdown.slice(end)}`
+  updated = setFrontMatter(updated, 'commit', sha)
+  if (tag) updated = setFrontMatter(updated, 'release', tag)
+  return updated
+}
+
+/** The guide as Pandoc should see it: updated, then stripped of what only belongs in the Markdown. */
+export function prepareGuide(markdown, options) {
+  return stripForPdf(updateGuide(markdown, options))
 }
 
 /**
@@ -83,11 +94,12 @@ function findGuides(root, only) {
 }
 
 function parseArgs(argv) {
-  const options = { guide: undefined, all: false, input: undefined, ref: undefined, tag: undefined, prepareOnly: false }
+  const options = { guide: undefined, all: false, input: undefined, ref: undefined, tag: undefined, prepareOnly: false, write: false }
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
     if (arg === '--all') options.all = true
     else if (arg === '--prepare-only') options.prepareOnly = true
+    else if (arg === '--write') options.write = true
     else if (arg === '--ref') options.ref = argv[++i]
     else if (arg === '--tag') options.tag = argv[++i]
     else if (arg === '--input') options.input = argv[++i]
@@ -96,6 +108,9 @@ function parseArgs(argv) {
   }
   if (!options.all && !options.guide && !options.input) {
     throw new Error('Name a guide (LG-01), or pass --all, or --input <file>.')
+  }
+  if (options.write && (options.input || options.prepareOnly)) {
+    throw new Error('--write updates the committed guides themselves; it cannot be combined with --input or --prepare-only.')
   }
   return options
 }
@@ -156,7 +171,20 @@ function main() {
       .sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line)
     const table = renderMarkdown(selected, { repo, ref: sha })
 
-    const prepared = prepareGuide(readFileSync(guidePath, 'utf8'), { table, sha, tag: options.tag })
+    const source = readFileSync(guidePath, 'utf8')
+
+    if (options.write) {
+      const updated = updateGuide(source, { table, sha, tag: options.tag })
+      if (updated === source) {
+        console.log(`${name}: already up to date (${selected.length} anchors, links pinned to ${sha.slice(0, 7)})`)
+      } else {
+        writeFileSync(guidePath, updated)
+        console.log(`${name}: code map and front matter written to ${guidePath} (${selected.length} anchors, links pinned to ${sha.slice(0, 7)})`)
+      }
+      continue
+    }
+
+    const prepared = prepareGuide(source, { table, sha, tag: options.tag })
 
     if (options.prepareOnly) {
       const target = join(outDir, `${name}.prepared.md`)

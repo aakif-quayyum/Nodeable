@@ -1,7 +1,7 @@
 // Run with: node --test "tools/learning/*.test.mjs"
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { CODE_MAP_END, CODE_MAP_START, prepareGuide, setFrontMatter, stripForPdf } from './build.mjs'
+import { CODE_MAP_END, CODE_MAP_START, prepareGuide, setFrontMatter, stripForPdf, updateGuide } from './build.mjs'
 
 const guide = [
   '---',
@@ -85,6 +85,30 @@ describe('stripForPdf', () => {
     const text = '---\ntitle: "T"\n---\n\n# T\n\n> A real quote worth keeping.\n\n## 1. First'
 
     assert.ok(stripForPdf(text).includes('> A real quote worth keeping.'))
+  })
+})
+
+describe('updateGuide (used by --write)', () => {
+  const author = [
+    '---', 'title: "T"', 'release: "<tag>"', 'commit: "<sha>"', '---', '',
+    '# T', '', '> How to use this template: keep until published.', '',
+    '## 3. Code map', '', CODE_MAP_START, '', '| old |', '', CODE_MAP_END, '',
+  ].join('\n')
+
+  it('updates the code map and commit but keeps the H1 and the author note the PDF build strips', () => {
+    const result = updateGuide(author, { table: '| new |', sha: 'abc' })
+
+    assert.ok(result.includes('| new |') && !result.includes('| old |'))
+    assert.match(result, /^commit: "abc"$/m)
+    assert.ok(result.includes('\n# T\n'), 'the H1 stays in the committed Markdown')
+    assert.ok(result.includes('How to use this template'), 'the author note stays in the committed Markdown')
+  })
+
+  it('is idempotent: writing twice gives the same text, so --write never adds noise', () => {
+    const once = updateGuide(author, { table: '| new |', sha: 'abc', tag: 'v0.1.0' })
+    const twice = updateGuide(once, { table: '| new |', sha: 'abc', tag: 'v0.1.0' })
+
+    assert.equal(twice, once)
   })
 })
 

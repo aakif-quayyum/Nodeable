@@ -780,7 +780,7 @@ The script `tools/learning/collect-anchors` scans the repository for `LEARN:` co
 
 1. At the end of a milestone, run `tools/learning/collect-anchors LG-02` to generate the code map.
 2. Write or draft the guide in Markdown from the template at `docs/learning/_template.md`. An AI coding assistant can draft sections 1 to 4 from the anchors and the diff; sections 5 to 10 are written or reviewed by hand, since writing them is where the learning happens.
-3. Run `tools/learning/build LG-02`, which uses Pandoc with syntax highlighting to render `docs/learning/pdf/LG-02-ingestion.pdf`. The build regenerates the code map between the `code-map` markers in section 3, sets `commit` and `release` in the front matter, and renders the HTML to PDF with WeasyPrint. Pandoc and WeasyPrint are installed on the CI runner, not on the developer's machine.
+3. Run `tools/learning/build LG-02`, which uses Pandoc with syntax highlighting to render `docs/learning/pdf/LG-02-ingestion.pdf`. The build regenerates the code map between the `code-map` markers in section 3, sets `commit` and `release` in the front matter, and renders the HTML to PDF with WeasyPrint. Pandoc and WeasyPrint are installed on the CI runner, not on the developer's machine. Run it with `--write` once, when a guide is finalised, so the committed Markdown carries the same code map and commit as the PDF; it is not run on every commit, to keep diffs quiet.
 4. The `learning-guides.yml` workflow rebuilds every guide: on each pull request that touches the guides or the tools, as an artifact (so the pipeline is exercised before any release), and when a `v*` tag is pushed, attaching the PDFs to that tag's GitHub release, so the published guides always match the published code.
 
 ### Guide plan

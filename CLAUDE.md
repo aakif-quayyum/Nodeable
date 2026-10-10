@@ -55,3 +55,4 @@ Use the guide ID for the current milestone (LG-01 for M1, LG-02 for M2, and so o
 - Check LEARN anchors (format and unique ids): `node tools/learning/collect-anchors.mjs --check`
 - Code map for a guide: `tools/learning/collect-anchors LG-xx` (PowerShell: `node tools/learning/collect-anchors.mjs LG-xx`)
 - Build a learning guide PDF: `tools/learning/build LG-xx`. This needs Pandoc and WeasyPrint, which only the CI runner has; locally use `--prepare-only` to check the Markdown the PDF is built from.
+- Finalise a guide: `tools/learning/build LG-xx --write` updates the committed Markdown's code map and `commit` field so it matches the PDF. Run it once, when the guide is finished and just before tagging, never on every commit (the table would change in every diff).
