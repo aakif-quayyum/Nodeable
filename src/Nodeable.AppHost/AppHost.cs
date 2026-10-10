@@ -16,6 +16,11 @@ var api = builder.AddProject<Projects.Nodeable_Api>("api")
     .WaitFor(nodeableDb)
     .WithHttpHealthCheck("/health");
 
+// LEARN: LG-01 vite-resource | AddViteApp runs `npm run dev` for the web folder under the same orchestrator as the .NET services; WithReference(api) injects the Api's address as an environment variable that vite.config.ts uses as its /api proxy target
+builder.AddViteApp("web", "../../web")
+    .WithReference(api)
+    .WaitFor(api);
+
 // The Api migrates the database in Development, so the Worker waits for the Api rather than racing it.
 builder.AddProject<Projects.Nodeable_Worker>("worker")
     .WithReference(nodeableDb)
