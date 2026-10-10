@@ -244,9 +244,9 @@ Solid arrows carry requests and data; dashed arrows carry telemetry to the Colle
 
 1. The browser sends `POST /graphs/{id}/songs` with a `traceparent` header.
 2. The API checks PostgreSQL. Cached credits return in the response and the flow ends.
-3. Otherwise the API inserts up to four `crawl_jobs` rows (recording, work, release, preview), stores the trace context on each, and returns 202 with the song node.
+3. Otherwise the API upserts the `recordings` row, inserts one `crawl_jobs` row for the recording fetch with the trace context stored on it, and returns 202 with the song node (decision 0009).
 4. The Worker claims jobs with `FOR UPDATE SKIP LOCKED`, highest priority first, and waits for a token from the Redis rate gate.
-5. The Worker fetches from MusicBrainz, maps relationships to roles, and upserts `people` and `credits`.
+5. The Worker fetches from MusicBrainz, maps relationships to roles, and upserts `people` and `credits`. From the recording response it queues the follow-up jobs itself: a `work` job per linked work, a `preview` job when an ISRC is known, and a `release` job only when no producer credit was found. Each carries the same trace context and priority.
 6. The Worker publishes `CreditsResolved` and `HubsUpdated` through SignalR, using the Redis backplane, to every client in the graph's group.
 7. The browser merges each event into the TanStack Query cache, and new nodes animate into the graph.
 
@@ -263,9 +263,9 @@ All music data is keyed by MusicBrainz IDs (MBIDs), and every credit is stored o
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
-| `recordings` | A specific performance of a song | `mbid` PK, `title`, `artist_credit`, `first_release_date`, `length_ms`, `credits_status` (complete, partial, none), `fetched_at` |
+| `recordings` | A specific performance of a song | `mbid` PK, `title`, `artist_credit`, `first_release_date`, `first_release_date_precision` (year, month, day), `length_ms`, `credits_status` (complete, partial, none), `fetched_at` |
 | `works` | The underlying composition | `mbid` PK, `title`, `fetched_at` |
-| `releases` | Albums and singles | `mbid` PK, `title`, `date`, `fetched_at` |
+| `releases` | Albums and singles | `mbid` PK, `title`, `date`, `date_precision` (year, month, day), `fetched_at` |
 | `recording_works` | Recording to work links | (`recording_mbid`, `work_mbid`) PK |
 | `recording_releases` | Recording to release links | (`recording_mbid`, `release_mbid`) PK |
 | `people` | Artists, producers, engineers, musicians | `mbid` PK, `name`, `sort_name`, `type`, `disambiguation`, `fetched_at` |
@@ -286,6 +286,7 @@ User accounts use the standard ASP.NET Core Identity tables. The `traceparent` c
 - Enumerated columns (`credits_status`, `subject_type`, `role`, `source`, `provider`, and the crawl job `kind` and `status`) are lower-case text with a CHECK constraint listing the allowed values (decision 0006).
 - Foreign keys are declared wherever the target is a single table: link tables to `recordings`, `works` and `releases`; `credits.person_mbid` to `people`; `previews.recording_mbid` to `recordings`; `graph_songs` to `graphs` (cascade) and `recordings`. `credits.subject_mbid` and `crawl_jobs.target_mbid` are polymorphic and have none. The ingestion order in M2 follows from this: a recording or person row exists before rows that reference it.
 - `graphs.owner_id` has no foreign key until ASP.NET Core Identity arrives in v2.
+- MusicBrainz dates can be partial. A date is stored as its earliest possible day plus a precision (`1995` is `1995-01-01` with `year`), and the precision is null exactly when the date is null. Ordering uses the date; the UI formats by precision (decision 0008).
 - Schema changes go through EF Core migrations, applied at Api startup in Development and as a separate step in production (decision 0003).
 
 ### Indexes and constraints
@@ -364,9 +365,11 @@ POST /api/v1/graphs/7c1e.../songs
 202 Accepted
 {
   "song": { "mbid": "b1a9...", "title": "Redbone", "artist": "Childish Gambino", "creditsStatus": "loading" },
-  "pendingJobs": 4
+  "pendingJobs": 1
 }
 ```
+
+`pendingJobs` counts the jobs outstanding for the song and starts at 1: the Worker queues the work, release and preview jobs after it has fetched the recording (decision 0009). Progress is therefore reported as a growing queue, never as "n of 4".
 
 ### SignalR hub events
 
@@ -401,7 +404,7 @@ MusicBrainz is the primary source for all credit data; Discogs fills gaps, Deeze
 4. `GET /ws/2/release/{releaseMbid}?inc=artist-rels` only when steps 2 and 3 found no producer.
 5. `GET /ws/2/artist/{mbid}?inc=recording-rels+work-rels` when a user opens a person drawer.
 
-Each step is a separate `crawl_jobs` row, so a failure retries only that step. The User-Agent is `Nodeable/{version} ( {contact-email} )`, the format MusicBrainz asks for.
+Each step is a separate `crawl_jobs` row, so a failure retries only that step. The Api queues only the recording job: the work and release IDs and the ISRC are only known from its response, and the release step is conditional, so the Worker queues steps 3 and 4 and the preview job itself (decision 0009). The User-Agent is `Nodeable/{version} ( {contact-email} )`, the format MusicBrainz asks for.
 
 ### Role mapping
 
@@ -518,7 +521,7 @@ Routes in M1: `/` (home; search and graph from M3), `/about` (a lazy route) and 
 
 - A custom dark-first "studio" theme with a light variant, built from design tokens in `theme.ts`.
 - One colour per credit role, each paired with an icon so colour is never the only signal: Producer (tune), Songwriter (edit), Mixing (equalizer), Engineering (settings), Instrument (piano), Vocal (mic). The icon set is `@mui/icons-material`, which has no guitar or mixer-sliders glyph. Role colours are defined per colour scheme and tested for at least 3:1 contrast against both background colours (WCAG 1.4.11); text is tested for at least 4.5:1.
-- The backend's `Other` role (unmapped MusicBrainz relationship types) has no colour or icon yet; M3 decides how it is shown, since principle 5 says incomplete data is never hidden.
+- The backend's `other` role (unmapped MusicBrainz relationship types) is shown in a neutral grey with a generic icon, labelled from its `detail` ("Arranger"), has its own filter chip that is on by default, and counts towards hubs like any other credit. M3 implements it; the grey is covered by the same contrast test (decision 0010).
 - Pages that are not needed for the first render are lazy routes, with a loading bar while their code downloads; the app bar has a skip link and labelled landmarks (NFR-A11Y-01).
 - Layout: an app bar with search, a full-bleed graph canvas, a collapsible left panel for hubs and filters, and a right drawer for person details. On phones the panels become bottom sheets.
 
@@ -554,7 +557,7 @@ Every acceptance criterion in section 3 maps to at least one automated test, and
 
 | Layer | Tools | What it covers | Runs |
 | --- | --- | --- | --- |
-| Backend unit | xUnit, FluentAssertions | Role mapping, recommendation scoring, path search, dedup logic | Every push |
+| Backend unit | xUnit, AwesomeAssertions | Role mapping, recommendation scoring, path search, dedup logic | Every push |
 | Backend integration | xUnit, Testcontainers (PostgreSQL, Redis), WireMock.Net | Endpoints, EF Core queries, crawl worker, rate gate, retries | Every push |
 | Contract | OpenAPI diff | Breaking API changes fail the build unless the version changes | Every pull request |
 | Frontend unit | Vitest, React Testing Library, MSW | Components, stores, SignalR cache updates | Every push |
@@ -568,7 +571,7 @@ How the layers run in practice (M1):
 - Backend tests use **xUnit v3**, which needs `global.json` to opt in to the Microsoft Testing Platform (`"test": { "runner": "Microsoft.Testing.Platform" }`) on the .NET 10 SDK. `dotnet test` from the repository root runs every project.
 - Integration tests start a real PostgreSQL 18 container with Testcontainers, so **Docker must be running**. One container is shared by each test project (an xUnit assembly fixture) and every test gets its own database.
 - Frontend tests use Vitest with MSW: the real client and components run against a fake Api, and any request without a matching handler fails the test.
-- Until Domain has logic (M2), backend assertions use xUnit's `Assert`; the assertion library is an open question (section 15).
+- Backend assertions use **AwesomeAssertions**, a free fork of FluentAssertions 7 with the same `.Should()` syntax; FluentAssertions 8 and later is commercially licensed (decision 0012). The package is added in M2 with the first role-mapping tests; until then the tests use xUnit's `Assert`.
 
 ### Repository layout
 
@@ -618,7 +621,7 @@ Implemented in M1 (`.github/workflows/ci.yml`, four parallel jobs): **backend** 
 
 ### Deployment
 
-- **Local:** `dotnet run --project src/Nodeable.AppHost` starts PostgreSQL, Redis, Api, Worker, the Vite dev server and the Aspire dashboard together. Docker must be running. The dashboard is at `http://localhost:15180`; Aspire assigns the web app's port on every run and shows it in the dashboard. Running `npm run dev` on its own serves the web app on port 5173 and proxies `/api` to the Api's launch-profile port 5029.
+- **Local:** `dotnet run --project src/Nodeable.AppHost` starts PostgreSQL, Redis, Api, Worker, the Vite dev server and the Aspire dashboard together. Docker must be running. The dashboard is at `http://localhost:15180`; Aspire assigns the web app's port on every run and shows it in the dashboard. Running `npm run dev` on its own serves the web app on port 5173 and proxies `/api` to the Api's launch-profile port 5029. Until M3 the local database is ephemeral: every run starts empty. From M3 PostgreSQL uses a named data volume with its password remembered in user secrets, and a documented command resets it (decision 0011).
 - **Production:** one small VPS provisioned by Terraform, running Docker Compose with Caddy for HTTPS, Api, Worker, Web (static files served by Caddy), PostgreSQL, Redis and the OpenTelemetry Collector.
 - **Releases:** images tagged by commit SHA; deploys pull new images and restart with health checks; EF Core migrations run as a separate one-off step before the Api starts.
 - **Backups:** nightly `pg_dump` to object storage, keeping 14 days; a restore drill runs monthly.
@@ -656,6 +659,9 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [ ] `crawl_jobs` queue with `SKIP LOCKED` claiming and trace context propagation (NFR-REL-01)
 - [ ] Role mapping and credit upserts for recording, work and release levels (FR-GRAPH-03)
 - [ ] Integration tests with Testcontainers and WireMock.Net recordings
+- [ ] Store partial MusicBrainz dates with a precision column (decision 0008)
+- [ ] The Api queues only the recording job; the Worker queues the work, release and preview jobs (decision 0009)
+- [ ] Add AwesomeAssertions to the backend test projects (decision 0012)
 
 ### M3 Graph UI (3 weeks)
 
@@ -665,6 +671,8 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [ ] Accessible list view of the same graph (NFR-A11Y-01)
 - [ ] Your hubs panel and role filters (FR-HUB-02, FR-HUB-03)
 - [ ] Credits incomplete badge (FR-GRAPH-04)
+- [ ] Neutral style and filter chip for the `other` role (decision 0010)
+- [ ] Persistent local database: data volume and remembered password, with a documented reset (decision 0011)
 
 ### M4 Discovery and launch (2 weeks)
 
@@ -704,14 +712,14 @@ The biggest risk is data, not code: MusicBrainz credit coverage is uneven and it
 - [ ] Is Google sign-in enough for v2, or add GitHub for the developer audience?
 - [ ] Which 5 to 10 albums should seed the demo cache?
 
-Raised while building M1, to be decided in the milestone that needs them:
+Raised while building M1 and decided on 2026-10-11 (each has a decision record, a row in the log below, and a task in the milestone that implements it):
 
-- [ ] **Partial dates (M2).** MusicBrainz dates can be a year (`1995`) or a year and month. `recordings.first_release_date` and `releases.date` are `date` columns, so a year-only value would become 1 January and lose the fact that it was a guess (principle 5). Options: a precision column, or storing the year separately.
-- [ ] **Which jobs the Api queues (M2).** Section 7 step 3 queues four jobs when a song is added, but the work and release IDs are only known after the recording fetch. Options: the Api queues only the recording job and the Worker queues the rest, or the Api queues placeholder jobs.
-- [ ] **How the `Other` role looks (M3).** The database keeps unmapped MusicBrainz relationship types as role `other`; the UI has six role colours and icons and none for `other`.
-- [ ] **Persistent local database (M3).** Local PostgreSQL is ephemeral (decision 0003). A graph that survives restarts needs a data volume and a pinned password.
-- [ ] **Assertion library (M2).** FluentAssertions 8 and later is commercially licensed; AwesomeAssertions is a free fork with the same syntax. Section 13 names FluentAssertions. Decide when the first role-mapping tests are written.
-- [ ] **ESLint 10 and TypeScript 7.** Revisit when `eslint-plugin-jsx-a11y` declares ESLint 10 support and typescript-eslint supports TypeScript 6.1 or later (decision 0001).
+- [x] **Partial dates.** A date plus a precision column (`year`, `month`, `day`). Decision 0008, implemented in M2.
+- [x] **Which jobs the Api queues.** The Api queues only the recording job; the Worker queues the work, release and preview jobs, and `pendingJobs` starts at 1 and grows. Decision 0009, implemented in M2.
+- [x] **How the `other` role looks.** Neutral grey with a generic icon, labelled from `detail`, with its own filter chip; promote common types to real roles later with real data. Decision 0010, implemented in M3.
+- [x] **Persistent local database.** A Docker data volume with the password remembered in user secrets and a documented reset; fall back to an ephemeral database plus a seed script if Aspire cannot remember the password. Decision 0011, implemented in M3.
+- [x] **Assertion library.** AwesomeAssertions. Decision 0012, added in M2.
+- [x] **ESLint 10 and TypeScript 7.** Stay on ESLint 9 and TypeScript 6.0, with Dependabot ignoring those majors and a check at the start of each milestone. Decision 0013.
 
 ### Decision log
 
@@ -733,6 +741,12 @@ Raised while building M1, to be decided in the milestone that needs them:
 | 2026-10-11 | Anonymous graph tokens are stored as a SHA-256 hash ([0007](decisions/0007-anonymous-graph-tokens-are-hashed.md)) | The token is a bearer credential; a database leak must not expose usable tokens |
 | 2026-10-11 | `credits.detail` is never null; foreign keys are declared where the target is a single table; no separate `person_mbid` index on `credits`; `previews` is keyed by (`recording_mbid`, `provider`); `crawl_jobs.kind` gains `artist` | PostgreSQL treats NULLs as distinct in unique indexes, so a NULL detail would defeat idempotent re-crawls; the unique index already serves `person_mbid` lookups; section 10's person fetch needs its own kind |
 | 2026-10-11 | Instrument and mixing roles use the piano and equalizer icons | `@mui/icons-material` has no guitar or mixer-sliders glyph; the icons remain distinct from the other four |
+| 2026-10-11 | Partial MusicBrainz dates are stored as the earliest possible day plus a `year`, `month` or `day` precision ([0008](decisions/0008-partial-dates-keep-their-precision.md)) | Principle 5: a year-only date must not be shown as a precise day, while ordering stays simple |
+| 2026-10-11 | The Api queues only the recording job; the Worker queues the work, release and preview jobs, and `pendingJobs` starts at 1 ([0009](decisions/0009-api-queues-only-the-recording-job.md)) | The work and release IDs and the ISRC are only known from the recording response, and the release step is conditional |
+| 2026-10-11 | The `other` role is shown in neutral grey with a generic icon, labelled from `detail`, with its own filter chip ([0010](decisions/0010-other-role-is-shown-neutrally.md)) | Principle 5: incomplete data is shown, never hidden; promote common types once there is real data |
+| 2026-10-11 | From M3 the local PostgreSQL uses a data volume with its password remembered in user secrets, with a documented reset ([0011](decisions/0011-persistent-local-database.md)) | Re-fetching at one request per second makes losing the cache on every restart expensive; falls back to a seed script if the password cannot be remembered |
+| 2026-10-11 | Backend assertions use AwesomeAssertions, not FluentAssertions ([0012](decisions/0012-awesomeassertions.md)) | Same syntax, Apache-2.0 licence, no commercial-licence question for a portfolio project |
+| 2026-10-11 | Hold ESLint at 9 and TypeScript at 6.0; Dependabot ignores those majors; review at each milestone start ([0013](decisions/0013-hold-eslint-and-typescript-majors.md)) | The accessibility plugin and typescript-eslint do not support newer majors yet; upgrades should be deliberate |
 
 ## 16. Learning guides
 
