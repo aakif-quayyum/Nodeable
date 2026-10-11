@@ -230,7 +230,7 @@ The stack keeps React, MUI and D3 at the centre and deliberately adds tools outs
 
 Version notes: [.NET 10 is the current LTS release, supported until November 14, 2028](https://dotnet.microsoft.com/en-US/platform/support/policy). [Material UI jumped from v7 straight to v9 in April 2026 to align with MUI X](https://mui.com/blog/introducing-mui-v9/). [The Aspire dashboard shows logs, traces and metrics from OpenTelemetry-instrumented apps](https://aspire.dev/hub/glossary/aspire-dashboard/).
 
-Versions M1 was built and tested against: .NET SDK 10.0 (pinned in `global.json`), Aspire 13.6, EF Core 10.0, Npgsql provider 10.0, PostgreSQL 18 and Redis 8.6 (Aspire's defaults), React 19.2, Vite 8, TypeScript 6.0, Material UI 9.5, React Router 8, TanStack Query 5, ESLint 9. TypeScript stays below 6.1 and ESLint at 9 until typescript-eslint and `eslint-plugin-jsx-a11y` support more (decision 0001).
+Versions M1 was built and tested against: .NET SDK 10.0 (pinned in `global.json`), Aspire 13.6, EF Core 10.0, Npgsql provider 10.0, PostgreSQL 18 and Redis 8.6 (Aspire's defaults), React 19.2, Vite 8, TypeScript 6.0, Material UI 9.5, React Router 8, TanStack Query 5, ESLint 9 (moved to ESLint 10 with `eslint-plugin-jsx-a11y-x` at the start of M2, decision 0014). TypeScript stays below 6.1 until typescript-eslint supports more (decision 0013).
 
 ## 7. System architecture
 
@@ -720,7 +720,7 @@ Raised while building M1 and decided on 2026-10-11 (each has a decision record, 
 - [x] **How the `other` role looks.** Neutral grey with a generic icon, labelled from `detail`, with its own filter chip; promote common types to real roles later with real data. Decision 0010, implemented in M3.
 - [x] **Persistent local database.** A Docker data volume with the password remembered in user secrets and a documented reset; fall back to an ephemeral database plus a seed script if Aspire cannot remember the password. Decision 0011, implemented in M3.
 - [x] **Assertion library.** AwesomeAssertions. Decision 0012, added in M2.
-- [x] **ESLint 10 and TypeScript 7.** Stay on ESLint 9 and TypeScript 6.0, with Dependabot ignoring those majors and a check at the start of each milestone. Decision 0013.
+- [x] **ESLint 10 and TypeScript 7.** ESLint moved to 10 with the `eslint-plugin-jsx-a11y-x` fork at the start of M2 (decision 0014). TypeScript stays on 6.0, with Dependabot ignoring its major and minor updates and a check at the start of each milestone (decision 0013).
 
 ### Decision log
 
@@ -748,6 +748,7 @@ Raised while building M1 and decided on 2026-10-11 (each has a decision record, 
 | 2026-10-11 | From M3 the local PostgreSQL uses a data volume with its password remembered in user secrets, with a documented reset ([0011](decisions/0011-persistent-local-database.md)) | Re-fetching at one request per second makes losing the cache on every restart expensive; falls back to a seed script if the password cannot be remembered |
 | 2026-10-11 | Backend assertions use AwesomeAssertions, not FluentAssertions ([0012](decisions/0012-awesomeassertions.md)) | Same syntax, Apache-2.0 licence, no commercial-licence question for a portfolio project |
 | 2026-10-11 | Hold ESLint at 9 and TypeScript at 6.0; keep `@types/node` on the runtime's major (24); Dependabot ignores those majors; review at each milestone start ([0013](decisions/0013-hold-eslint-and-typescript-majors.md)) | The accessibility plugin and typescript-eslint do not support newer majors yet, and the Node types must match the Node runtime; upgrades should be deliberate |
+| 2026-10-11 | Move to ESLint 10 and replace the accessibility plugin with the maintained fork `eslint-plugin-jsx-a11y-x`; supersedes the ESLint part of 0013 ([0014](decisions/0014-eslint-10-and-jsx-a11y-x.md)) | ESLint 9 reached end of life on 2026-08-06 and `eslint-plugin-jsx-a11y` has not been released since 2024-10-26; the fork has identical recommended rules and a regression test guards it |
 
 ## 16. Learning guides
 

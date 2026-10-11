@@ -1,13 +1,18 @@
 import js from '@eslint/js'
 import { defineConfig, globalIgnores } from 'eslint/config'
-import jsxA11y from 'eslint-plugin-jsx-a11y'
+import jsxA11y from 'eslint-plugin-jsx-a11y-x'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
 export default defineConfig([
-  globalIgnores(['dist', 'src/api/schema.d.ts']),
+  globalIgnores([
+    'dist',
+    'src/api/schema.d.ts',
+    // Deliberately inaccessible markup: the lint-config test lints it and expects the findings, so `npm run lint` must not.
+    'src/test/fixtures/**',
+  ]),
 
   {
     files: ['**/*.{ts,tsx}'],
@@ -20,8 +25,9 @@ export default defineConfig([
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
 
-      // Accessibility rules on JSX (spec principle 7, NFR-A11Y-01).
-      jsxA11y.flatConfigs.recommended,
+      // Accessibility rules on JSX (spec principle 7, NFR-A11Y-01). This is jsx-a11y-x, the maintained fork of
+      // eslint-plugin-jsx-a11y with the same recommended rules (decision 0014); its rule names start with jsx-a11y-x/.
+      jsxA11y.configs.recommended,
     ],
     languageOptions: {
       globals: globals.browser,

@@ -1,6 +1,6 @@
 # 0001. Lint the web app with ESLint and type-checked typescript-eslint
 
-- **Status:** Accepted
+- **Status:** Accepted. The choice of ESLint with type-checked typescript-eslint stands; the ESLint 9 version and the accessibility plugin were superseded by [0014](0014-eslint-10-and-jsx-a11y-x.md).
 - **Date:** 2026-10-09
 - **Spec:** section 6 (TypeScript is a learning target), section 2 principles 6 and 7, NFR-A11Y-01
 
