@@ -8,13 +8,11 @@ date: "2026-10-11"
 
 # LG-01: Foundations
 
-> **Draft status.** Sections 1 to 4 were drafted from the `LEARN:` anchors and the milestone's code. Sections 5 to 11 are outlines with prompts: write them in your own words, because writing them is where the learning happens. Remove this note when the guide is finished.
-
 ## 1. What was built
 
 **Requirements delivered:** NFR-OBS-01, NFR-REL-01 (foundation), NFR-REL-02, NFR-SEC-01, NFR-SEC-04, NFR-A11Y-01, NFR-A11Y-02, NFR-PERF-04, FR-ABOUT-01 (partial). The data model also lays the foundation for FR-GRAPH-01, FR-GRAPH-03, FR-HUB-01, FR-HUB-02 and FR-SEARCH-01.
 
-Milestone M1 delivers no user-facing music feature. It delivers the platform every later feature stands on. One command (`dotnet run --project src/Nodeable.AppHost`) starts PostgreSQL, Redis, an Api, a Worker and a React app, all orchestrated by Aspire. The database schema from spec section 8 exists as an EF Core migration. The web app has a dark-first studio theme, routing and an About page that shows the live queue depth read from the database through the Api, using TypeScript types generated from the Api's OpenAPI document. Most importantly, one click in the browser now appears as a single trace in the Aspire dashboard, running from the browser through the Api to PostgreSQL. GitHub Actions is set up to build, test, lint and audit both halves of the project on every pull request, and to build these guides as PDFs.
+Milestone M1 delivers no user-facing music feature. It delivers the platform every later feature stands on. One command (`dotnet run --project src/Nodeable.AppHost`) starts PostgreSQL, Redis, an Api, a Worker and a React app, all orchestrated by Aspire. The database schema from spec section 8 exists as an EF Core migration. The web app has a dark-first studio theme, routing and an About page that shows the live queue depth read from the database through the Api, using TypeScript types generated from the Api's OpenAPI document. Most importantly, one click in the browser now appears as a single trace in the Aspire dashboard, running from the browser through the Api to PostgreSQL. GitHub Actions builds, tests, lints and audits both halves of the project on every pull request, and builds these guides as PDFs.
 
 ## 2. Architecture slice
 
@@ -169,175 +167,227 @@ export function startTracing(exporter: SpanExporter = new OTLPTraceExporter({ ur
 
 ## 5. New concepts from a JavaScript point of view
 
-Write one row per concept, in your own words. The *Hint* in the last column is the explanation that used to sit in the code as a `LEARN:` anchor, kept here so nothing is lost; rewrite it as the key difference you would give in an interview.
+Each row takes one idea from this code and sets it beside what you would use in JavaScript or Node.js. *In JavaScript* says what you would write there. *Key difference* is the thing to remember: the point where assuming it works like JavaScript would mislead you.
 
-### C# and .NET language idioms
+### C# and .NET language ideas
 
 | Concept | In JavaScript / Node.js | In this code | Key difference |
 | --- | --- | --- | --- |
-| Nullable reference types | | `Directory.Build.props` | _Hint (from the `nullable` anchor):_ Nullable reference types make the compiler track "can this be null?" in the type system, like TypeScript strictNullChecks. string means never null; string? means maybe null. |
-| Top-level statements | | `src/Nodeable.Api/Program.cs` | _Hint (from the `top-level-statements` anchor):_ No Main method or class needed: the compiler wraps these statements in one, so this reads like a Node entry file (const app = express(); app.listen()) |
-| The builder: configure, `Build()`, `Run()` | | `src/Nodeable.Api/Program.cs` | _Hint (from the `builder-pattern` anchor):_ Startup has two phases: register services on the builder, then Build() freezes the container and returns the app used to configure the request pipeline |
-| Extension methods and generic constraints | | `src/Nodeable.ServiceDefaults/Extensions.cs` | _Hint (from the `extension-method` anchor):_ "this TBuilder builder" makes this a static method that appears on the builder itself (builder.AddServiceDefaults()); the "where" clause works like a TypeScript "extends" generic constraint |
-| Records as data carriers | | `src/Nodeable.Api/Endpoints/CrawlStatusResponse.cs` | _Hint (from the `record-dto` anchor):_ A positional record is a one-line immutable data class with value equality; the compiler writes the constructor, properties and ToString, and the framework serialises it straight to JSON, like returning a plain object literal from an Express handler |
-| Class versus record for EF entities | | `src/Nodeable.Domain/Entities/Recording.cs` | _Hint (from the `entity-class` anchor):_ Entities are plain classes, not records: EF Core tracks each row as one object instance and mutates it, while a record compares by value and is meant to be immutable |
-| `init`, `set` and `required` | | `src/Nodeable.Domain/Entities/Recording.cs` | _Hint (from the `init-vs-set` anchor):_ "init" can only be assigned when the object is created (the key never changes); "set" stays writable because a re-crawl updates the other columns. "required" makes the compiler reject any new Recording that omits the property |
-| `CancellationToken` | | `src/Nodeable.Worker/CrawlWorker.cs` | _Hint (from the `cancellation-token` anchor):_ stoppingToken is how the host says "shut down now"; it is passed explicitly into every await, much like an AbortSignal in fetch, and nothing cancels unless you thread it through |
-| `Activity`, `ActivitySource` and `?.` | | `src/Nodeable.Worker/CrawlWorker.cs` | _Hint (from the `activity-span` anchor):_ StartActivity creates a trace span (an Activity in .NET); it returns null when no exporter is listening, hence the "?." null-conditional below, which behaves like optional chaining in JavaScript |
-| Source-generated logging (`[LoggerMessage]`) | | `src/Nodeable.Worker/CrawlWorker.cs` | _Hint (from the `logger-message` anchor):_ [LoggerMessage] is a source generator: you declare a partial method and the compiler writes its body at build time, so logging allocates nothing when the level is off; {IntervalSeconds} stays a named, searchable field on the log record instead of being baked into a string |
-| Dependency injection lifetimes and scopes | | `src/Nodeable.Api/Program.cs` | _Hint (from the `service-scope` anchor):_ A DbContext is registered per request ("scoped"), and startup code has no request, so it opens its own scope; resolving a scoped service outside one is an error |
+| Nullable reference types | TypeScript's `strictNullChecks` stops `string` from including `null`. Plain JavaScript checks nothing: any value can be `null` or `undefined`. | `Directory.Build.props` turns on `<Nullable>enable</Nullable>` for every project. `string` is never null; `string?` might be. | It is a compile-time check only, as in TypeScript. Here warnings are treated as errors, so a possible null fails the build instead of showing up as a runtime crash. |
+| `async` / `await` and `Task` | `async` functions return a Promise, and `await` unwraps it. | `CrawlWorker.ExecuteAsync` is `async Task`, and the tests are `async Task` methods. | The idea is the same, but there is no single event loop. A `Task` is scheduled on the .NET thread pool, and the code after an `await` can resume on any pool thread, so shared mutable state needs care. Cancellation is explicit (see `CancellationToken`). |
+| LINQ lambdas that become SQL | `array.filter(x => x.status === 'pending').length` runs the function in memory. | `db.CrawlJobs.CountAsync(job => job.Status == CrawlJobStatus.Pending, ct)` in `StatusEndpoints.cs`. | On a `DbSet` the lambda is not executed. EF Core reads its structure (an *expression tree*) and writes it as SQL: `WHERE status = 'pending'`. `EnumColumn.cs` uses the same `Select` on a plain list, in memory: identical syntax, different meaning. |
+| Top-level statements | An `index.js` whose statements run top to bottom: `const app = express(); app.listen(3000)`. | `src/Nodeable.Api/Program.cs` is only statements, with `await` allowed at the top level. | C# used to need a `class Program` with a `static void Main`. The compiler now generates it. The file is still compiled, so it must build before it can run. |
+| The builder: configure, `Build()`, `Run()` | Express gives you one `app` object, and you call `app.use` and `app.get` on it in any order. | `WebApplication.CreateBuilder` → `AddServiceDefaults` and `AddNpgsqlDbContext` → `Build()` → map endpoints → `Run()`. | There are two phases. Before `Build()` you register services in the dependency-injection container; `Build()` freezes it. You cannot register more afterwards. Express has no such container. |
+| Extension methods and generic constraints | Adding a helper to a prototype (`Array.prototype.last = ...`), or just a function `addServiceDefaults(builder)`. TypeScript writes constraints as `<T extends X>`. | `AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder` in `Extensions.cs`. | It is compile-time sugar. `builder.AddServiceDefaults()` is rewritten to a plain static call and nothing is added to the type. `this` marks the first parameter, and `where` is the constraint. |
+| Records | A frozen object literal, or a TypeScript type with `readonly` fields. | `CrawlStatusResponse` is a one-line `record` with three fields. | A record compares by **value**: two with the same fields are `==`, while two JavaScript objects with the same fields are not (`===` compares identity). It is immutable by default and has a generated `ToString` and a `with` expression to copy and change. |
+| Class versus record for entities | A Sequelize or TypeORM model class: a mutable instance per row. | `Recording`, `Person` and the other entities are plain `class`es in `Nodeable.Domain`. | EF Core tracks each loaded row as one object and changes it in place. A record's value equality and immutability fight that model, so entities are classes. |
+| `init`, `set` and `required` | A TypeScript `readonly` property assigned in the constructor, or a non-optional field in an interface. | `Recording.Mbid { get; init; }` against `Title { get; set; }`, both marked `required`. | `init` can only be assigned while the object is being created, so the key cannot change. `required` makes the compiler reject any `new Recording { }` that leaves the property out. |
+| `CancellationToken` | An `AbortSignal` passed to `fetch`. | `CrawlWorker` passes `stoppingToken` to `Task.Delay`. The status endpoint receives a token that is cancelled if the client disconnects. | Nothing is cancelled unless you pass the token into every `await`. Cancelling throws `OperationCanceledException`, which you catch the way you would catch an `AbortError`. |
+| `Activity`, `ActivitySource` and `?.` | An OpenTelemetry span from `tracer.startSpan(...)`, which is a no-op span when no SDK is installed. | `CrawlWorker.Beat` calls `_activitySource.StartActivity("worker.heartbeat")` and then `activity?.SetTag(...)`. | .NET names a span an `Activity` and a tracer an `ActivitySource`. `StartActivity` returns `null` when nothing is listening, so `?.` (optional chaining, exactly as in JavaScript) skips the call. `using var` ends the span when the scope ends. |
+| Source-generated logging | `logger.info({ intervalSeconds }, 'heartbeat')` with pino: a message plus structured fields. | `[LoggerMessage] private static partial void LogHeartbeat(...)` in `CrawlWorker.cs`. | `partial` plus an attribute means the compiler writes the method body at build time (a *source generator*; JavaScript has no equivalent). `{IntervalSeconds}` is stored as a named field, and nothing is allocated when the level is off. |
+| Dependency injection lifetimes | Node caches modules, so a `require`d module is effectively a singleton. Libraries such as Awilix add scopes. | `AddNpgsqlDbContext` registers the `NodeableDbContext`. `Program.cs` calls `app.Services.CreateScope()` before using it at startup. | The container decides how long an object lives: *singleton* (one for the app), *scoped* (one per HTTP request) or *transient* (new each time). A DbContext is scoped, so code that runs outside a request must open its own scope first. |
 
 ### Build and project tooling
 
 | Concept | In JavaScript / Node.js | In this code | Key difference |
 | --- | --- | --- | --- |
-| `Directory.Build.props` | | `Directory.Build.props` | _Hint (from the `build-props` anchor):_ Directory.Build.props is picked up automatically by every .csproj below this folder, like a shared base config (think a root tsconfig "extends" or .eslintrc) that you never have to import. |
-| Central package management | | `Directory.Packages.props` | _Hint (from the `central-packages` anchor):_ Central Package Management: every NuGet version lives in this one file. A .csproj lists &lt;PackageReference Include="X" /&gt; with no version. It works like npm workspaces plus a single shared lockfile policy. |
-| Vite and Vitest sharing one config | | `web/vite.config.ts` | _Hint (from the `vite-vitest-config` anchor):_ Vitest reads the same vite.config.ts as the dev server, so tests use the same plugins and module resolution as the app; importing defineConfig from 'vitest/config' just adds the typed `test` block |
-| ESLint flat config | | `web/eslint.config.js` | _Hint (from the `eslint-flat-config` anchor):_ ESLint's "flat config" is a plain array of config objects; later entries override earlier ones, and each entry can be limited to certain files, so the whole setup reads top to bottom like a middleware chain |
+| `Directory.Build.props` | A root `tsconfig.base.json` that packages `extends`, or a shared ESLint config. | The root file sets `net10.0`, nullable and warnings-as-errors for every project. | MSBuild finds the nearest such file by itself, so no project has to say `extends`. Nearest wins, which is why `tests/Directory.Build.props` imports the root one explicitly. |
+| Central package management | npm workspaces with one lockfile, plus root `overrides`. | `Directory.Packages.props` lists every NuGet version once. `.csproj` files name packages without versions. | Transitive pinning lets one line raise a package no project references directly. We pinned EF Core that way so the Npgsql provider's lower minimum could not cause version skew. |
+| One config for Vite and Vitest | Jest has its own config and Babel setup, separate from webpack. | `web/vite.config.ts` holds the `test` block beside the app's own settings. | Tests are built with the same plugins and module resolution as the app, so tests and the app cannot disagree about how code is compiled. |
+| ESLint flat config | The older `.eslintrc` with `extends` arrays. | `web/eslint.config.js` is an array of config objects. | Entries apply in order, later ones override earlier ones, and each can be scoped to certain files. Type-aware rules get their types through `projectService`. |
 
 ### Web framework patterns
 
 | Concept | In JavaScript / Node.js | In this code | Key difference |
 | --- | --- | --- | --- |
-| Route groups | | `src/Nodeable.Api/Endpoints/StatusEndpoints.cs` | _Hint (from the `route-group` anchor):_ MapGroup gives a set of endpoints a shared prefix (and, later, shared filters or auth), much like app.use("/api/v1/status", router) in Express |
-| Minimal API handlers and parameter injection | | `src/Nodeable.Api/Endpoints/StatusEndpoints.cs` | _Hint (from the `minimal-api-handler` anchor):_ The lambda's parameters are filled by dependency injection: NodeableDbContext comes from the container and CancellationToken is cancelled if the client disconnects; there is no req/res object to unpack |
-| Liveness versus readiness | | `src/Nodeable.ServiceDefaults/Extensions.cs` | _Hint (from the `health-checks` anchor):_ Tags split liveness ("is the process up?") from readiness ("are its dependencies up?"); later checks for PostgreSQL and Redis get no "live" tag |
-| `BackgroundService` and hosted services | | `src/Nodeable.Worker/Program.cs` | _Hint (from the `hosted-service` anchor):_ A BackgroundService registered with AddHostedService starts and stops with the process; in M2 this becomes the crawl queue consumer, a long-running loop that never touches HTTP requests |
-| The AppHost | | `src/Nodeable.AppHost/AppHost.cs` | _Hint (from the `apphost` anchor):_ The AppHost is a C# program that describes the whole system (services, databases, wiring) and launches it; the Docker Compose file plus the process manager you would otherwise write, but type-checked |
-| Generated `Projects.` types | | `src/Nodeable.AppHost/AppHost.cs` | _Hint (from the `project-resource` anchor):_ Projects.Nodeable_Api is a type Aspire generates from the ProjectReference, so a renamed or deleted project is a compile error here, not a runtime surprise |
-| Running the web app from the AppHost | | `src/Nodeable.AppHost/AppHost.cs` | _Hint (from the `vite-resource` anchor):_ AddViteApp runs `npm run dev` for the web folder under the same orchestrator as the .NET services; WithReference(api) injects the Api's address as an environment variable that vite.config.ts uses as its /api proxy target |
+| Route groups | `express.Router()` mounted with `app.use('/api/v1/status', router)`. | `app.MapGroup("/api/v1/status")` in `StatusEndpoints.cs`. | The group is a builder object. Any filter or authorisation you add to it later applies to every endpoint in the group. |
+| Minimal API handlers | `(req, res) => res.json(...)`. | `async (NodeableDbContext db, CancellationToken ct) => TypedResults.Ok(...)`. | Parameters are injected by type, so there is no `req` or `res`. The return value is the response. A typed result also tells OpenAPI what the response looks like. |
+| Liveness and readiness | A hand-written `/healthz` route. | `/alive` runs only the checks tagged `live`; `/health` also runs the database check and exists only in Development. | Health checks are registered with tags. `AddNpgsqlDbContext` adds the database check for you; nobody writes a `SELECT 1` by hand. |
+| `BackgroundService` | A `setInterval`, or a separate worker process such as a BullMQ worker. | `CrawlWorker : BackgroundService`, registered with `AddHostedService`. | The host owns the lifecycle. It starts the service with the app, gives it a stopping token on shutdown and waits for it to finish. |
+| The AppHost | `docker-compose.yml`, a few `npm run` scripts joined by `concurrently`, and a `.env`. | `src/Nodeable.AppHost/AppHost.cs`. | It is typed C#. It starts projects and containers, passes connection strings and URLs as environment variables, waits for health and hosts the dashboard. |
+| Generated `Projects.` types | A string such as `docker compose up api`. | `Projects.Nodeable_Api` in `AppHost.cs`. | Aspire generates the type from the project reference, so renaming or deleting the Api is a compile error, not a runtime surprise. |
+| Running the web app from the AppHost | `npm run dev` in another terminal, with the proxy target hard-coded. | `AddViteApp("web", "../../web").WithReference(api)`. | The AppHost starts it, assigns its port (`PORT`) and passes it the Api's address (`services__api__http__0`) as an environment variable. |
 
 ### EF Core and data
 
 | Concept | In JavaScript / Node.js | In this code | Key difference |
 | --- | --- | --- | --- |
-| `DbContext` as a unit of work | | `src/Nodeable.Infrastructure/Persistence/NodeableDbContext.cs` | _Hint (from the `dbcontext` anchor):_ A DbContext is one unit of work over the database: DbSet&lt;T&gt; properties are the tables, and SaveChanges writes every tracked change in one transaction. It is registered per request, so each HTTP call gets its own |
-| Fluent mapping, one class per entity | | `src/Nodeable.Infrastructure/Persistence/NodeableDbContext.cs` | _Hint (from the `fluent-config` anchor):_ Mapping lives in one IEntityTypeConfiguration class per entity (keys, indexes, constraints) rather than attributes on the Domain classes, which keeps the Domain free of EF; this call finds them all by reflection |
-| Composite keys | | `src/Nodeable.Infrastructure/Persistence/Configurations/RecordingWorkConfiguration.cs` | _Hint (from the `composite-key` anchor):_ A link table's primary key is the pair of IDs, written as an anonymous object; the same pair can only be linked once |
-| Foreign keys without navigation properties | | `src/Nodeable.Infrastructure/Persistence/Configurations/RecordingWorkConfiguration.cs` | _Hint (from the `foreign-key-no-navigation` anchor):_ HasOne&lt;T&gt;() with no property name configures a foreign key without a navigation property on the class, so the Domain types stay plain data and queries join explicitly |
-| The design-time `DbContext` factory | | `src/Nodeable.Infrastructure/Persistence/NodeableDbContextFactory.cs` | _Hint (from the `design-time-factory` anchor):_ dotnet ef cannot run the AppHost to get a DbContext, so IDesignTimeDbContextFactory tells the tools how to build one; the running app gets its connection string from Aspire instead |
-| A trigram (GIN) index for search | | `src/Nodeable.Infrastructure/Persistence/Configurations/RecordingConfiguration.cs` | _Hint (from the `trigram-index` anchor):_ A GIN index with gin_trgm_ops makes ILIKE and similarity searches on title fast, so search can hit the local cache before MusicBrainz (spec section 8) |
+| `DbContext` | A Prisma client, a Sequelize instance, or a Knex transaction. | `NodeableDbContext` has a `DbSet<T>` per table. | It tracks the changes you make to entities it loaded and writes them in one transaction on `SaveChanges`. It is short-lived, one per request, not a global like a Prisma client. Aspire registers it with pooling and retries for transient failures. |
+| Fluent mapping | A Sequelize `define` call or a Prisma schema file. | One `IEntityTypeConfiguration<T>` class per entity under `Persistence/Configurations`, found by `ApplyConfigurationsFromAssembly`. | The mapping lives outside the entity class (no decorators), so `Nodeable.Domain` knows nothing about EF Core. |
+| Composite keys | Two columns marked `primaryKey: true` in Sequelize. | `HasKey(rw => new { rw.RecordingMbid, rw.WorkMbid })` in `RecordingWorkConfiguration.cs`. | The key is written as an anonymous object. There is nothing like that syntax in JavaScript. |
+| Foreign keys without navigation properties | Prisma always generates relation fields on the model. | `HasOne<Recording>().WithMany().HasForeignKey(...)`. | The foreign key and its cascade rule exist in the database, but the class has no `recording.work` property. Joins are written explicitly. |
+| Design-time `DbContext` factory | A `knexfile.js` for the CLI. | `NodeableDbContextFactory.cs`. | `dotnet ef` has to build a context without running the app. The factory uses a placeholder connection string, because creating a migration never connects to a database. |
+| Trigram (GIN) index | The same PostgreSQL feature used from Node. | `HasIndex(r => r.Title).HasMethod("gin").HasOperators("gin_trgm_ops")`. | Nothing here is specific to C#. EF writes `CREATE INDEX ... USING gin (title gin_trgm_ops)`, which makes `ILIKE` and similarity search on titles fast, and the migration enables the `pg_trgm` extension. |
 
 ### Testing
 
 | Concept | In JavaScript / Node.js | In this code | Key difference |
 | --- | --- | --- | --- |
-| `WebApplicationFactory` | | `tests/Nodeable.Api.Tests/HealthEndpointTests.cs` | _Hint (from the `web-app-factory` anchor):_ WebApplicationFactory&lt;Program&gt; boots the real Api in memory and gives an HttpClient wired straight to it: no port, no network, and the same DI container and middleware as production |
-| Assembly fixtures | | `tests/Shared/PostgresFixture.cs` | _Hint (from the `assembly-fixture` anchor):_ An assembly fixture is built once for the whole test project, so one PostgreSQL container serves every test class; xUnit v3 injects it into test and fixture constructors, like a Jest globalSetup whose result is passed in |
-| Asserting on spans with `ActivityListener` | | `tests/Nodeable.Worker.Tests/CrawlWorkerTests.cs` | _Hint (from the `activity-listener` anchor):_ An ActivityListener is how a test (or an OpenTelemetry exporter) subscribes to spans from a named ActivitySource, so tracing can be asserted without any backend |
-| MSW: mocking at the network layer | | `web/src/test/server.ts` | _Hint (from the `msw` anchor):_ MSW intercepts fetch at the network layer, so the real client, hooks and components run unchanged against a fake Api; the backend tests never call MusicBrainz, and these never call the Api |
-| Fixtures typed by the generated contract | | `web/src/test/handlers.ts` | _Hint (from the `typed-fixture` anchor):_ The fixture is typed with the generated contract, so if the Api's response changes shape, regenerating the types makes this file (and every test built on it) fail to compile instead of quietly testing a stale shape |
+| `WebApplicationFactory` | `supertest(app)`. | `ApiFactory` derives from `WebApplicationFactory<Program>`; `HealthEndpointTests` uses it. | It boots the real app in memory with its real container, so the DI wiring is tested too. `UseSetting` overrides configuration, and the `HttpClient` talks to it with no network port. |
+| Assembly fixtures | Jest `globalSetup` and `globalTeardown`. | `PostgresFixture`, registered with `[assembly: AssemblyFixture(...)]`. | xUnit builds it once per test project and injects it into test and fixture constructors, so one PostgreSQL container serves every test class. |
+| `ActivityListener` | An in-memory span exporter used in tests. | `CrawlWorkerTests` subscribes to the `Nodeable.Worker` source. | The test subscribes to an `ActivitySource` by name and reads the finished span's name and tags, with no tracing backend involved. |
+| MSW | MSW itself, or `nock` in Node tests. | `web/src/test/server.ts` and `handlers.ts`. | This is the JavaScript tool. `onUnhandledRequest: 'error'` makes any request without a matching handler fail the test, so no test can reach a real server by accident. |
+| Fixtures typed by the contract | A plain object that quietly drifts from the real API. | `crawlStatusFixture` is typed `components['schemas']['CrawlStatusResponse']`. | When the Api changes, regenerating the types makes the fixture stop compiling, instead of the test passing against a stale shape. |
 
 ### TypeScript and React
 
 | Concept | In JavaScript / Node.js | In this code | Key difference |
 | --- | --- | --- | --- |
-| The `!` non-null assertion | | `web/src/main.tsx` | _Hint (from the `ts-non-null` anchor):_ The "!" after getElementById tells TypeScript "I know this is not null": it removes the type's `\| null` without any runtime check, so use it only where the page guarantees the element exists (index.html has #root) |
-| `as const` and `(typeof x)[number]` | | `web/src/app/creditRoles.ts` | _Hint (from the `as-const-union` anchor):_ `as const` freezes the array into a tuple of literal types, and `(typeof creditRoles)[number]` turns it into the union 'producer' \| 'songwriter' \| ...; one list is the single source for both the runtime values and the type, so they cannot drift apart |
-| `Record<K, V>` and exhaustiveness | | `web/src/app/creditRoles.ts` | _Hint (from the `record-exhaustive` anchor):_ Record&lt;CreditRoleKey, ...&gt; makes the compiler require an entry for every role, so adding a role to the list above without styling it is a type error, not a missing colour at runtime |
-| A client typed by the generated `paths` | | `web/src/api/client.ts` | _Hint (from the `typed-client` anchor):_ createClient&lt;paths&gt; is generic over the generated `paths` type, so GET('/api/v1/status/crawl') is checked against the Api's real OpenAPI contract: a wrong path, a missing parameter or a misread response field is a compile error (spec principle 6) |
-| Server state versus UI state | | `web/src/app/providers.tsx` | _Hint (from the `server-state` anchor):_ TanStack Query owns everything that comes from the Api (cache, loading and error states, refetching); components never keep a copy in useState, which is the server-state / UI-state split the spec asks for (section 12) |
-| Lazy routes and code splitting | | `web/src/app/router.tsx` | _Hint (from the `route-lazy` anchor):_ `lazy` takes a function that dynamically imports the page; Vite turns each import() into a separate chunk that is downloaded the first time the route is visited (code splitting by route) |
-| MUI colour schemes | | `web/src/app/theme.ts` | _Hint (from the `mui-color-schemes` anchor):_ One theme holds both palettes under colorSchemes; MUI turns them into CSS variables and switches by a data attribute, so changing mode restyles the page without re-rendering every component |
-| The dev proxy and same-origin requests | | `web/vite.config.ts` | _Hint (from the `dev-proxy` anchor):_ The browser only ever talks to Vite's origin; Vite forwards /api to the real Api, so there is no CORS to configure and the traceparent header travels same-origin, exactly as Caddy will do in production |
+| The `!` non-null assertion | Nothing: JavaScript has no types to override. | `document.getElementById('root')!` in `main.tsx`. | It is a promise to the compiler and nothing more. It is erased at build time, and if the promise is wrong you get the same runtime `TypeError` JavaScript would give you. |
+| `as const` and `(typeof x)[number]` | `Object.freeze(['producer', 'songwriter'])`, with no type information. | `creditRoles` in `creditRoles.ts`. | One array provides both the runtime values and the union type `'producer' \| 'songwriter' \| ...`, so the list and the type cannot drift apart. |
+| `Record<K, V>` and exhaustiveness | A lookup object, where a missing key is just `undefined` at runtime. | `creditRoleStyles: Record<CreditRoleKey, CreditRoleStyle>`. | A role without an entry is a compile error, so adding a role to the list forces you to style it. |
+| A client typed by generated paths | `fetch('/api/...')` returns untyped JSON. | `createClient<paths>` in `client.ts`; `apiClient.GET('/api/v1/status/crawl')`. | The types come from the Api's OpenAPI document. A wrong path or a misread field is a compile error, and `fetchRatePerMinute` is `number \| null`, not just `number`. |
+| Server state versus UI state | Redux thunks, or RTK Query. | `QueryClientProvider` in `providers.tsx` and the `useCrawlStatus` hook. | TanStack Query owns the cache, the loading and error flags and refetching. Components read `isPending`, `isError` and `data`; they do not copy server data into `useState`. |
+| Lazy routes | `React.lazy(() => import('./About'))` wrapped in `Suspense`. | `{ path: 'about', lazy: () => import('../features/about/AboutPage.tsx') }` in `router.tsx`. | The router does the lazy loading: the module loads when the route is visited, must export `Component`, and Vite emits it as its own chunk. A loading bar shows while it downloads. |
+| MUI colour schemes | Hand-written CSS custom properties and a class toggled on `<body>`. | `colorSchemes: { dark, light }` in `theme.ts`, and `ThemeToggle`. | One theme holds both palettes. MUI turns them into CSS variables and switches them with a data attribute, so the page restyles from the variables. |
+| The dev proxy | CRA's `proxy` setting, webpack's `devServer.proxy`, or `http-proxy-middleware` in Express. | `server.proxy` in `vite.config.ts` forwards `/api` and `/otlp`. | The browser only ever sees its own origin, so there are no CORS rules to write. Caddy will do the same job in production. |
 
-<One paragraph: the single concept from this milestone that felt least familiar, explained in your own words.>
+**The concept that is least like JavaScript: dependency injection.** In Node there is no container. A module is created once when it is first `require`d, so everything is effectively a singleton and "lifetime" is not a thing you think about. In ASP.NET Core you register services, and the container hands them to constructors and endpoint parameters. The container also decides how long each object lives. The `NodeableDbContext` is *scoped*: one instance per HTTP request, which is what you want, because a context tracks changes and is not safe to share between requests. That is why startup code in `Program.cs`, which runs outside any request, has to call `CreateScope()` itself. If you forget and the context ends up a singleton, you get shared state across requests and bugs that only show up under load. Once you see "who creates this object and how long does it live?" as a question the framework answers, most of the rest of the Api code becomes easy to read.
 
 ## 6. Run it and break it
 
-**Run it:**
+**Run it.** Docker must be running.
 
 ```bash
 dotnet run --project src/Nodeable.AppHost
 ```
 
-Then open the dashboard at <http://localhost:15180> and use the **web** link in the resource table. Docker must be running.
+What you should see:
 
-**Tests that cover it** (the names carry the requirement ID, so a search for an ID finds them):
+1. The dashboard at <http://localhost:15180> lists six resources: `postgres` (with its `nodeabledb` database), `redis`, `api`, `worker` and `web`, plus a `web-installer` that finishes quickly. If the table first says "0 resources", reload.
+2. The `web` row's link opens the app. The About page shows **"0 jobs waiting"** and two **"Not measured yet"** figures.
+3. Under Traces you find a `nodeable-web: GET` trace. Navigate Home, then About, so the request happens after tracing has loaded.
+
+Run the checks:
+
+```bash
+dotnet test
+cd web && npm test
+node --test "tools/learning/*.test.mjs"
+```
+
+**Tests that cover it.** The names carry the requirement ID, so a search for an ID finds them.
 
 | Layer | Names |
 | --- | --- |
-| Api and database (xUnit, Testcontainers) | `NFR_REL_02_alive_endpoint_reports_healthy`, `NFR_REL_02_health_endpoint_includes_the_database_check_in_development`, `FR_ABOUT_01_crawl_status_counts_only_pending_jobs`, `FR_ABOUT_01_crawl_status_reports_unmeasured_values_as_null_not_zero`, `FR_ABOUT_01_openapi_document_describes_the_crawl_status_endpoint` |
-| Schema (xUnit, Testcontainers) | `FR_GRAPH_01_migration_creates_all_mvp_tables_and_the_recording_people_view`, `FR_HUB_02_recording_people_view_flattens_credits_from_recording_work_and_release`, `FR_GRAPH_03_duplicate_credit_is_rejected_even_when_detail_is_empty`, `NFR_REL_01_crawl_job_cannot_be_queued_twice_while_pending_but_can_be_again_once_done` |
+| Api and database (xUnit, Testcontainers) | `NFR_REL_02_alive_endpoint_reports_healthy`, `NFR_REL_02_health_endpoint_includes_the_database_check_in_development`, `NFR_REL_02_unknown_path_returns_not_found`, `FR_ABOUT_01_crawl_status_counts_only_pending_jobs`, `FR_ABOUT_01_crawl_status_reports_unmeasured_values_as_null_not_zero`, `FR_ABOUT_01_openapi_document_describes_the_crawl_status_endpoint` |
+| Schema (xUnit, Testcontainers) | `FR_GRAPH_01_migration_creates_all_mvp_tables_and_the_recording_people_view`, `FR_HUB_02_recording_people_view_flattens_credits_from_recording_work_and_release`, `FR_GRAPH_03_duplicate_credit_is_rejected_even_when_detail_is_empty`, `FR_GRAPH_03_roles_are_stored_as_lower_case_text_and_read_back_as_enums`, `FR_GRAPH_03_unknown_enum_text_is_rejected_by_the_check_constraint`, `NFR_REL_01_crawl_job_cannot_be_queued_twice_while_pending_but_can_be_again_once_done` |
 | Worker (xUnit) | `NFR_OBS_01_worker_emits_a_heartbeat_span_when_started`, `NFR_REL_01_worker_stops_promptly_when_cancellation_is_requested` |
-| Web (Vitest, MSW) | the `NFR_A11Y_01`, `NFR_A11Y_02`, `FR_ABOUT_01`, `NFR_OBS_01` and `NFR_PERF_04` tests in `web/src` |
+| Web (Vitest, MSW) | the `NFR_A11Y_01`, `NFR_A11Y_02`, `FR_ABOUT_01`, `NFR_OBS_01` and `NFR_PERF_04` tests under `web/src` |
 
-**Break it on purpose.** Each of these was tried while building M1 and fails the test named. Pick two, make the change, predict the failure, then confirm it; fill in the last column of each.
+**Break it on purpose.** Each experiment below was tried while building M1, and the test named is the one that failed. Make the change, run the test, and compare with the expected result. Undo the change afterwards with `git restore`.
 
-| # | Change | Test that fails | What it teaches |
+| # | Change | Expected result | What it teaches |
 | --- | --- | --- | --- |
-| 1 | Remove the `fetch: (request) => globalThis.fetch(request)` line in `web/src/api/client.ts` | `NFR_OBS_01 sends a traceparent header on Api requests made by a client created before tracing started` | |
-| 2 | In `StatusEndpoints.cs`, count all jobs instead of only pending ones | `FR_ABOUT_01_crawl_status_counts_only_pending_jobs` | |
-| 3 | In `AboutPage.tsx`, return `'0 per minute'` for a `null` rate | `FR_ABOUT_01 shows unmeasured figures as "Not measured yet", never as zero` | |
-| 4 | In `creditRoles.ts`, set one role's dark colour to `#2a3140` | `NFR_A11Y_02 keeps every role colour at 3:1 or better on the dark backgrounds` | |
+| 1 | In `web/src/api/client.ts`, delete the line `fetch: (request) => globalThis.fetch(request),`. | `npm test` fails `NFR_OBS_01 sends a traceparent header on Api requests made by a client created before tracing started`: the captured `traceparent` is `null` instead of matching `00-<32 hex>-<16 hex>-01`. | Code that patches a global (here `fetch`) only affects callers that look it up at call time. A client that copied the original at creation silently sends untraced requests, with no error. |
+| 2 | In `src/Nodeable.Api/Endpoints/StatusEndpoints.cs`, replace `CountAsync(job => job.Status == CrawlJobStatus.Pending, cancellationToken)` with `CountAsync(cancellationToken)`. | `dotnet test` fails `FR_ABOUT_01_crawl_status_counts_only_pending_jobs`: expected `2`, actual `4` (the test seeds two pending, one running and one done job). | The database is real, so a wrong filter shows up as wrong numbers. A fake could not catch this. |
+| 3 | In `web/src/features/about/AboutPage.tsx`, make `formatRate` return `'0 per minute'` when the value is `null`. | `npm test` fails `FR_ABOUT_01 shows unmeasured figures as "Not measured yet", never as zero`: only one "Not measured yet" is found where two are expected. | "Unmeasured" and "zero" are different facts (principle 5). The type `number \| null` exists so the UI has to choose, and a test pins the choice. |
+| 4 | In `web/src/app/creditRoles.ts`, change the instrument's dark colour from `'#6ee7a0'` to `'#2a3140'`. | `npm test` fails `NFR_A11Y_02 keeps every role colour at 3:1 or better on the dark backgrounds` with "instrument on default: expected 1.43 to be greater than or equal to 3". | Accessibility rules can be tests. The contrast ratio is computed from the real colours, so a theme change cannot quietly make the graph unreadable. |
 
 ## 7. Read the trace
 
 ![One request from the browser to the database, as a single trace in the Aspire dashboard](images/lg-01-end-to-end-trace.jpg)
 
-Open the trace for the About page's request (Traces, then the `nodeable-web: GET` entry). Explain each span in your own words.
+This is the trace for the About page's request, captured in the Aspire dashboard (Traces, then the `nodeable-web: GET` entry). It has three spans in one trace, and the header says "Resources 3, Depth 3, Total spans 3". The timings below were measured once, in development, on a warm stack.
 
 | Span | What happened | Typical duration |
 | --- | --- | --- |
-| `HTTP GET 200` (resource `nodeable-web`) | | about 0.7 s in development |
-| `GET /api/v1/status/crawl` (resource `api`) | | about 0.7 s |
-| `postgresql` (database `nodeabledb`) | | about 85 ms |
+| `HTTP GET 200` (resource `nodeable-web`) | The **root**. The browser's fetch instrumentation created this span when the About page asked for `/api/v1/status/crawl`, and added the `traceparent` header to the request. It ends when the response arrives, so it covers everything below it plus the hop through the Vite proxy. | about 0.73 s |
+| `GET /api/v1/status/crawl` (resource `api`) | ASP.NET Core's automatic server span. It read the `traceparent` header, so it is a **child** of the browser's span in the same trace. It covers routing, creating the `DbContext`, running the handler and writing the JSON response. | about 0.68 s |
+| `postgresql` (resource `api`, database `nodeabledb`) | Npgsql's span for the one query the handler runs: counting pending rows in `crawl_jobs`. It is a child of the Api span and is recorded by the Api process, which is why its resource is `api`. | about 85 ms |
 
-Questions to answer: why is the browser span longer than the Api span? Which span would you look at first if this page felt slow? Why does the trace only exist if you navigate to About from another page?
+How to read it:
+
+- **The browser span is longer than the Api span** by about 50 ms. That is the time outside the Api: the browser, the Vite proxy hop and the network.
+- **Most of the Api span is not the database.** About 0.6 s of the 0.68 s is outside the `postgresql` span. That is one-time warm-up, typically the .NET JIT compiling the code path and EF Core preparing the query for the first time. It was measured: on a fresh start, six consecutive requests straight to the Api took about 820 ms for the first and about 35 ms each for the other five. If a later request were still slow, the gap between the Api span and its child is the first place to look.
+- **Why the trace only exists after you navigate to About.** The OpenTelemetry SDK is loaded after first paint (decision 0002). If you load `/about` directly, the first request is made before the SDK arrives and is not traced. Clicking from Home to About makes the request after tracing is running.
+- **Why there are two `nodeable-web: GET` traces in the dashboard.** React's StrictMode mounts, unmounts and remounts components once in development, so the page asks twice. TanStack Query cancels the first request through its abort signal, so one of the two traces ends in an abort. The browser's network log shows the same pair: one request cancelled, one `200`.
 
 ## 8. Decisions and trade-offs
 
-Fill in the alternatives and your own reasons. The decision records have the full text.
+The full reasoning for each decision is in its record under `docs/spec/decisions/`.
 
 | Decision | Alternatives considered | Why this one | Decision record |
 | --- | --- | --- | --- |
-| Lint with ESLint 9 and type-checked typescript-eslint | | | `docs/spec/decisions/0001-eslint-with-typescript-eslint.md` |
-| Keep the 250 KB budget; split by route and defer the OpenTelemetry SDK | | | `docs/spec/decisions/0002-bundle-budget-and-loading-strategy.md` |
-| Migrations at Api startup in Development only | | | `docs/spec/decisions/0003-migrations-at-startup-in-development.md` |
-| Same-origin `/api` and `/otlp` through a proxy | | | `docs/spec/decisions/0004-same-origin-api-and-telemetry.md` |
-| Generate the OpenAPI document at build time and commit the types | | | `docs/spec/decisions/0005-generated-api-contract.md` |
-| Enums as lower-case text with CHECK constraints | | | `docs/spec/decisions/0006-enums-stored-as-lowercase-text.md` |
-| Hash anonymous graph tokens | | | `docs/spec/decisions/0007-anonymous-graph-tokens-are-hashed.md` |
-| Partial dates keep a precision column | | | `docs/spec/decisions/0008-partial-dates-keep-their-precision.md` |
-| The Api queues only the recording job | | | `docs/spec/decisions/0009-api-queues-only-the-recording-job.md` |
-| The `other` role is shown neutrally | | | `docs/spec/decisions/0010-other-role-is-shown-neutrally.md` |
-| A persistent local database from M3 | | | `docs/spec/decisions/0011-persistent-local-database.md` |
-| AwesomeAssertions | | | `docs/spec/decisions/0012-awesomeassertions.md` |
-| Hold ESLint and TypeScript majors | | | `docs/spec/decisions/0013-hold-eslint-and-typescript-majors.md` |
+| Lint with ESLint 9 and type-checked typescript-eslint | Keep oxlint; Biome; ESLint 10 | Type-aware rules catch un-awaited Promises and `any` leaking into typed code, and they teach TypeScript. ESLint 10 was ruled out because the accessibility plugin does not declare support for it. | `docs/spec/decisions/0001-eslint-with-typescript-eslint.md` |
+| Keep the 250 KB budget; split by route and defer the OpenTelemetry SDK | Raise the budget; put OpenTelemetry in the main bundle; drop browser tracing | The budget stays a real constraint. Deferring the SDK moved about 23 KB off the critical path, at the cost that a request made before it loads is not traced. | `docs/spec/decisions/0002-bundle-budget-and-loading-strategy.md` |
+| Migrations at Api startup in Development only | A separate migration-service project; migrate in every environment; run `dotnet ef` by hand | One command starts the stack, and production keeps the safer separate step. A migration project would be one more thing outside the spec's layout. | `docs/spec/decisions/0003-migrations-at-startup-in-development.md` |
+| Same-origin `/api` and `/otlp` through a proxy | Call the Api and the dashboard cross-origin with CORS; proxy only `/api` | There is no CORS to configure, `traceparent` travels same-origin, and the browser never learns where telemetry is collected. | `docs/spec/decisions/0004-same-origin-api-and-telemetry.md` |
+| Generate the OpenAPI document at build time and commit the types | Generate from a running Api; do not commit the generated file; hand-write the types | The frontend builds without .NET, a contract change shows up in a diff, and CI fails if the committed types are stale. | `docs/spec/decisions/0005-generated-api-contract.md` |
+| Enums as lower-case text with CHECK constraints | Integers; PostgreSQL enum types; text without a constraint | Rows stay readable, the spec's SQL compares against `'recording'`, and the database rejects values no enum member maps to. Native enum types are harder to evolve. | `docs/spec/decisions/0006-enums-stored-as-lowercase-text.md` |
+| Hash anonymous graph tokens | Store the token; use a slow password hash | The token is a bearer credential, so a database leak must not expose usable tokens. It is a random 128-bit value, so a fast hash is enough. | `docs/spec/decisions/0007-anonymous-graph-tokens-are-hashed.md` |
+| Partial dates keep a precision column | Raw text plus a year; three nullable numbers; keep `date` and accept "1 January" | Sorting stays simple and the UI never claims precision MusicBrainz did not record. | `docs/spec/decisions/0008-partial-dates-keep-their-precision.md` |
+| The Api queues only the recording job | Four placeholder jobs; one job doing everything | The work and release IDs are only known from the recording response, and the release step is conditional. Placeholders would break the unique index, and one big job would lose per-step retry. | `docs/spec/decisions/0009-api-queues-only-the-recording-job.md` |
+| The `other` role is shown neutrally | Hide it behind a filter; promote common types now | Principle 5: incomplete data is shown, not hidden. Promotion waits for real data that shows which types are common. | `docs/spec/decisions/0010-other-role-is-shown-neutrally.md` |
+| A persistent local database from M3 | Ephemeral plus a seed script; a container kept alive between runs | Re-fetching at about one request per second makes losing the cache on every restart expensive. The seed script remains the fallback. | `docs/spec/decisions/0011-persistent-local-database.md` |
+| AwesomeAssertions | FluentAssertions 8; FluentAssertions 7; Shouldly; plain `Assert` | Same `.Should()` syntax as the spec and most tutorials, under an Apache-2.0 licence, so there is no commercial-licence question for a portfolio project. | `docs/spec/decisions/0012-awesomeassertions.md` |
+| Hold ESLint and TypeScript majors | Force ESLint 10; replace the accessibility plugin; run two linters | The plugin and typescript-eslint do not support newer majors yet. Upgrades should be deliberate, checked at the start of each milestone. | `docs/spec/decisions/0013-hold-eslint-and-typescript-majors.md` |
 
 ## 9. Interview talking points
 
-Write each in your own words; say it aloud before writing it down.
-
-- **30-second version:** _What M1 is and why a platform milestone matters._
-- **2-minute version:** _The main flow (browser, proxy, Api, database, dashboard) and one interesting problem._
-- **Deep dive:** _The hardest part: what you tried, and what you would do at 100 times the scale._
-- **A question they might ask, and your answer:** _For example: "How do you know the frontend and backend agree on the API's types?" or "What breaks silently when you add tracing after startup?"_
-
-Topics worth covering: the typed contract pipeline, why the browser makes only same-origin requests, the late-bound `fetch` bug, database constraints versus application checks, and what Aspire replaces.
+- **30-second version.** "Milestone one built the platform the app stands on. One command starts PostgreSQL, Redis, an API, a worker and a React app under .NET Aspire. The database schema is an EF Core migration, the TypeScript types are generated from the API's OpenAPI document, and one click in the browser shows up as a single trace from the browser through the API to the database. CI builds, tests, lints and audits both halves on every pull request."
+- **2-minute version.** "The interesting design choice is that the browser only talks to its own origin. In development Vite proxies `/api` to the API and `/otlp` to the telemetry endpoint, and in production Caddy will do the same, so there is no CORS to configure and the `traceparent` header travels same-origin. A request starts in the browser, where the OpenTelemetry fetch instrumentation creates a span and adds the header. The API's server span continues that trace, and Npgsql adds a database span under it, so one trace shows three layers. The types the browser uses come from the API's OpenAPI document, generated at build time and committed, and CI fails if they drift. The one problem that surprised me was that tracing was silently missing for the typed client, because the client had copied `fetch` before the instrumentation replaced it."
+- **Deep dive: the late-bound `fetch` bug.** "`openapi-fetch` takes a reference to `globalThis.fetch` when you create the client. I load the OpenTelemetry SDK after first paint to keep it out of the main bundle, and the SDK works by replacing `globalThis.fetch`. A client created before that point keeps the original function, so its requests carry no `traceparent` and nothing errors: the trace just starts at the API. I fixed it by passing a `fetch` that looks `globalThis.fetch` up on each call, and wrote a test that creates the client first and starts tracing second, which fails without the fix. At a hundred times the scale I would stop exporting every span from every browser: I would sample at the browser, send to an OpenTelemetry Collector rather than straight to a backend, and use tail sampling there so errors and slow traces are always kept."
+- **A question they might ask: "How do you know the frontend and backend agree on the API's types?"** "The types are not written by hand. The API writes its OpenAPI document on every build, `openapi-typescript` generates `schema.d.ts` from it, and the typed client and the test fixtures are written against those types. The generated file is committed, and a CI job regenerates it and fails on any difference, so a contract change has to arrive in the same pull request as its types. One detail mattered: ASP.NET's default JSON settings described numbers as 'integer or string', so I set strict number handling to make the generated type a plain `number`."
+- **Another: "Why a unique index instead of checking in code?"** "Two API instances can both check 'is this fetch already queued?' and both get 'no'. A partial unique index on the queue table cannot be raced, so the same fetch is never queued twice while it is outstanding. It only covers pending and running rows, so finished jobs stay as history and the same record can be fetched again later."
+- **Another: "What would you do differently?"** "I would have written the load-after-first-paint decision down with its cost from the start: a request before the SDK arrives is not traced. It is accepted, but it surprised me during testing because the hidden browser tab did not even start tracing."
 
 ## 10. Exercises
 
-Attempt these without looking anything up first. Write a one-line hint for each.
+Try each one without looking anything up first. The hints are there for when you are stuck.
 
-1. **Add a field end to end.** Add `lastCrawlAt` to the crawl status response and show it on the About page. · Hint: _you write_
-2. **Make it live.** Make the About page refetch the crawl status every 10 seconds with TanStack Query, and test it with MSW. · Hint: _you write_
-3. **Stretch: a metric.** Publish a `crawl.queue.depth` gauge from the Api (spec section 11) and find it in the Aspire dashboard's Metrics page. · Hint: _you write_
+1. **Add a field end to end.** Add `lastCrawlAt` to the crawl status response and show it on the About page.
+   *Hint:* add a `DateTimeOffset?` to the `CrawlStatusResponse` record and query the newest `LockedAt` among `Done` jobs with `MaxAsync` (careful: an empty table has no maximum, so use a nullable result). Run `npm run gen:api` and the generated type changes; your MSW fixture in `handlers.ts` will stop compiling, which tells you what to update. If you forget to regenerate, the `api-contract` CI job fails.
+2. **Make it live.** Make the About page refetch the crawl status every 10 seconds, and test it.
+   *Hint:* TanStack Query's `useQuery` accepts a `refetchInterval` option in milliseconds. In the test, switch to fake timers with `vi.useFakeTimers()`, change the MSW handler's answer between two responses, and advance time with `await vi.advanceTimersByTimeAsync(10_000)`. Think about what `staleTime` in `queryClient.ts` does to this.
+3. **Stretch: a metric.** Publish a `crawl.queue.depth` gauge from the Api (spec section 11) and find it in the dashboard's Metrics page.
+   *Hint:* create a `Meter` from `System.Diagnostics.Metrics` and name it with the prefix `Nodeable.`, because `ServiceDefaults` only exports meters matching `Nodeable.*`. An `ObservableGauge<int>` calls your callback when the metric is read, and the callback has no request, so it needs an `IServiceScopeFactory` to get a `DbContext`. Tag the value with the job `kind` and `status`, as the spec's table says.
 
 ## 11. Further reading
 
-For each link, add one line on why it is worth reading.
+- [Aspire](https://aspire.dev): how the AppHost, service defaults and the dashboard fit together; start with the orchestration overview.
+- [ASP.NET Core minimal APIs](https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis): handlers, parameter binding and route groups, the model behind `StatusEndpoints.cs`.
+- [Dependency injection in ASP.NET Core](https://learn.microsoft.com/aspnet/core/fundamentals/dependency-injection): singleton, scoped and transient lifetimes, which are the least JavaScript-like part of this code.
+- [Entity Framework Core](https://learn.microsoft.com/ef/core/): mapping, migrations and value converters.
+- [Npgsql Entity Framework Core provider](https://www.npgsql.org/efcore/): the PostgreSQL-specific features used here, such as indexes with operator classes.
+- [OpenTelemetry for .NET](https://opentelemetry.io/docs/languages/dotnet/): traces, metrics and logs from the server side.
+- [OpenTelemetry for JavaScript](https://opentelemetry.io/docs/languages/js/): the browser SDK and its instrumentations.
+- [W3C Trace Context](https://www.w3.org/TR/trace-context/): the specification of the `traceparent` header that joins the browser's span to the Api's.
+- [openapi-typescript](https://openapi-ts.dev): generating types from an OpenAPI document, and the companion `openapi-fetch` client.
+- [TanStack Query](https://tanstack.com/query/latest): server state, caching and refetching.
+- [Material UI](https://mui.com/material-ui/): theming and colour schemes.
+- [React Router](https://reactrouter.com): data routers and lazy routes.
+- [typescript-eslint](https://typescript-eslint.io): the type-aware lint rules and what each one catches.
+- [Vite](https://vite.dev): the dev server, its proxy and how it builds chunks.
+- [Vitest](https://vitest.dev): the test runner that shares Vite's configuration.
+- [Mock Service Worker](https://mswjs.io): mocking at the network layer, as the web tests do.
+- [Testcontainers for .NET](https://dotnet.testcontainers.org): tests against real infrastructure.
+- [xUnit.net](https://xunit.net): the test framework, including v3's assembly fixtures.
 
-- [.NET Aspire documentation](https://aspire.dev): orchestration, service defaults and the dashboard
-- [ASP.NET Core minimal APIs](https://learn.microsoft.com/aspnet/core/fundamentals/minimal-apis): handlers, parameter binding, route groups
-- [Entity Framework Core](https://learn.microsoft.com/ef/core/): mapping, migrations, value converters
-- [OpenTelemetry for .NET](https://opentelemetry.io/docs/languages/dotnet/): traces, metrics and logs
-- [OpenTelemetry for JavaScript](https://opentelemetry.io/docs/languages/js/): the browser SDK and instrumentation
-- [W3C Trace Context](https://www.w3.org/TR/trace-context/): the `traceparent` header
-- [openapi-typescript](https://openapi-ts.dev): generating types from an OpenAPI document
-- [TanStack Query](https://tanstack.com/query/latest): server state, caching and refetching
-- [Material UI](https://mui.com/material-ui/): theming and colour schemes
-- [React Router](https://reactrouter.com): data routers and lazy routes
-- [typescript-eslint](https://typescript-eslint.io): type-aware lint rules
-- [Testcontainers for .NET](https://dotnet.testcontainers.org): tests against real infrastructure
+## 12. Check yourself
+
+Ten short questions. Answer each in a sentence or two out loud or on paper, then turn the page to check.
+
+1. The typed client is created with `fetch: (request) => globalThis.fetch(request)`. Why not just rely on `openapi-fetch`'s default?
+2. In `AppHost.cs`, what does `WaitFor(api)` on the `worker` resource achieve, and which decision does it depend on?
+3. Why is `credits.detail` never null, and what would happen to re-crawls if it were nullable?
+4. The unique index on `crawl_jobs` has a filter. What does `status IN ('pending', 'running')` allow that a plain unique index would forbid, and why not do this check in C#?
+5. Why does the Api set `JsonNumberHandling.Strict`, and what would the generated TypeScript type for `queueDepth` have been without it?
+6. The startup code in `Program.cs` calls `app.Services.CreateScope()` before resolving the `NodeableDbContext`. Why?
+7. Why does the browser send its spans to `/otlp/v1/traces` on its own origin instead of straight to the dashboard?
+8. Break a `traceparent` header into its four parts, and say which part makes the Api's span a child of the browser's.
+9. `fetchRatePerMinute` is `null` in the response today. What does `null` mean here, and what would be wrong with sending `0`?
+10. The About page is a lazy route and the OpenTelemetry SDK loads after first paint. What does each buy, and what is the cost of the second?
+
+### Answers
+
+1. `openapi-fetch` copies `globalThis.fetch` when the client is created. The OpenTelemetry instrumentation replaces `globalThis.fetch` later, after first paint. A client created earlier would keep calling the original function, so its requests would carry no `traceparent` header and nothing would report an error. Looking `fetch` up on every call means the instrumented version is used.
+2. It holds the Worker back until the Api reports healthy. It depends on decision 0003: in Development the Api applies the database migrations at startup, so the Worker waits rather than racing the migration and finding no tables.
+3. PostgreSQL treats NULLs as distinct in a unique index, so two credits that differ only by a null `detail` would both be accepted. Re-crawls would then insert duplicates instead of conflicting, and `INSERT ... ON CONFLICT DO NOTHING` would not be idempotent. Making it `NOT NULL DEFAULT ''` removes the problem.
+4. It allows the same fetch to be queued again once the earlier job is `done` or `failed`, for example a refresh when cached data is more than 30 days old, while still forbidding two outstanding jobs for the same target. Doing the check in C# would be racy: two Api instances can both see "not queued" and both insert, whereas a unique index cannot be raced.
+5. ASP.NET Core's default JSON settings accept numbers written as strings, so the OpenAPI schema described numbers as "integer or string" and the generated TypeScript type would have been `number | string`, which defeats a typed contract. Strict handling makes the schema say `integer`, and the type is a plain `number`.
+6. A `DbContext` is registered as *scoped*, meaning one per HTTP request. Startup code runs outside any request, so there is no scope to resolve it from. `CreateScope()` opens one by hand, and `using` disposes it afterwards.
+7. The browser then only makes same-origin requests, so no CORS rules are needed, `traceparent` travels same-origin, and the browser never learns where telemetry is collected. Vite proxies `/otlp` to the dashboard in development and Caddy will proxy it to the OpenTelemetry Collector in production.
+8. `00-<traceId>-<parentSpanId>-<flags>`: the version, the 32-hex-digit trace ID, the 16-hex-digit ID of the parent span, and the flags (whether it is sampled). The trace ID joins the Api's span to the same trace, and the parent span ID makes the Api's span a child of the browser's span.
+9. `null` means "not measured yet": the Worker has not recorded the telemetry behind the figure. Sending `0` would claim that the fetch rate was measured and is zero, which is a different and false statement (principle 5, honest data). The About page shows "Not measured yet" for `null`.
+10. The lazy route keeps the About page's code out of the main bundle until someone visits it. Loading the SDK after first paint keeps about 23 KB of OpenTelemetry code off the critical path, so the first render is not delayed by it. The cost of the second is that a request made before the SDK arrives is not traced, for example the first call when a user loads `/about` directly.
