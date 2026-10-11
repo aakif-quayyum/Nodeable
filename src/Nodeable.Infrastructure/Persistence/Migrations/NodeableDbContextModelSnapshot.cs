@@ -305,6 +305,10 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("first_release_date");
 
+                    b.Property<string>("FirstReleaseDatePrecision")
+                        .HasColumnType("text")
+                        .HasColumnName("first_release_date_precision");
+
                     b.Property<int?>("LengthMs")
                         .HasColumnType("integer")
                         .HasColumnName("length_ms");
@@ -326,6 +330,10 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                     b.ToTable("recordings", null, t =>
                         {
                             t.HasCheckConstraint("ck_recordings_credits_status", "credits_status IN ('none', 'partial', 'complete')");
+
+                            t.HasCheckConstraint("ck_recordings_first_release_date_has_precision", "(first_release_date IS NULL) = (first_release_date_precision IS NULL)");
+
+                            t.HasCheckConstraint("ck_recordings_first_release_date_precision", "first_release_date_precision IN ('year', 'month', 'day')");
                         });
                 });
 
@@ -377,6 +385,10 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                         .HasColumnType("date")
                         .HasColumnName("date");
 
+                    b.Property<string>("DatePrecision")
+                        .HasColumnType("text")
+                        .HasColumnName("date_precision");
+
                     b.Property<DateTimeOffset>("FetchedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -391,7 +403,12 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                     b.HasKey("Mbid")
                         .HasName("pk_releases");
 
-                    b.ToTable("releases", (string)null);
+                    b.ToTable("releases", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_releases_date_has_precision", "(date IS NULL) = (date_precision IS NULL)");
+
+                            t.HasCheckConstraint("ck_releases_date_precision", "date_precision IN ('year', 'month', 'day')");
+                        });
                 });
 
             modelBuilder.Entity("Nodeable.Domain.Entities.Work", b =>

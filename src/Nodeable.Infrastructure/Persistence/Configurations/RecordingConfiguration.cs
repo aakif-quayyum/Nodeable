@@ -19,10 +19,20 @@ internal sealed class RecordingConfiguration : IEntityTypeConfiguration<Recordin
         builder.Property(r => r.ArtistCredit).IsRequired();
 
         builder.Property(r => r.CreditsStatus).HasConversion<LowerCaseEnumConverter<CreditsStatus>>();
+        builder.Property(r => r.FirstReleaseDatePrecision).HasConversion<LowerCaseEnumConverter<DatePrecision>>();
         builder.Property(r => r.FetchedAt).HasDefaultValueSql("now()");
 
         builder.HasIndex(r => r.Title).HasMethod("gin").HasOperators("gin_trgm_ops");
 
-        builder.ToTable(t => t.HasCheckConstraint("ck_recordings_credits_status", EnumColumn.CheckSql<CreditsStatus>("credits_status")));
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint("ck_recordings_credits_status", EnumColumn.CheckSql<CreditsStatus>("credits_status"));
+            t.HasCheckConstraint("ck_recordings_first_release_date_precision", EnumColumn.CheckSql<DatePrecision>("first_release_date_precision"));
+
+            // Decision 0008: the precision is null exactly when the date is.
+            t.HasCheckConstraint(
+                "ck_recordings_first_release_date_has_precision",
+                "(first_release_date IS NULL) = (first_release_date_precision IS NULL)");
+        });
     }
 }

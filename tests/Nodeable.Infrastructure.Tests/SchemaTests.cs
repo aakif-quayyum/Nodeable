@@ -1,4 +1,7 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Nodeable.Domain.Dates;
 using Nodeable.Domain.Entities;
 using Nodeable.Domain.Enums;
 using Nodeable.Infrastructure.Persistence;
@@ -29,10 +32,9 @@ public class SchemaTests(PostgresFixture postgres)
             .SqlQuery<string>($"""SELECT table_name AS "Value" FROM information_schema.views WHERE table_schema = 'public'""")
             .ToListAsync(ct);
 
-        Assert.Equal(
-            ["crawl_jobs", "credits", "graph_songs", "graphs", "people", "previews", "recording_releases", "recording_works", "recordings", "releases", "works"],
-            tables);
-        Assert.Equal(["recording_people"], views);
+        tables.Should().Equal(
+            "crawl_jobs", "credits", "graph_songs", "graphs", "people", "previews", "recording_releases", "recording_works", "recordings", "releases", "works");
+        views.Should().Equal("recording_people");
     }
 
     [Fact]
@@ -56,7 +58,7 @@ public class SchemaTests(PostgresFixture postgres)
             .SqlQuery<string>($"""SELECT level || ':' || role AS "Value" FROM recording_people WHERE recording_mbid = {_recordingMbid} ORDER BY 1""")
             .ToListAsync(ct);
 
-        Assert.Equal(["recording:producer", "release:mixing", "work:songwriter"], rows);
+        rows.Should().Equal("recording:producer", "release:mixing", "work:songwriter");
     }
 
     [Fact]
@@ -69,10 +71,11 @@ public class SchemaTests(PostgresFixture postgres)
         await db.SaveChangesAsync(ct);
 
         db.Credits.Add(NewCredit(CreditSubjectType.Recording, _recordingMbid, CreditRole.Producer));
-        var exception = await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync(ct));
+        Func<Task> saveDuplicate = () => db.SaveChangesAsync(ct);
 
-        var postgresError = Assert.IsType<PostgresException>(exception.InnerException);
-        Assert.Equal(PostgresErrorCodes.UniqueViolation, postgresError.SqlState);
+        var thrown = await saveDuplicate.Should().ThrowAsync<DbUpdateException>();
+        thrown.Which.InnerException.Should().BeOfType<PostgresException>()
+            .Which.SqlState.Should().Be(PostgresErrorCodes.UniqueViolation);
     }
 
     [Fact]
@@ -88,9 +91,9 @@ public class SchemaTests(PostgresFixture postgres)
         var stored = await db.Database.SqlQuery<string>($"""SELECT role AS "Value" FROM credits""").SingleAsync(ct);
         var credit = await db.Credits.SingleAsync(ct);
 
-        Assert.Equal("songwriter", stored);
-        Assert.Equal(CreditRole.Songwriter, credit.Role);
-        Assert.Equal(string.Empty, credit.Detail);
+        stored.Should().Be("songwriter");
+        credit.Role.Should().Be(CreditRole.Songwriter);
+        credit.Detail.Should().BeEmpty();
     }
 
     [Fact]
@@ -101,10 +104,10 @@ public class SchemaTests(PostgresFixture postgres)
         db.Recordings.Add(new Recording { Mbid = _recordingMbid, Title = "Redbone", ArtistCredit = "Childish Gambino" });
         await db.SaveChangesAsync(ct);
 
-        var exception = await Assert.ThrowsAsync<PostgresException>(
-            () => db.Database.ExecuteSqlAsync($"UPDATE recordings SET credits_status = 'bogus'", ct));
+        Func<Task> setBogusStatus = () => db.Database.ExecuteSqlAsync($"UPDATE recordings SET credits_status = 'bogus'", ct);
 
-        Assert.Equal(PostgresErrorCodes.CheckViolation, exception.SqlState);
+        var thrown = await setBogusStatus.Should().ThrowAsync<PostgresException>();
+        thrown.Which.SqlState.Should().Be(PostgresErrorCodes.CheckViolation);
     }
 
     [Fact]
@@ -123,8 +126,11 @@ public class SchemaTests(PostgresFixture postgres)
         await using (var duplicate = CreateContext(connectionString))
         {
             duplicate.CrawlJobs.Add(new CrawlJob { Kind = CrawlJobKind.Recording, TargetMbid = _recordingMbid });
-            var exception = await Assert.ThrowsAsync<DbUpdateException>(() => duplicate.SaveChangesAsync(ct));
-            Assert.Equal(PostgresErrorCodes.UniqueViolation, Assert.IsType<PostgresException>(exception.InnerException).SqlState);
+            Func<Task> saveDuplicate = () => duplicate.SaveChangesAsync(ct);
+
+            var thrown = await saveDuplicate.Should().ThrowAsync<DbUpdateException>();
+            thrown.Which.InnerException.Should().BeOfType<PostgresException>()
+                .Which.SqlState.Should().Be(PostgresErrorCodes.UniqueViolation);
         }
 
         // Once the first job is done it is history, so the same target may be fetched again (for example a stale-cache refresh).
@@ -134,8 +140,67 @@ public class SchemaTests(PostgresFixture postgres)
             later.CrawlJobs.Add(new CrawlJob { Kind = CrawlJobKind.Recording, TargetMbid = _recordingMbid });
             await later.SaveChangesAsync(ct);
 
-            Assert.Equal(2, await later.CrawlJobs.CountAsync(ct));
+            (await later.CrawlJobs.CountAsync(ct)).Should().Be(2);
         }
+    }
+
+    [Fact]
+    public async Task FR_SEARCH_01_partial_date_is_stored_as_the_earliest_day_with_a_lower_case_precision()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await CreateMigratedContextAsync();
+        var recording = new Recording { Mbid = _recordingMbid, Title = "Redbone", ArtistCredit = "Childish Gambino" };
+        PartialDate.TryParse("2016-11", out var date).Should().BeTrue();
+        recording.SetFirstReleaseDate(date);
+        db.Recordings.Add(recording);
+        await db.SaveChangesAsync(ct);
+        db.ChangeTracker.Clear();
+
+        var stored = await db.Database
+            .SqlQuery<string>($"""SELECT first_release_date::text || ' ' || first_release_date_precision AS "Value" FROM recordings""")
+            .SingleAsync(ct);
+        var read = await db.Recordings.SingleAsync(ct);
+
+        stored.Should().Be("2016-11-01 month");
+        read.FirstReleaseDate.Should().Be(new DateOnly(2016, 11, 1));
+        read.FirstReleaseDatePrecision.Should().Be(DatePrecision.Month);
+    }
+
+    [Fact]
+    public async Task FR_SEARCH_01_a_date_without_a_precision_is_rejected_by_the_database()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = await CreateMigratedContextAsync();
+        db.Releases.Add(new Release { Mbid = _releaseMbid, Title = "Awaken, My Love!" });
+        await db.SaveChangesAsync(ct);
+
+        // The entity's setter makes this impossible from C#; the CHECK constraint is the backstop for any other writer.
+        Func<Task> dateOnly = () => db.Database.ExecuteSqlAsync($"UPDATE releases SET date = DATE '2016-12-02'", ct);
+
+        var thrown = await dateOnly.Should().ThrowAsync<PostgresException>();
+        thrown.Which.SqlState.Should().Be(PostgresErrorCodes.CheckViolation);
+    }
+
+    // Decision 0008. The migration's hand-written backfill runs against a database that is still on the first
+    // migration and already holds a dated row, which is the case the constraints would otherwise fail on.
+    [Fact]
+    public async Task FR_SEARCH_01_migration_gives_dates_stored_before_it_the_day_precision()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        await using var db = CreateContext(await postgres.CreateDatabaseAsync());
+        await db.Database.GetService<IMigrator>().MigrateAsync("20261009113647_InitialCreate", ct);
+        await db.Database.ExecuteSqlAsync(
+            $"""
+            INSERT INTO recordings (mbid, title, artist_credit, first_release_date, credits_status)
+            VALUES ({_recordingMbid}, 'Redbone', 'Childish Gambino', DATE '2016-11-18', 'none')
+            """,
+            ct);
+
+        await db.Database.MigrateAsync(ct);
+        var recording = await db.Recordings.SingleAsync(ct);
+
+        recording.FirstReleaseDate.Should().Be(new DateOnly(2016, 11, 18));
+        recording.FirstReleaseDatePrecision.Should().Be(DatePrecision.Day);
     }
 
     private static Credit NewCredit(CreditSubjectType subjectType, Guid subjectMbid, CreditRole role) => new()
