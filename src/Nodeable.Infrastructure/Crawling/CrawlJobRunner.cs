@@ -84,6 +84,14 @@ public sealed partial class CrawlJobRunner(IServiceScopeFactory scopes, ILogger<
             LogReleased(logger, job.Id, kind);
             throw;
         }
+        catch (CrawlJobPermanentFailureException exception)
+        {
+            // The handler says no number of retries can help (for example MusicBrainz has no such entity).
+            outcome = "failed";
+            await queue.FailAsync(job, WorkerId, exception.Message, permanent: true, CancellationToken.None);
+            activity?.SetStatus(ActivityStatusCode.Error, exception.Message);
+            LogPermanentFailure(logger, job.Id, kind, exception.Message);
+        }
         catch (Exception exception)
         {
             var failed = await queue.FailAsync(job, WorkerId, exception.Message, permanent: false, CancellationToken.None);
@@ -132,6 +140,9 @@ public sealed partial class CrawlJobRunner(IServiceScopeFactory scopes, ILogger<
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Crawl job {JobId} ({Kind}) failed on attempt {Attempt} and is out of attempts")]
     private static partial void LogFailed(ILogger logger, Exception exception, long jobId, string kind, int attempt);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Crawl job {JobId} ({Kind}) cannot succeed and is marked failed: {Reason}")]
+    private static partial void LogPermanentFailure(ILogger logger, long jobId, string kind, string reason);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Crawl job {JobId} has kind '{Kind}', which has no handler; marked failed")]
     private static partial void LogNoHandler(ILogger logger, long jobId, string kind);

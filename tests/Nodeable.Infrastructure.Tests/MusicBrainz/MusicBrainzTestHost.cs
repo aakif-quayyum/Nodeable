@@ -29,6 +29,23 @@ internal static class MusicBrainzTestHost
         IConnectionMultiplexer? redis = null,
         Dictionary<string, string?>? settings = null)
     {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        AddTo(services, server, gate, redis, settings);
+        return services.BuildServiceProvider();
+    }
+
+    /// <summary>
+    /// Adds configuration and the real MusicBrainz registration to a service collection the caller is building, for
+    /// tests that compose more of the Worker (the queue, the handlers) around the client.
+    /// </summary>
+    public static void AddTo(
+        IServiceCollection services,
+        WireMockServer server,
+        IRateGate? gate = null,
+        IConnectionMultiplexer? redis = null,
+        Dictionary<string, string?>? settings = null)
+    {
         var values = new Dictionary<string, string?>
         {
             ["MusicBrainz:BaseUrl"] = server.Url + "/ws/2/",
@@ -40,8 +57,6 @@ internal static class MusicBrainzTestHost
             values[key] = value;
         }
 
-        var services = new ServiceCollection();
-        services.AddLogging();
         services.AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(values).Build());
 
         // The same default as Nodeable.ServiceDefaults gives every HttpClient: AddMusicBrainz has to replace it.
@@ -58,8 +73,6 @@ internal static class MusicBrainzTestHost
         {
             services.AddKeyedSingleton<IRateGate>("musicbrainz", gate ?? new NoGate());
         }
-
-        return services.BuildServiceProvider();
     }
 
     private sealed class NoGate : IRateGate

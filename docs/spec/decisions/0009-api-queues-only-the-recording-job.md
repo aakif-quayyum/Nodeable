@@ -22,6 +22,12 @@ Section 7 step 3 said the Api queues up to four jobs (recording, work, release, 
 | The Api queues four placeholder jobs and the Worker fills them in | `target_mbid` is part of the unique index and is unknown at that point, so deduplication breaks. |
 | One job does every step for a song | The spec wants each step to retry on its own ("a failure retries only that step"). |
 
+## Implementation notes (M2)
+
+- **The release decision is made at the recording step.** MusicBrainz has no producer relationship between an artist and a work, so the work step cannot change whether a producer exists, and the recording handler already knows the answer. If a producer were ever found only at work level, the effect would be one avoidable release fetch, never a missed one.
+- **One release is fetched, the earliest dated,** not one job per release: a recording can be on dozens of compilations, and each fetch costs a second of the shared rate budget.
+- **The preview job is queued behind `Ingestion:QueuePreviewJobs`, off until M4.** The code path exists and is tested, but with no handler registered the jobs would only be marked failed and clutter the queue. M4 turns the switch on together with the handler.
+
 ## Consequences
 
 - Sections 7, 9 and 10 change: the example response says `pendingJobs: 1`, and the Worker is described as queuing the rest.

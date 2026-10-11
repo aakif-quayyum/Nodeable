@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nodeable.Infrastructure.Crawling;
+using Nodeable.Infrastructure.Ingestion;
 using Nodeable.Infrastructure.MusicBrainz;
 using Nodeable.Infrastructure.Persistence;
 using Nodeable.ServiceDefaults;
@@ -22,9 +23,9 @@ builder.AddRedisClient("redis");
 // Only the Worker talks to MusicBrainz (spec section 7), so the client and its shared rate gate are registered here.
 builder.Services.AddMusicBrainz();
 
-// The queue, its runner and its settings. Job handlers (one per kind, keyed by CrawlJobKind) are added with the
-// ingestion code in the next pull request.
+// The queue, its runner and its settings, and the handlers that turn recording, work and release jobs into credits.
 builder.Services.AddCrawling();
+builder.Services.AddIngestion();
 
 builder.Services.AddHostedService<CrawlWorker>();
 

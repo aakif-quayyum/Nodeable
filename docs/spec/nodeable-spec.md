@@ -426,6 +426,16 @@ Each step is a separate `crawl_jobs` row, so a failure retries only that step. T
 - **Strict parsing.** A response missing a field the typed model requires fails the call, so a changed API shows up as an error and not as nulls in the cache.
 - **Telemetry.** A `musicbrainz.fetch` client span per call (`mb.entity`, `mb.inc`, `http.response.status_code`), a `ratelimit.acquire` span per attempt (`ratelimit.source`, `ratelimit.wait_ms`), and the `external.requests` counter per HTTP attempt. The time spent waiting for the gate is also the `ratelimit.wait` histogram.
 
+### How credits are stored (implemented in M2)
+
+- **One handler per step.** The `recording` handler stores the recording (title, artist credit, first release date with its precision, length), its releases and linked works with the link rows, and its recording-level credits. The `work` and `release` handlers store that entity's credits. Each handler writes in one transaction, so a reader never sees a recording with its releases but without its credits.
+- **Idempotent.** People are upserted by MBID; credits are inserted with `ON CONFLICT DO NOTHING` on the unique index; links likewise. Running a job twice, which a crash or a refresh causes, changes nothing. Batches are written with `unnest` arrays: one statement per table, not one per credit.
+- **What is a credit.** Only relationships whose target is an artist. Each is mapped with the role table below; repeated (person, role, detail) tuples, such as a person credited with `mix` and `additional mix`, are one credit.
+- **`credits_status`.** Computed from every credit the recording has at recording, work and release level, and recomputed after each step: `complete` when a producer and a songwriter are both credited, `partial` when something is credited but not both, `none` when nothing is. FR-GRAPH-04's "no producer and no writer" badge is therefore the absence of both roles, which the API reads from the roles themselves. A song with a status other than `none` is served from the cache without a new fetch.
+- **Follow-up jobs** are queued by the recording handler after its transaction commits, inside its `crawl.job` span, with its priority: a `work` job per linked work; a `release` job for **one** release, the earliest dated (original releases carry the production credits, and every fetch costs a second of the shared budget), only when the recording has no producer credit at any level; and a `preview` job (target: the recording) when an ISRC is known, **only when `Ingestion:QueuePreviewJobs` is on**. That switch is off until the preview handler exists (FR-PREVIEW-01, M4), because a job of a kind nobody handles would only be marked failed.
+- **The release decision is made at the recording step.** Decision 0009 says "after the recording and work steps", but MusicBrainz has no producer relationship between an artist and a work (only composer, lyricist, writer and similar), so the work step cannot change the answer.
+- **Unknown entities.** MusicBrainz answering 404 for a job's MBID marks that job failed at once (a permanent failure) instead of spending retries.
+
 ### Role mapping
 
 | MusicBrainz relationship type | App role |
@@ -680,10 +690,10 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [x] Redis token-bucket rate gate shared by all instances (NFR-RATE-01)
 - [x] Resilience pipeline for 503 and 429 with backoff and jitter (NFR-RATE-03)
 - [x] `crawl_jobs` queue with `SKIP LOCKED` claiming and trace context propagation (NFR-REL-01)
-- [ ] Role mapping and credit upserts for recording, work and release levels (FR-GRAPH-03)
-- [ ] Integration tests with Testcontainers and WireMock.Net recordings
+- [x] Role mapping and credit upserts for recording, work and release levels (FR-GRAPH-03)
+- [x] Integration tests with Testcontainers and WireMock.Net recordings
 - [x] Store partial MusicBrainz dates with a precision column (decision 0008)
-- [ ] The Api queues only the recording job; the Worker queues the work, release and preview jobs (decision 0009)
+- [x] The Api queues only the recording job; the Worker queues the work, release and preview jobs (decision 0009; the preview job is queued from M4, behind a switch, see section 10)
 - [x] Add AwesomeAssertions to the backend test projects (decision 0012)
 
 ### M3 Graph UI (3 weeks)
@@ -701,7 +711,7 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 
 - [ ] Person drawer with credited recordings (FR-PERSON-01)
 - [ ] Recommendation scoring with reasons (FR-REC-01, FR-REC-02)
-- [ ] Deezer previews by ISRC (FR-PREVIEW-01)
+- [ ] Deezer previews by ISRC (FR-PREVIEW-01), including turning on `Ingestion:QueuePreviewJobs` with the handler
 - [ ] About page with architecture and live crawl status (FR-ABOUT-01)
 - [ ] Grafana dashboards and SLO alerts (section 11)
 - [ ] Terraform VPS, Caddy, Docker Compose deploy; seed the demo cache
