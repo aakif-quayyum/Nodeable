@@ -9,9 +9,9 @@ date: "YYYY-MM-DD"
 # LG-xx: <Guide name>
 
 > How to use this template: copy it to `docs/learning/LG-xx-<name>.md`.
-> Sections 1 to 4 can be drafted by an AI assistant from the `LEARN:` anchors and the milestone diff.
-> Sections 5 to 11 are yours to write or rewrite in your own words: writing them is where the learning happens.
-> Delete these instruction notes before building the PDF.
+> The assistant writes every section, 1 to 12, from the `LEARN:` anchors, the milestone diff and the decision records,
+> and checks each technical claim against the code. The developer reviews it and answers section 12 without peeking.
+> Delete these instruction notes before building the PDF (the build also strips them).
 
 ## 1. What was built
 
@@ -111,3 +111,13 @@ Attempt these without looking anything up first.
 ## 11. Further reading
 
 - [<Official doc title>](<url>): <why it is worth reading>
+
+## 12. Check yourself
+
+Ten short questions covering this guide. Answer each in a sentence or two before opening the answers.
+
+1. <Question>
+
+### Answers
+
+1. <Answer>
