@@ -4,8 +4,9 @@ using System.Diagnostics.Metrics;
 namespace Nodeable.Infrastructure.Telemetry;
 
 /// <summary>
-/// The spans and metrics of the code that talks to external services (spec section 11). ServiceDefaults subscribes to
-/// every source and meter named "Nodeable.*", so adding an <see cref="ActivitySource"/> here is all it takes to export.
+/// The spans and metrics of the code that talks to external services and runs the crawl queue (spec section 11).
+/// ServiceDefaults subscribes to every source and meter named "Nodeable.*", so adding an <see cref="ActivitySource"/>
+/// here is all it takes to export.
 /// </summary>
 internal static class InfrastructureTelemetry
 {
@@ -21,4 +22,22 @@ internal static class InfrastructureTelemetry
         "external.requests",
         unit: "{request}",
         description: "Requests sent to external APIs, by source and HTTP status code (\"error\" when no response arrived).");
+
+    /// <summary>How long each request waited for the rate gate: the number that shows the limit is the bottleneck.</summary>
+    public static readonly Histogram<double> RateGateWait = _meter.CreateHistogram<double>(
+        "ratelimit.wait",
+        unit: "s",
+        description: "Time a request waited for its slot in a shared rate gate, by source.");
+
+    /// <summary>How long a claimed job took, by kind and how it ended: done, retry, failed or released.</summary>
+    public static readonly Histogram<double> CrawlJobDuration = _meter.CreateHistogram<double>(
+        "crawl.job.duration",
+        unit: "s",
+        description: "Time from claiming a crawl job to finishing it, by kind and outcome.");
+
+    /// <summary>How long a job had been ready to run when a worker claimed it: the delay users feel.</summary>
+    public static readonly Histogram<double> CrawlQueueWait = _meter.CreateHistogram<double>(
+        "crawl.queue.wait",
+        unit: "s",
+        description: "Time a crawl job waited, ready to run, before a worker claimed it, by kind.");
 }

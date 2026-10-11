@@ -59,6 +59,7 @@ public sealed class RedisRateGate(IConnectionMultiplexer redis, string resource,
         }
 
         activity?.SetTag("ratelimit.wait_ms", waitMs);
+        InfrastructureTelemetry.RateGateWait.Record(waitMs / 1000d, new KeyValuePair<string, object?>("source", resource));
         var wait = TimeSpan.FromMilliseconds(waitMs);
         if (wait > TimeSpan.Zero)
         {

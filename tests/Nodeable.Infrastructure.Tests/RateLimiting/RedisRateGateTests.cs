@@ -125,6 +125,40 @@ public class RedisRateGateTests(RedisFixture redis)
         other.Should().Be(TimeSpan.Zero);
     }
 
+    [Fact]
+    public async Task NFR_OBS_01_the_time_a_request_waited_is_recorded_per_source()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var resource = UniqueResource();
+        var waited = new System.Collections.Concurrent.ConcurrentBag<double>();
+        using var listener = new System.Diagnostics.Metrics.MeterListener();
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Meter.Name == "Nodeable.Infrastructure" && instrument.Name == "ratelimit.wait")
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+        listener.SetMeasurementEventCallback<double>((_, value, tags, _) =>
+        {
+            foreach (var tag in tags)
+            {
+                if (tag.Key == "source" && Equals(tag.Value, resource))
+                {
+                    waited.Add(value);
+                }
+            }
+        });
+        listener.Start();
+        var gate = new RedisRateGate(await redis.ConnectAsync(), resource, new RateGateOptions(TimeSpan.FromMilliseconds(200), 1, TimeSpan.FromSeconds(10)));
+
+        await gate.AcquireAsync(ct);
+        await gate.AcquireAsync(ct);
+
+        waited.Should().HaveCount(2);
+        waited.Max().Should().BeApproximately(0.2, 0.1);
+    }
+
     // Each test uses its own resource name, so tests that share the Redis container cannot affect each other.
     private static string UniqueResource() => $"test-{Guid.NewGuid():N}";
 }
