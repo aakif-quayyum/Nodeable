@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Nodeable.Domain\Nodeable.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Adds the coverage option to `dotnet test`, which writes the report CI uses to gate Domain (spec section 13). -->
+    <PackageReference Include="Microsoft.Testing.Extensions.CodeCoverage" />
+  </ItemGroup>
+
+</Project>
