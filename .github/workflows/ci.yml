@@ -19,10 +19,12 @@ env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
 
+# Runners are pinned to ubuntu-24.04, not ubuntu-latest: GitHub moves "latest" to a new Ubuntu release on its own
+# schedule, and a new image can change tool versions under a green build. Move the pin by hand, in its own pull request.
 jobs:
   backend:
     name: Backend (build, format, test, audit)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -73,7 +75,7 @@ jobs:
 
   web:
     name: Web (typecheck, lint, test, build, audit)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -113,7 +115,7 @@ jobs:
 
   learning-tools:
     name: Learning anchors (well-formed, unique ids)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
@@ -131,7 +133,7 @@ jobs:
 
   api-contract:
     name: API contract (generated types are current)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
