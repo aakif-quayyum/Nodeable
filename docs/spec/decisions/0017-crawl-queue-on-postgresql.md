@@ -35,4 +35,4 @@ Jobs must survive a restart of any service and resume (NFR-REL-01), carry the tr
 - The queue is inspectable with SQL, and its state is covered by the same backups and migrations as the rest of the data.
 - A one-second poll interval is the floor on how fast an idle worker notices a new job.
 - The `crawl.queue.depth` gauge is deferred to the M4 dashboards; the About page reads pending depth from the table already.
-- Polling logs a statement per second, so the Worker sets the EF command log category to Warning.
+- Polling would flood both the logs and the trace list (measured on the running stack: a statement log line about every half second, and a trace a second, 204 after three and a half minutes). The Worker sets the EF command log category to Warning, and claiming and stale recovery run with instrumentation suppressed, so an idle Worker produces no traces.

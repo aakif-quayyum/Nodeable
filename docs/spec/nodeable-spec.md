@@ -258,6 +258,7 @@ Solid arrows carry requests and data; dashed arrows carry telemetry to the Colle
 - **Finishing.** Done, or failed with the error kept in `last_error`. Completing and failing are guarded by `locked_by`, so a worker that was too slow cannot overwrite the claim of the worker that took its job over.
 - **Retries of a whole job (not the HTTP retries of NFR-RATE-03).** 5 attempts, waiting 30 seconds before the second and doubling each time (capped at 15 minutes, spread by up to 20% either way). A kind with no handler fails at once.
 - **Shutdown and crashes.** A worker that is stopping hands its job back without counting the attempt. A job still `running` after 10 minutes belongs to a worker that died: every worker looks for these each minute and puts them back, or fails them when they have used their attempts, so a job that keeps killing its worker cannot loop for ever.
+- **Polling is not traced.** A worker asks every second and most polls find nothing, so claiming and stale recovery run with instrumentation suppressed; the `crawl.job` span records what a claim found. An idle Worker produces no traces.
 - **Priorities.** Interactive 100, scheduled 10. A worker processes one job at a time; run more Worker instances for more throughput, and the rate gate keeps them within the MusicBrainz limit.
 
 ### Flow: scheduled work

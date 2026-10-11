@@ -11,7 +11,7 @@ MusicBrainz allows about one request per second per IP and answers 503 above tha
 ## Decision
 
 - **The gate is a token bucket in Redis**, kept as one number (the "theoretical arrival time" of the GCRA form) and decided in one Lua script that uses Redis's own clock. Each caller is given its own slot and sleeps for it; nobody polls. Defaults: one request per second, a burst of one.
-- **The gate sits inside the retry.** The pipeline, outermost first: total timeout (5 minutes), retry, gate, request counter, per-attempt timeout (30 seconds, which includes the gate wait). Every attempt, including each retry, waits for its own slot.
+- **The gate sits inside the retry.** The pipeline, outermost first: total timeout (5 minutes), retry, per-attempt timeout (30 seconds, so it includes the gate wait), gate, request counter, then the network. Every attempt, including each retry, waits for its own slot.
 - **A caller that would wait longer than 20 seconds is refused** (`RateGateSaturatedException`) instead of queueing without limit. A refused caller does not consume a slot, and the crawl queue retries the job later.
 - **Retries:** 503, 429, network failures and a timed-out attempt; five retries; exponential backoff from two seconds with jitter; `Retry-After` replaces the calculated delay. Other errors (400, 404) are returned, not retried.
 - **The standard handler is removed for this client** (`RemoveAllResilienceHandlers`, an API Microsoft marks experimental) so two retry layers do not multiply the attempts. A test counts exactly six attempts, so a change in that API's behaviour is caught.
