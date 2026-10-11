@@ -19,7 +19,7 @@ Nodeable is a music discovery web app that maps the producers, songwriters, engi
 ## Working rules
 
 - Work one milestone at a time (spec section 14). Do not start the next milestone's tasks early.
-- At the start of each milestone, review the held tool versions (decision 0013): can ESLint and TypeScript move up, and is `@types/node` still the major of the Node runtime in CI? If a pin can move, lift it in that milestone's first pull request.
+- At the start of each milestone, review the held tool versions (decisions 0013 and 0014): can TypeScript move up (does typescript-eslint support 6.1 or later?), is `@types/node` still the major of the Node runtime in CI, and is `eslint-plugin-jsx-a11y-x` still being released? If a pin can move, lift it in that milestone's first pull request.
 - Before writing code for a task, give a short plan: files to create or change, and which requirement IDs they satisfy. Wait for approval on anything larger than a single task.
 - Write tests with the code (spec section 13). Backend tests never call the real MusicBrainz API; use WireMock.Net recordings.
 - Never exceed external rate limits. All MusicBrainz calls go through the shared rate gate (spec sections 5 and 10).

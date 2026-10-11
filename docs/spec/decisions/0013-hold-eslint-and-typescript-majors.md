@@ -1,6 +1,6 @@
 # 0013. Hold ESLint at 9, TypeScript at 6.0 and @types/node at the runtime's major, and review at each milestone
 
-- **Status:** Accepted
+- **Status:** Accepted. The ESLint hold and the rejection of replacing the accessibility plugin are superseded by [0014](0014-eslint-10-and-jsx-a11y-x.md); the TypeScript hold and the `@types/node` rule still stand.
 - **Date:** 2026-10-11 (amended the same day: `@types/node` added after Dependabot proposed version 26)
 - **Spec:** decision 0001, principle 7 (accessibility), section 13 (CI)
 
