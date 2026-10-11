@@ -25,8 +25,8 @@ public class CrawlWorkerTests
         var span = await heartbeat.Task.WaitAsync(TimeSpan.FromSeconds(5), ct);
         await worker.StopAsync(ct);
 
-        Assert.Equal("worker.heartbeat", span.OperationName);
-        Assert.Equal(nameof(CrawlWorker), span.GetTagItem("worker.name"));
+        span.OperationName.Should().Be("worker.heartbeat");
+        span.GetTagItem("worker.name").Should().Be(nameof(CrawlWorker));
     }
 
     [Fact]
@@ -39,6 +39,7 @@ public class CrawlWorkerTests
         await worker.StopAsync(ct).WaitAsync(TimeSpan.FromSeconds(5), ct);
 
         // The heartbeat interval is 30 s, so finishing well inside the 5 s timeout shows the delay was cancelled, not waited out.
-        Assert.True(worker.ExecuteTask is { IsCompleted: true });
+        worker.ExecuteTask.Should().NotBeNull();
+        worker.ExecuteTask!.IsCompleted.Should().BeTrue();
     }
 }

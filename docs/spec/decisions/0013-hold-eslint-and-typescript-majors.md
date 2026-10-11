@@ -33,3 +33,18 @@ Decision 0001 left two tools one major version behind on purpose. `eslint-plugin
 - The ignore rules live in `.github/dependabot.yml` and name this decision, so removing them is a conscious step.
 - `@types/node` follows one number, the `node-version` in the workflow, so there is one place to change when the runtime moves.
 - The review is one line in the milestone start checklist (CLAUDE.md).
+
+## Review log
+
+### M2 start (2026-10-11)
+
+| Question | Finding (checked against the npm registry and eslint.org on this date) |
+| --- | --- |
+| Does `eslint-plugin-jsx-a11y` declare ESLint 10? | No. Version 6.10.2 is the latest, published 2024-10-26, and its peer range stops at ESLint 9. |
+| Does typescript-eslint support TypeScript 6.1 or later? | No. Version 8.71.1, and its canary build, accept `>=4.8.4 <6.1.0`. TypeScript's latest release is 7.0.2. |
+| Is ESLint 9 still supported? | **No.** ESLint 9 reached end of life on 2026-08-06, before this decision was made; npm marks 9.39.5 as deprecated. ESLint 10 is the current line. |
+| Is there a maintained accessibility plugin that supports ESLint 10? | One candidate: `eslint-plugin-jsx-a11y-x` 0.2.0 (published 2026-05-10 under the `es-tooling` organisation), a fork of `eslint-plugin-jsx-a11y` whose peer range is `^9 || ^10`. It is pre-1.0. |
+
+Trial, in a scratch checkout, not committed: ESLint 10.12.0, `@eslint/js` 10.0.1 and `eslint-plugin-jsx-a11y-x` 0.2.0, with the plugin import and `configs.recommended` swapped in `web/eslint.config.js`. A file with an image without `alt`, a clickable `div` and an anchor with `href="#"` produced the same four findings as the current setup, and lint, typecheck and all 18 tests passed.
+
+Outcome: the TypeScript pin stays. The ESLint pin **could** move, but only by replacing the accessibility plugin, which is the alternative rejected above when no maintained replacement could be confirmed. That premise has changed, so the choice is open and is put to the developer as a decision, not made as part of the milestone-start check.

@@ -26,8 +26,8 @@ public class StatusEndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>
         var response = await client.GetAsync("/api/v1/status/crawl", ct);
         var body = await response.Content.ReadFromJsonAsync<CrawlStatusResponse>(ct);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal(2, body?.QueueDepth);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        body?.QueueDepth.Should().Be(2);
     }
 
     [Fact]
@@ -39,7 +39,7 @@ public class StatusEndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         var body = await client.GetFromJsonAsync<CrawlStatusResponse>("/api/v1/status/crawl", ct);
 
-        Assert.Equal(new CrawlStatusResponse(0, null, null), body);
+        body.Should().Be(new CrawlStatusResponse(0, null, null));
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public class StatusEndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>
         using var document = JsonDocument.Parse(json);
 
         var path = document.RootElement.GetProperty("paths").GetProperty("/api/v1/status/crawl");
-        Assert.True(path.TryGetProperty("get", out _));
+        path.TryGetProperty("get", out _).Should().BeTrue();
     }
 
     private static CrawlJob NewJob(int target, CrawlJobStatus status) => new()
