@@ -18,7 +18,7 @@ window.matchMedia = (query: string): MediaQueryList => ({
 
 // "error" makes a request with no matching handler fail the test, so no test can silently reach a real server.
 beforeAll(() => {
-  server.listen({ onUnhandledRequest: 'error' })
+  server.listen({ onUnhandledFrame: 'error' })
 })
 
 // Vitest does not clean up between tests on its own (unlike Jest with globals), and MUI remembers the chosen mode in localStorage.
