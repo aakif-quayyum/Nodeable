@@ -250,6 +250,16 @@ Solid arrows carry requests and data; dashed arrows carry telemetry to the Colle
 6. The Worker publishes `CreditsResolved` and `HubsUpdated` through SignalR, using the Redis backplane, to every client in the graph's group.
 7. The browser merges each event into the TanStack Query cache, and new nodes animate into the graph.
 
+### How the queue works (implemented in M2)
+
+- **One table, no broker.** `crawl_jobs` is the queue (PostgreSQL), so a job survives the restart of any service (NFR-REL-01).
+- **Adding a job.** `INSERT ... ON CONFLICT DO NOTHING` against the partial unique index, so the same fetch is never queued twice while it is pending or running. If a person asks for something a background refresh already queued, the waiting job takes the higher priority; it is never lowered. The current trace context is stored in `traceparent`.
+- **Claiming a job.** One statement: `UPDATE ... WHERE id = (SELECT ... WHERE status = 'pending' AND run_after <= now() ORDER BY priority DESC, run_after ASC LIMIT 1 FOR UPDATE SKIP LOCKED) RETURNING *`. A worker skips a row another worker is claiming instead of waiting, so any number of workers can pull from the table. Each claim counts an attempt, and every time comparison uses the database's clock, so machines with skewed clocks agree.
+- **Finishing.** Done, or failed with the error kept in `last_error`. Completing and failing are guarded by `locked_by`, so a worker that was too slow cannot overwrite the claim of the worker that took its job over.
+- **Retries of a whole job (not the HTTP retries of NFR-RATE-03).** 5 attempts, waiting 30 seconds before the second and doubling each time (capped at 15 minutes, spread by up to 20% either way). A kind with no handler fails at once.
+- **Shutdown and crashes.** A worker that is stopping hands its job back without counting the attempt. A job still `running` after 10 minutes belongs to a worker that died: every worker looks for these each minute and puts them back, or fails them when they have used their attempts, so a job that keeps killing its worker cannot loop for ever.
+- **Priorities.** Interactive 100, scheduled 10. A worker processes one job at a time; run more Worker instances for more throughput, and the rate gate keeps them within the MusicBrainz limit.
+
 ### Flow: scheduled work
 
 - Hangfire runs producer radar checks and stale-cache refreshes, spreading individual checks at random times across the day as MusicBrainz asks.
@@ -414,7 +424,7 @@ Each step is a separate `crawl_jobs` row, so a failure retries only that step. T
 - **Retries.** 503 and 429 are retried up to 5 times with exponential backoff from 2 seconds and jitter; a `Retry-After` header replaces the calculated delay. Network failures and a timed-out attempt are retried the same way. Other errors, such as 400, are not. After the last retry the call fails with `MusicBrainzException` carrying the status and MusicBrainz's own message.
 - **Not found.** A 404 for an MBID returns `null`, not an error. MusicBrainz redirects merged MBIDs by itself.
 - **Strict parsing.** A response missing a field the typed model requires fails the call, so a changed API shows up as an error and not as nulls in the cache.
-- **Telemetry.** A `musicbrainz.fetch` client span per call (`mb.entity`, `mb.inc`, `http.response.status_code`), a `ratelimit.acquire` span per attempt (`ratelimit.source`, `ratelimit.wait_ms`), and the `external.requests` counter per HTTP attempt. The per-kind `crawl.queue.wait` histogram is recorded by the job queue, which knows the kind.
+- **Telemetry.** A `musicbrainz.fetch` client span per call (`mb.entity`, `mb.inc`, `http.response.status_code`), a `ratelimit.acquire` span per attempt (`ratelimit.source`, `ratelimit.wait_ms`), and the `external.requests` counter per HTTP attempt. The time spent waiting for the gate is also the `ratelimit.wait` histogram.
 
 ### Role mapping
 
@@ -446,7 +456,7 @@ One trace follows a user's click from the browser, through the API, into the que
 | --- | --- | --- |
 | `HTTP POST /api/v1/graphs/{id}/songs` | Server (automatic) | `graph.id`, `recording.mbid` |
 | `crawl.enqueue` | Internal | `crawl.kind`, `crawl.target_mbid`, `crawl.deduplicated` |
-| `crawl.job` | Consumer, linked to the enqueuing trace through `traceparent` | `crawl.kind`, `crawl.attempt`, `crawl.queue_wait_ms` |
+| `crawl.job` | Consumer; a child of the `crawl.enqueue` span, restored from the stored `traceparent`, so the job is in the same trace as the request that queued it | `crawl.kind`, `crawl.attempt`, `crawl.queue_wait_ms`, `crawl.target_mbid` |
 | `ratelimit.acquire` | Internal | `ratelimit.source`, `ratelimit.wait_ms` |
 | `musicbrainz.fetch` | Client (HTTP automatic, enriched) | `mb.entity`, `mb.inc`, `http.response.status_code`, `cache.hit` |
 | `credits.persist` | Internal | `credits.inserted`, `credits.duplicates` |
@@ -461,7 +471,8 @@ The browser SDK starts traces for searches and song additions and sends `tracepa
 | --- | --- | --- | --- |
 | `crawl.queue.depth` | Gauge | `kind`, `status` | Backlog alerting and the About page |
 | `crawl.job.duration` | Histogram | `kind`, `outcome` | Job latency |
-| `crawl.queue.wait` | Histogram | `kind` | Time spent waiting for the rate gate |
+| `crawl.queue.wait` | Histogram | `kind` | Time a job was ready to run before a worker claimed it |
+| `ratelimit.wait` | Histogram | `source` | Time a request waited for its slot in the shared rate gate |
 | `external.requests` | Counter | `source`, `status_code` | Rate limit and error tracking |
 | `cache.lookups` | Counter | `entity`, `result` (hit, miss, stale) | Cache hit ratio |
 | `graph.time_to_first_hub` | Histogram | `cached` (true, false) | The headline user-facing metric |
@@ -668,7 +679,7 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [x] MusicBrainz client with User-Agent and typed responses (FR-SEARCH-01)
 - [x] Redis token-bucket rate gate shared by all instances (NFR-RATE-01)
 - [x] Resilience pipeline for 503 and 429 with backoff and jitter (NFR-RATE-03)
-- [ ] `crawl_jobs` queue with `SKIP LOCKED` claiming and trace context propagation (NFR-REL-01)
+- [x] `crawl_jobs` queue with `SKIP LOCKED` claiming and trace context propagation (NFR-REL-01)
 - [ ] Role mapping and credit upserts for recording, work and release levels (FR-GRAPH-03)
 - [ ] Integration tests with Testcontainers and WireMock.Net recordings
 - [x] Store partial MusicBrainz dates with a precision column (decision 0008)
