@@ -648,7 +648,7 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [x] Add PostgreSQL and Redis to the AppHost; first EF Core migration with all MVP tables (section 8)
 - [x] Scaffold the Vite + TypeScript + MUI app with the studio theme and routing
 - [x] Generate OpenAPI types into `web/src/api`
-- [ ] GitHub Actions: build, test, lint for both halves (workflow added; tick after its first green run on GitHub)
+- [x] GitHub Actions: build, test, lint for both halves
 - [x] OpenTelemetry wired in Api, Worker and the browser; one trace visible end to end
 
 ### M2 Ingestion (3 weeks)
