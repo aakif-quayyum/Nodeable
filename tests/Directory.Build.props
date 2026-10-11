@@ -11,9 +11,12 @@
   <ItemGroup>
     <!-- Global "using Xunit;" for every test file, like the xUnit templates do. -->
     <Using Include="Xunit" />
+    <!-- Makes the .Should() extension methods available in every test file (decision 0012). -->
+    <Using Include="AwesomeAssertions" />
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio">

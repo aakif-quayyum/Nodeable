@@ -15,8 +15,8 @@ public class HealthEndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         var response = await client.GetAsync("/alive", TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("Healthy", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Should().Be("Healthy");
     }
 
     // WebApplicationFactory runs in the Development environment, where the full readiness report is mapped.
@@ -28,8 +28,8 @@ public class HealthEndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         var response = await client.GetAsync("/health", TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-        Assert.Equal("Healthy", await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken));
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await response.Content.ReadAsStringAsync(TestContext.Current.CancellationToken)).Should().Be("Healthy");
     }
 
     [Fact]
@@ -39,6 +39,6 @@ public class HealthEndpointTests(ApiFactory factory) : IClassFixture<ApiFactory>
 
         var response = await client.GetAsync("/does-not-exist", TestContext.Current.CancellationToken);
 
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 }
