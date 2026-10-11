@@ -781,6 +781,9 @@ Raised while building M1 and decided on 2026-10-11 (each has a decision record, 
 | 2026-10-11 | Backend assertions use AwesomeAssertions, not FluentAssertions ([0012](decisions/0012-awesomeassertions.md)) | Same syntax, Apache-2.0 licence, no commercial-licence question for a portfolio project |
 | 2026-10-11 | Hold ESLint at 9 and TypeScript at 6.0; keep `@types/node` on the runtime's major (24); Dependabot ignores those majors; review at each milestone start ([0013](decisions/0013-hold-eslint-and-typescript-majors.md)) | The accessibility plugin and typescript-eslint do not support newer majors yet, and the Node types must match the Node runtime; upgrades should be deliberate |
 | 2026-10-11 | Move to ESLint 10 and replace the accessibility plugin with the maintained fork `eslint-plugin-jsx-a11y-x`; supersedes the ESLint part of 0013 ([0014](decisions/0014-eslint-10-and-jsx-a11y-x.md)) | ESLint 9 reached end of life on 2026-08-06 and `eslint-plugin-jsx-a11y` has not been released since 2024-10-26; the fork has identical recommended rules and a regression test guards it |
+| 2026-10-12 | A recording's credits status is derived from the roles credited: complete (producer and songwriter), partial (something), none ([0015](decisions/0015-credits-status-rule.md)) | Section 8 listed the values but not their meaning; FR-GRAPH-04 and the cache decision both depend on it |
+| 2026-10-12 | MusicBrainz requests go through a Redis token bucket placed inside the retry, replacing the default resilience handler ([0016](decisions/0016-musicbrainz-request-pipeline.md)) | A retry is a new request and must wait for its own slot; N Workers must share one budget |
+| 2026-10-12 | The crawl queue is a PostgreSQL table claimed with SKIP LOCKED, with guarded updates and stale-job recovery ([0017](decisions/0017-crawl-queue-on-postgresql.md)) | Reliability without a broker at one request per second; inspectable with SQL |
 
 ## 16. Learning guides
 
