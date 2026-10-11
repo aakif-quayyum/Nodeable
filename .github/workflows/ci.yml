@@ -46,6 +46,22 @@ jobs:
       - name: Test
         run: dotnet test --no-build --configuration Release
 
+      # Spec section 13, CI step 2: Domain holds the rules (role mapping, dates, later scoring and path search), so it
+      # must stay at or above 80% line coverage. Its tests are fast and need no containers, so they run again here with
+      # a coverage report; the report is then read by a small script that fails the build under the minimum.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - name: Test the coverage gate
+        run: node --test "tools/ci/*.test.mjs"
+
+      - name: Domain coverage gate (80%)
+        run: |
+          dotnet test --project tests/Nodeable.Domain.Tests --no-build --configuration Release \
+            --coverage --coverage-output-format cobertura --coverage-output "$PWD/coverage/domain.cobertura.xml"
+          node tools/ci/check-coverage.mjs coverage/domain.cobertura.xml Nodeable.Domain 80
+
       # NFR-SEC-04. `dotnet list package` exits 0 even when it finds advisories, so the output is checked.
       - name: Check NuGet packages for known vulnerabilities
         run: |

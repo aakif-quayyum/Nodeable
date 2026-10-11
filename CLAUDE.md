@@ -54,6 +54,7 @@ Use the guide ID for the current milestone (LG-01 for M1, LG-02 for M2, and so o
 - Run everything: `dotnet run --project src/Nodeable.AppHost` (Docker must be running)
 - Backend tests: `dotnet test`
 - Frontend tests: `cd web && npm test`
+- Domain coverage gate (CI runs it; needs no Docker): `dotnet test --project tests/Nodeable.Domain.Tests --coverage --coverage-output-format cobertura --coverage-output coverage/domain.cobertura.xml`, then `node tools/ci/check-coverage.mjs coverage/domain.cobertura.xml Nodeable.Domain 80`
 - Regenerate the web app's API types: `cd web && npm run gen:api`
 - Check LEARN anchors (format and unique ids): `node tools/learning/collect-anchors.mjs --check`
 - Code map for a guide: `tools/learning/collect-anchors LG-xx` (PowerShell: `node tools/learning/collect-anchors.mjs LG-xx`)
