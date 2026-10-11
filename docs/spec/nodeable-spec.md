@@ -746,7 +746,7 @@ Raised while building M1 and decided on 2026-10-11 (each has a decision record, 
 | 2026-10-11 | The `other` role is shown in neutral grey with a generic icon, labelled from `detail`, with its own filter chip ([0010](decisions/0010-other-role-is-shown-neutrally.md)) | Principle 5: incomplete data is shown, never hidden; promote common types once there is real data |
 | 2026-10-11 | From M3 the local PostgreSQL uses a data volume with its password remembered in user secrets, with a documented reset ([0011](decisions/0011-persistent-local-database.md)) | Re-fetching at one request per second makes losing the cache on every restart expensive; falls back to a seed script if the password cannot be remembered |
 | 2026-10-11 | Backend assertions use AwesomeAssertions, not FluentAssertions ([0012](decisions/0012-awesomeassertions.md)) | Same syntax, Apache-2.0 licence, no commercial-licence question for a portfolio project |
-| 2026-10-11 | Hold ESLint at 9 and TypeScript at 6.0; Dependabot ignores those majors; review at each milestone start ([0013](decisions/0013-hold-eslint-and-typescript-majors.md)) | The accessibility plugin and typescript-eslint do not support newer majors yet; upgrades should be deliberate |
+| 2026-10-11 | Hold ESLint at 9 and TypeScript at 6.0; keep `@types/node` on the runtime's major (24); Dependabot ignores those majors; review at each milestone start ([0013](decisions/0013-hold-eslint-and-typescript-majors.md)) | The accessibility plugin and typescript-eslint do not support newer majors yet, and the Node types must match the Node runtime; upgrades should be deliberate |
 
 ## 16. Learning guides
 
