@@ -1,0 +1,24 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
+
+namespace Nodeable.Infrastructure.Telemetry;
+
+/// <summary>
+/// The spans and metrics of the code that talks to external services (spec section 11). ServiceDefaults subscribes to
+/// every source and meter named "Nodeable.*", so adding an <see cref="ActivitySource"/> here is all it takes to export.
+/// </summary>
+internal static class InfrastructureTelemetry
+{
+    public const string Name = "Nodeable.Infrastructure";
+
+    // LEARN: LG-02 activity-source | An ActivitySource is .NET's tracer: StartActivity returns null when nobody is listening, so tracing costs nothing until an exporter subscribes
+    public static readonly ActivitySource ActivitySource = new(Name);
+
+    private static readonly Meter _meter = new(Name);
+
+    /// <summary>One count per HTTP attempt to an external API, so retries are visible (the 503 SLO in spec section 11).</summary>
+    public static readonly Counter<long> ExternalRequests = _meter.CreateCounter<long>(
+        "external.requests",
+        unit: "{request}",
+        description: "Requests sent to external APIs, by source and HTTP status code (\"error\" when no response arrived).");
+}

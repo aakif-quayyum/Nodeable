@@ -6,10 +6,18 @@
 
   <ItemGroup>
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.Redis" />
+    <PackageReference Include="WireMock.Net" />
   </ItemGroup>
 
   <ItemGroup>
     <Compile Include="..\Shared\PostgresFixture.cs" Link="PostgresFixture.cs" />
+    <Compile Include="..\Shared\RedisFixture.cs" Link="RedisFixture.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Real MusicBrainz responses, served by WireMock. Tests never call the real API (CLAUDE.md working rules). -->
+    <None Include="Fixtures\**\*.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

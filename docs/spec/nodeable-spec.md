@@ -404,7 +404,17 @@ MusicBrainz is the primary source for all credit data; Discogs fills gaps, Deeze
 4. `GET /ws/2/release/{releaseMbid}?inc=artist-rels` only when steps 2 and 3 found no producer.
 5. `GET /ws/2/artist/{mbid}?inc=recording-rels+work-rels` when a user opens a person drawer.
 
-Each step is a separate `crawl_jobs` row, so a failure retries only that step. The Api queues only the recording job: the work and release IDs and the ISRC are only known from its response, and the release step is conditional, so the Worker queues steps 3 and 4 and the preview job itself (decision 0009). The User-Agent is `Nodeable/{version} ( {contact-email} )`, the format MusicBrainz asks for.
+Each step is a separate `crawl_jobs` row, so a failure retries only that step. The Api queues only the recording job: the work and release IDs and the ISRC are only known from its response, and the release step is conditional, so the Worker queues steps 3 and 4 and the preview job itself (decision 0009). The User-Agent is `Nodeable/{version} ( {contact} )`, the format MusicBrainz asks for. The contact is a URL or an email address and comes from configuration (`MusicBrainz:ContactUrl`); it is the repository URL, so no personal address is published, and the app refuses to start without one.
+
+### How the client calls MusicBrainz (implemented in M2)
+
+- **One typed client, one pipeline.** Every call goes through `IMusicBrainzClient`. An `HttpClient` pipeline wraps it, outermost first: a total timeout (5 minutes), retry, the rate gate, a request counter, and then the network. A per-attempt timeout (30 seconds, which includes the wait for the gate) sits inside the retry.
+- **The gate is inside the retry.** A retry after a 503 is a new request and waits for its own slot, so retries cannot push the system over 1 request per second (NFR-RATE-01 and NFR-RATE-03 together).
+- **Rate gate.** A token bucket in Redis (the single-number GCRA form), run as one Lua script so concurrent instances cannot take the same slot, using Redis's own clock. Defaults: one request per second, burst of 1. A caller that would have to wait more than 20 seconds is refused with `RateGateSaturatedException` instead of queueing without a limit; the job queue retries the job later.
+- **Retries.** 503 and 429 are retried up to 5 times with exponential backoff from 2 seconds and jitter; a `Retry-After` header replaces the calculated delay. Network failures and a timed-out attempt are retried the same way. Other errors, such as 400, are not. After the last retry the call fails with `MusicBrainzException` carrying the status and MusicBrainz's own message.
+- **Not found.** A 404 for an MBID returns `null`, not an error. MusicBrainz redirects merged MBIDs by itself.
+- **Strict parsing.** A response missing a field the typed model requires fails the call, so a changed API shows up as an error and not as nulls in the cache.
+- **Telemetry.** A `musicbrainz.fetch` client span per call (`mb.entity`, `mb.inc`, `http.response.status_code`), a `ratelimit.acquire` span per attempt (`ratelimit.source`, `ratelimit.wait_ms`), and the `external.requests` counter per HTTP attempt. The per-kind `crawl.queue.wait` histogram is recorded by the job queue, which knows the kind.
 
 ### Role mapping
 
@@ -570,6 +580,7 @@ How the layers run in practice (M1):
 
 - Backend tests use **xUnit v3**, which needs `global.json` to opt in to the Microsoft Testing Platform (`"test": { "runner": "Microsoft.Testing.Platform" }`) on the .NET 10 SDK. `dotnet test` from the repository root runs every project.
 - Integration tests start a real PostgreSQL 18 container with Testcontainers, so **Docker must be running**. One container is shared by each test project (an xUnit assembly fixture) and every test gets its own database.
+- MusicBrainz is never called by tests. WireMock.Net serves real responses captured once from MusicBrainz at no more than 1 request per second (`tests/Nodeable.Infrastructure.Tests/Fixtures/musicbrainz`, with a README listing each request); the rate gate tests run its Lua script on a real Redis container, with two connections standing in for two service instances.
 - Frontend tests use Vitest with MSW: the real client and components run against a fake Api, and any request without a matching handler fails the test.
 - Backend assertions use **AwesomeAssertions**, a free fork of FluentAssertions 7 with the same `.Should()` syntax; FluentAssertions 8 and later is commercially licensed (decision 0012). The package was added in M2 (decision 0012) and every backend test project uses it.
 
@@ -654,9 +665,9 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 
 ### M2 Ingestion (3 weeks)
 
-- [ ] MusicBrainz client with User-Agent and typed responses (FR-SEARCH-01)
-- [ ] Redis token-bucket rate gate shared by all instances (NFR-RATE-01)
-- [ ] Resilience pipeline for 503 and 429 with backoff and jitter (NFR-RATE-03)
+- [x] MusicBrainz client with User-Agent and typed responses (FR-SEARCH-01)
+- [x] Redis token-bucket rate gate shared by all instances (NFR-RATE-01)
+- [x] Resilience pipeline for 503 and 429 with backoff and jitter (NFR-RATE-03)
 - [ ] `crawl_jobs` queue with `SKIP LOCKED` claiming and trace context propagation (NFR-REL-01)
 - [ ] Role mapping and credit upserts for recording, work and release levels (FR-GRAPH-03)
 - [ ] Integration tests with Testcontainers and WireMock.Net recordings
