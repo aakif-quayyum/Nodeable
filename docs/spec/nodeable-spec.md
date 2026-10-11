@@ -417,7 +417,7 @@ Each step is a separate `crawl_jobs` row, so a failure retries only that step. T
 | `instrument` (detail from attributes, for example "bass guitar") | Instrument |
 | `vocal` (detail from attributes, for example "background vocals") | Vocal |
 
-Unmapped relationship types are stored with role `Other` and their raw type in `detail`, so nothing is lost.
+Unmapped relationship types are stored with role `Other` and their raw type in `detail`, so nothing is lost. Matching ignores case. When a relationship has several attributes they are joined in alphabetical order with duplicates removed, so reading the same relationship twice gives the same `detail` and the credits unique index keeps re-crawls idempotent.
 
 ### Constraints that shape the spec
 
@@ -571,7 +571,7 @@ How the layers run in practice (M1):
 - Backend tests use **xUnit v3**, which needs `global.json` to opt in to the Microsoft Testing Platform (`"test": { "runner": "Microsoft.Testing.Platform" }`) on the .NET 10 SDK. `dotnet test` from the repository root runs every project.
 - Integration tests start a real PostgreSQL 18 container with Testcontainers, so **Docker must be running**. One container is shared by each test project (an xUnit assembly fixture) and every test gets its own database.
 - Frontend tests use Vitest with MSW: the real client and components run against a fake Api, and any request without a matching handler fails the test.
-- Backend assertions use **AwesomeAssertions**, a free fork of FluentAssertions 7 with the same `.Should()` syntax; FluentAssertions 8 and later is commercially licensed (decision 0012). The package is added in M2 with the first role-mapping tests; until then the tests use xUnit's `Assert`.
+- Backend assertions use **AwesomeAssertions**, a free fork of FluentAssertions 7 with the same `.Should()` syntax; FluentAssertions 8 and later is commercially licensed (decision 0012). The package was added in M2 (decision 0012) and every backend test project uses it.
 
 ### Repository layout
 
@@ -606,6 +606,7 @@ nodeable/
     spec/decisions/                Architecture decision records
     learning/                      Learning guides (Markdown) and pdf/ output
   tools/learning/                  collect-anchors and build scripts
+  tools/ci/                        CI helper scripts (coverage gate)
 ```
 
 ### CI pipeline (GitHub Actions)
@@ -617,7 +618,7 @@ nodeable/
 5. Run Playwright end-to-end tests against the composed stack.
 6. On `main`, push images to GitHub Container Registry and deploy.
 
-Implemented in M1 (`.github/workflows/ci.yml`, four parallel jobs): **backend** (restore, Release build with warnings as errors, `dotnet format --verify-no-changes`, tests, NuGet vulnerability check), **web** (`npm ci`, typecheck, ESLint, tests, build, the 250 KB first-load budget, `npm audit`), **api-contract** (regenerate `web/src/api/schema.d.ts` and fail on any difference) and **learning-tools** (anchor script tests and `--check`). Not yet in place: the 80% coverage gate on `Domain` (it has no logic until M2), the OpenAPI diff against `main`, image build and scanning, Playwright, and the deploy step (M4).
+Implemented in M1 (`.github/workflows/ci.yml`, four parallel jobs): **backend** (restore, Release build with warnings as errors, `dotnet format --verify-no-changes`, tests, NuGet vulnerability check), **web** (`npm ci`, typecheck, ESLint, tests, build, the 250 KB first-load budget, `npm audit`), **api-contract** (regenerate `web/src/api/schema.d.ts` and fail on any difference) and **learning-tools** (anchor script tests and `--check`). The backend job also gates `Domain` at 80% line coverage (added in M2, when `Domain` got its first logic): the Domain tests run with a Cobertura report and `tools/ci/check-coverage.mjs` fails the build under the minimum or when the assembly is missing from the report. Not yet in place: the OpenAPI diff against `main`, image build and scanning, Playwright, and the deploy step (M4).
 
 ### Deployment
 
@@ -659,9 +660,9 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [ ] `crawl_jobs` queue with `SKIP LOCKED` claiming and trace context propagation (NFR-REL-01)
 - [ ] Role mapping and credit upserts for recording, work and release levels (FR-GRAPH-03)
 - [ ] Integration tests with Testcontainers and WireMock.Net recordings
-- [ ] Store partial MusicBrainz dates with a precision column (decision 0008)
+- [x] Store partial MusicBrainz dates with a precision column (decision 0008)
 - [ ] The Api queues only the recording job; the Worker queues the work, release and preview jobs (decision 0009)
-- [ ] Add AwesomeAssertions to the backend test projects (decision 0012)
+- [x] Add AwesomeAssertions to the backend test projects (decision 0012)
 
 ### M3 Graph UI (3 weeks)
 
