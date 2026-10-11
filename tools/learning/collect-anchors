@@ -1,0 +1,4 @@
+#!/bin/sh
+# Spec section 16: `tools/learning/collect-anchors LG-01` prints the code map for a learning guide.
+# On Windows PowerShell, run the script directly instead: node tools/learning/collect-anchors.mjs LG-01
+exec node "$(dirname "$0")/collect-anchors.mjs" "$@"

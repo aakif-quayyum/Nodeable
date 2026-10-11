@@ -1,14 +1,8 @@
 <Project>
-  <!--
-    LEARN: LG-01 build-props | Directory.Build.props is picked up automatically by every .csproj below this folder, like a shared base config (think a root tsconfig "extends" or .eslintrc) that you never have to import.
-  -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <LangVersion>latest</LangVersion>
 
-    <!--
-      LEARN: LG-01 nullable | Nullable reference types make the compiler track "can this be null?" in the type system, like TypeScript strictNullChecks. string means never null; string? means maybe null.
-    -->
     <Nullable>enable</Nullable>
 
     <!-- Auto-adds common using directives (System, System.Linq, ...) so files need fewer imports. -->

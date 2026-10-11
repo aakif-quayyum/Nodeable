@@ -6,7 +6,6 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
-// LEARN: LG-01 eslint-flat-config | ESLint's "flat config" is a plain array of config objects; later entries override earlier ones, and each entry can be limited to certain files, so the whole setup reads top to bottom like a middleware chain
 export default defineConfig([
   globalIgnores(['dist', 'src/api/schema.d.ts']),
 

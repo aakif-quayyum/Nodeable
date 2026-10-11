@@ -17,7 +17,6 @@ public static class Extensions
     private const string HealthEndpointPath = "/health";
     private const string AlivenessEndpointPath = "/alive";
 
-    // LEARN: LG-01 extension-method | "this TBuilder builder" makes this a static method that appears on the builder itself (builder.AddServiceDefaults()); the "where" clause works like a TypeScript "extends" generic constraint
     public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder)
         where TBuilder : IHostApplicationBuilder
     {
@@ -26,7 +25,6 @@ public static class Extensions
 
         builder.Services.AddServiceDiscovery();
 
-        // LEARN: LG-01 http-defaults | ConfigureHttpClientDefaults attaches a retry, timeout and circuit-breaker pipeline to every HttpClient; the MusicBrainz client will replace it in M2 (NFR-RATE-03)
         builder.Services.ConfigureHttpClientDefaults(http =>
         {
             http.AddStandardResilienceHandler();
@@ -39,7 +37,6 @@ public static class Extensions
     public static TBuilder ConfigureOpenTelemetry<TBuilder>(this TBuilder builder)
         where TBuilder : IHostApplicationBuilder
     {
-        // LEARN: LG-01 otel-logs | Normal ILogger calls are forwarded to OpenTelemetry, so logs carry the trace and span ID of the request that wrote them (spec section 11)
         builder.Logging.AddOpenTelemetry(logging =>
         {
             logging.IncludeFormattedMessage = true;
@@ -85,7 +82,6 @@ public static class Extensions
     public static TBuilder AddDefaultHealthChecks<TBuilder>(this TBuilder builder)
         where TBuilder : IHostApplicationBuilder
     {
-        // LEARN: LG-01 health-checks | Tags split liveness ("is the process up?") from readiness ("are its dependencies up?"); later checks for PostgreSQL and Redis get no "live" tag
         // The ["live"] syntax is a C# 12 collection expression, much like a JavaScript array literal.
         builder.Services.AddHealthChecks()
             .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"]);

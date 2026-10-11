@@ -1,6 +1,5 @@
 import { createTheme } from '@mui/material/styles'
 
-// LEARN: LG-01 mui-color-schemes | One theme holds both palettes under colorSchemes; MUI turns them into CSS variables and switches by a data attribute, so changing mode restyles the page without re-rendering every component
 // The "studio" look: a near-black control-room surface with amber and cyan accents, and a light variant with the same hues deepened for contrast.
 export const theme = createTheme({
   cssVariables: { colorSchemeSelector: 'data' },

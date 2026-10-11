@@ -1,0 +1,105 @@
+/* Stylesheet for the learning guide PDFs, used by tools/learning/build through Pandoc and WeasyPrint. */
+
+@page {
+  size: A4;
+  margin: 18mm 16mm 20mm 16mm;
+
+  @bottom-center {
+    content: counter(page) " / " counter(pages);
+    font-family: "DejaVu Sans", sans-serif;
+    font-size: 8pt;
+    color: #5b6275;
+  }
+}
+
+html {
+  font-family: "DejaVu Sans", "Segoe UI", system-ui, sans-serif;
+  font-size: 9.5pt;
+  line-height: 1.5;
+  color: #151822;
+}
+
+body {
+  margin: 0;
+}
+
+h1, h2, h3, h4 {
+  line-height: 1.25;
+  break-after: avoid;
+}
+
+h1 { font-size: 20pt; margin: 0 0 4mm; }
+h2 { font-size: 14pt; margin: 9mm 0 3mm; padding-bottom: 1mm; border-bottom: 1px solid #c9ced9; }
+h3 { font-size: 11.5pt; margin: 6mm 0 2mm; }
+
+header#title-block-header {
+  margin-bottom: 8mm;
+  border-bottom: 2px solid #8f5400;
+  padding-bottom: 4mm;
+}
+
+header#title-block-header .title { font-size: 22pt; margin: 0; }
+
+a { color: #006a8e; text-decoration: none; overflow-wrap: anywhere; }
+
+code, pre {
+  font-family: "DejaVu Sans Mono", "Cascadia Mono", Consolas, monospace;
+  font-size: 8pt;
+}
+
+code {
+  background: #f1f2f6;
+  border-radius: 2px;
+  padding: 0 1.5px;
+  overflow-wrap: anywhere;
+}
+
+pre {
+  background: #f6f7fa;
+  border: 1px solid #dde0e8;
+  border-radius: 3px;
+  padding: 3mm;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  break-inside: avoid;
+}
+
+pre code { background: none; padding: 0; }
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 3mm 0 5mm;
+  font-size: 8pt;
+  table-layout: fixed;
+}
+
+th, td {
+  border: 1px solid #c9ced9;
+  padding: 1.5mm 2mm;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+
+th { background: #eceef4; }
+tr { break-inside: avoid; }
+
+blockquote {
+  margin: 3mm 0;
+  padding: 1mm 4mm;
+  border-left: 3px solid #8f5400;
+  background: #fbf5ea;
+}
+
+img { max-width: 100%; height: auto; }
+
+nav#TOC { margin-bottom: 8mm; font-size: 9pt; }
+nav#TOC ul { list-style: none; padding-left: 4mm; }
+
+td:first-child code { overflow-wrap: normal; word-break: normal; }
+
+/* Fixed column shares: the code map (anchor, file and lines, what it does, concept) and the comparison tables read best this way. */
+th:nth-child(1) { width: 19%; }
+th:nth-child(2) { width: 27%; }
+th:nth-child(3) { width: 21%; }

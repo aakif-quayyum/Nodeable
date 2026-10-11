@@ -15,7 +15,6 @@ export const routes: RouteObject[] = [
       // The home route is part of the main bundle: it is what the first paint needs.
       { index: true, Component: HomePage },
 
-      // LEARN: LG-01 route-lazy | `lazy` takes a function that dynamically imports the page; Vite turns each import() into a separate chunk that is downloaded the first time the route is visited (code splitting by route)
       { path: 'about', lazy: () => import('../features/about/AboutPage.tsx') },
 
       { path: '*', Component: NotFoundPage },

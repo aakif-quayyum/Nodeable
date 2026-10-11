@@ -6,7 +6,6 @@ import Settings from '@mui/icons-material/Settings'
 import Tune from '@mui/icons-material/Tune'
 import type { SvgIconComponent } from '@mui/icons-material'
 
-// LEARN: LG-01 as-const-union | `as const` freezes the array into a tuple of literal types, and `(typeof creditRoles)[number]` turns it into the union 'producer' | 'songwriter' | ...; one list is the single source for both the runtime values and the type, so they cannot drift apart
 export const creditRoles = ['producer', 'songwriter', 'mixing', 'engineering', 'instrument', 'vocal'] as const
 
 export type CreditRoleKey = (typeof creditRoles)[number]
@@ -19,7 +18,6 @@ export interface CreditRoleStyle {
   colors: { dark: string; light: string }
 }
 
-// LEARN: LG-01 record-exhaustive | Record<CreditRoleKey, ...> makes the compiler require an entry for every role, so adding a role to the list above without styling it is a type error, not a missing colour at runtime
 export const creditRoleStyles: Record<CreditRoleKey, CreditRoleStyle> = {
   producer: { label: 'Producer', Icon: Tune, colors: { dark: '#f5a524', light: '#8f5400' } },
   songwriter: { label: 'Songwriter', Icon: Edit, colors: { dark: '#ff6b9a', light: '#b8174f' } },

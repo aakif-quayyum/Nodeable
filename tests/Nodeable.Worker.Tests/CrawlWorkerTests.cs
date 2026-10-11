@@ -11,7 +11,6 @@ public class CrawlWorkerTests
         var ct = TestContext.Current.CancellationToken;
         var heartbeat = new TaskCompletionSource<Activity>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // LEARN: LG-01 activity-listener | An ActivityListener is how a test (or an OpenTelemetry exporter) subscribes to spans from a named ActivitySource, so tracing can be asserted without any backend
         using var listener = new ActivityListener
         {
             ShouldListenTo = source => source.Name == CrawlWorker.ActivitySourceName,

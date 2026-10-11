@@ -18,7 +18,6 @@ function formatRatio(ratio: number | null) {
 }
 
 // The architecture diagram and the full live crawl panel arrive in M4 (FR-ABOUT-01).
-// LEARN: LG-01 default-export-lazy | The router loads this module only when /about is visited, and a lazy route needs the page as a named `Component` export; that is what puts About in its own JavaScript chunk instead of the main bundle (ADR 0002)
 export function Component() {
   const status = useCrawlStatus()
 

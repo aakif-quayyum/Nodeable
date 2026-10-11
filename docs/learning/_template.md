@@ -31,11 +31,15 @@ Browser ──► Api ──► PostgreSQL
 ## 3. Code map
 
 Generated with `tools/learning/collect-anchors LG-xx`. Links point to the commit above, so they never go stale.
+Do not edit between the two markers: `tools/learning/build` replaces the table with a fresh one pinned to the release commit every time the PDF is built.
+
+<!-- code-map:start -->
 
 | Anchor | File and lines | What it does | Concept it teaches |
 | --- | --- | --- | --- |
 | `<short-id>` | [`src/Nodeable.Api/Program.cs#L10-L24`](<permalink>) | | |
-| | | | |
+
+<!-- code-map:end -->
 
 ## 4. Annotated walkthrough
 

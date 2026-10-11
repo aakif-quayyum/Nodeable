@@ -1,7 +1,6 @@
 using Npgsql;
 using Testcontainers.PostgreSql;
 
-// LEARN: LG-01 assembly-fixture | An assembly fixture is built once for the whole test project, so one PostgreSQL container serves every test class; xUnit v3 injects it into test and fixture constructors, like a Jest globalSetup whose result is passed in
 [assembly: AssemblyFixture(typeof(Nodeable.Tests.Containers.PostgresFixture))]
 
 namespace Nodeable.Tests.Containers;
