@@ -123,6 +123,22 @@ describe('prepareGuide', () => {
     assert.ok(result.includes('## 4. Walkthrough'), 'text after the code map is kept')
   })
 
+  it('does not re-label a guide that already names an earlier release', () => {
+    const earlier = guide.replace('<git tag, e.g. v0.1.0>', 'v0.1.0')
+
+    const result = prepareGuide(earlier, { table: '| t |', sha: 'abc123', tag: 'v0.2.0' })
+
+    assert.match(result, /^release: "v0.1.0"$/m)
+    assert.match(result, /^commit: "abc123"$/m, 'the code map links are still pinned to the tagged commit')
+  })
+
+  it('sets the release on a guide that carries the same tag or a placeholder', () => {
+    const same = guide.replace('<git tag, e.g. v0.1.0>', 'v0.2.0')
+
+    assert.match(prepareGuide(same, { table: '| t |', sha: 'abc123', tag: 'v0.2.0' }), /^release: "v0.2.0"$/m)
+    assert.match(prepareGuide(guide, { table: '| t |', sha: 'abc123', tag: 'v0.2.0' }), /^release: "v0.2.0"$/m)
+  })
+
   it('keeps the release placeholder when no tag is given', () => {
     const result = prepareGuide(guide, { table: '| t |', sha: 'abc' })
 

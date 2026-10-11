@@ -47,6 +47,9 @@ export function setFrontMatter(markdown, key, value) {
 /**
  * Returns the guide with its code map regenerated and `commit` (and `release`) set. Nothing else changes, so the
  * result is safe to write back over the committed Markdown (`--write`). Running it twice gives the same text.
+ *
+ * `release` is set from `tag` only when the guide does not already name a different released version. A tag build
+ * runs over every guide (`--all`), and a guide for an earlier milestone must keep saying which release it describes.
  * @param {string} markdown the guide as written
  * @param {{ table: string, sha: string, tag?: string }} options
  */
@@ -59,8 +62,16 @@ export function updateGuide(markdown, { table, sha, tag }) {
 
   let updated = `${markdown.slice(0, start + CODE_MAP_START.length)}\n\n${table}\n\n${markdown.slice(end)}`
   updated = setFrontMatter(updated, 'commit', sha)
-  if (tag) updated = setFrontMatter(updated, 'release', tag)
+  if (tag && mayTakeRelease(markdown, tag)) updated = setFrontMatter(updated, 'release', tag)
   return updated
+}
+
+/** False when the guide's front matter already names a released version other than `tag`. */
+function mayTakeRelease(markdown, tag) {
+  const front = FRONT_MATTER.exec(markdown)
+  const current = front ? /^release:\s*"([^"]*)"/m.exec(front[1])?.[1] : undefined
+  const isVersion = current !== undefined && /^v\d+\.\d+\.\d+/.test(current)
+  return !isVersion || current === tag
 }
 
 /** The guide as Pandoc should see it: updated, then stripped of what only belongs in the Markdown. */
