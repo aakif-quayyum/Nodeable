@@ -14,7 +14,8 @@ public static class ReleaseSelector
     /// </summary>
     public static Guid? Earliest(IEnumerable<(Guid Id, DateOnly? Date)> releases)
     {
-        // LEARN: LG-02 linq-order-stable | LINQ's OrderBy is stable, so releases with the same date keep the order MusicBrainz sent them in; a null date is mapped to the maximum so undated releases sort last without a special case
+        // OrderBy is stable, so releases with the same date keep the order MusicBrainz sent them in. A missing date
+        // is mapped to the largest date, so undated releases sort last without a special case.
         var chosen = releases
             .OrderBy(r => r.Date ?? DateOnly.MaxValue)
             .Select(r => (Guid?)r.Id)
