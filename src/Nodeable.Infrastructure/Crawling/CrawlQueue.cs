@@ -6,6 +6,7 @@ using Nodeable.Domain.Entities;
 using Nodeable.Domain.Enums;
 using Nodeable.Infrastructure.Persistence;
 using Nodeable.Infrastructure.Telemetry;
+using OpenTelemetry;
 
 namespace Nodeable.Infrastructure.Crawling;
 
@@ -62,6 +63,11 @@ public sealed class CrawlQueue(NodeableDbContext db, IOptions<CrawlOptions> opti
 
     public async Task<CrawlJob?> ClaimNextAsync(string workerId, CancellationToken cancellationToken = default)
     {
+        // A worker polls every second and most polls find nothing. Left alone, each poll becomes a trace of its own
+        // (about one a second: 204 after three and a half minutes, measured) and buries the traces that matter, so instrumentation is switched off for
+        // housekeeping queries. The crawl.job span records what a claim found.
+        using var suppressed = SuppressInstrumentationScope.Begin();
+
         // LEARN: LG-02 skip-locked | FOR UPDATE SKIP LOCKED makes each worker pass over rows another worker is already claiming instead of waiting on them, so any number of workers can pull from one table without a broker, and the claim is a single atomic UPDATE
         var claimed = db.CrawlJobs
             .FromSql(
@@ -143,6 +149,9 @@ public sealed class CrawlQueue(NodeableDbContext db, IOptions<CrawlOptions> opti
 
     public async Task<int> RecoverStaleAsync(CancellationToken cancellationToken = default)
     {
+        // Housekeeping, run every minute by every worker: not worth a trace of its own (see ClaimNextAsync).
+        using var suppressed = SuppressInstrumentationScope.Begin();
+
         var lockTimeoutSeconds = _options.LockTimeout.TotalSeconds;
         var maxAttempts = _options.MaxAttempts;
 

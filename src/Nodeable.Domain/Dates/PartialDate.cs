@@ -15,7 +15,6 @@ public readonly record struct PartialDate(DateOnly Date, DatePrecision Precision
     /// Reads "1995", "1995-03" or "1995-03-07". Anything else (empty, wrong length, month 13, 30 February) is
     /// not a date, and the caller stores no date rather than a wrong one.
     /// </summary>
-    // LEARN: LG-02 try-parse | The TryParse pattern returns a bool and hands the value back through an out parameter, so bad input is an ordinary result, not an exception thrown on a hot path
     public static bool TryParse(string? text, out PartialDate result)
     {
         result = default;

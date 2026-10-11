@@ -21,6 +21,9 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
     <PackageReference Include="Microsoft.Extensions.Options.DataAnnotations" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <!-- SuppressInstrumentationScope, to keep the queue's own polling out of the trace list. Every service already
+         has the SDK through ServiceDefaults, so this adds nothing to what is deployed. -->
+    <PackageReference Include="OpenTelemetry" />
     <!-- The rate gate talks to Redis directly. The services get their connection from Aspire's AddRedisClient. -->
     <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>

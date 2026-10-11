@@ -44,7 +44,6 @@ public static class RoleMapper
             return new MappedRole(CreditRole.Other, type);
         }
 
-        // LEARN: LG-02 or-pattern | An "is A or B" pattern tests a value against several constants in one readable expression, where JavaScript would chain === comparisons
         var detail = role is CreditRole.Instrument or CreditRole.Vocal ? JoinAttributes(attributes) : string.Empty;
         return new MappedRole(role, detail);
     }
