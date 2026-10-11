@@ -1,12 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk.Worker">
 
   <PropertyGroup>
-    <!-- Secrets (for example the MusicBrainz contact email in M2) go in dotnet user secrets, never in the repo (NFR-SEC-01). -->
+    <!-- Secrets go in dotnet user secrets, never in the repo (NFR-SEC-01). The MusicBrainz contact is a public URL, so it is plain configuration. -->
     <UserSecretsId>dotnet-Nodeable.Worker-cfe6d965-a75c-4640-97bc-ec747688f729</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Nodeable.ServiceDefaults\Nodeable.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\Nodeable.Infrastructure\Nodeable.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- AddRedisClient("redis"): the connection string comes from the AppHost's WithReference(redis). -->
+    <PackageReference Include="Aspire.StackExchange.Redis" />
   </ItemGroup>
 
 </Project>
