@@ -40,7 +40,9 @@ Use the guide ID for the current milestone (LG-01 for M1, LG-02 for M2, and so o
 
 1. All tasks checked off in spec section 14, tests green.
 2. LEARN anchors added.
-3. Learning guide drafted at `docs/learning/LG-xx-<name>.md` from `docs/learning/_template.md`: sections 1 to 4 drafted from the anchors and diff; sections 5 to 11 left as outlines for the developer to write.
+3. Learning guide written in full at `docs/learning/LG-xx-<name>.md` from `docs/learning/_template.md`. The assistant writes every section: 1 to 11 and the "Check yourself" quiz (section 12). The developer reviews it; nothing is left as an outline.
+   - Section 5 compares every new C#, .NET or TypeScript idea with its JavaScript and Node.js equivalent, in plain words, because JavaScript is the developer's reference point.
+   - Every technical claim in the guide is checked against the actual code before the guide is finalised: file paths, test names, versions, numbers and links.
 4. Spec updated with anything learned, and a decision record added for any significant choice.
 5. The learning guide PDF is a deliverable, not an extra:
    - the "Learning guides" workflow builds it from the guide's Markdown (as an artifact on pull requests), so the pull request that finishes a milestone must show a green PDF build;
