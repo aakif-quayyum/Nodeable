@@ -165,7 +165,7 @@ public static partial class DuplicateCollapser
         return builder.ToString();
     }
 
-    // LEARN: LG-03 generated-regex | [GeneratedRegex] on a partial method makes the compiler write the matcher as ordinary C# at build time: no Regex object is built or interpreted at runtime, unlike JavaScript's regex literals which the engine compiles when the script loads
+    // [GeneratedRegex] on a partial method makes the compiler write the matcher as ordinary C# at build time: no Regex object is built or interpreted at runtime, unlike JavaScript's regex literals which the engine compiles when the script loads
     // A bracketed group, or a trailing " - ..." segment; the inside is captured as "text".
     [GeneratedRegex(@"\s*[\(\[](?<text>[^)\]]*)[\)\]]|\s+[-–—]\s+(?<text>[^-–—]*)$", RegexOptions.CultureInvariant)]
     private static partial Regex Decoration();

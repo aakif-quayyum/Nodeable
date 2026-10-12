@@ -622,7 +622,8 @@ Routes in M1: `/` (home; search and graph from M3), `/about` (a lazy route) and 
 - **Server state** (graphs, people, recommendations) lives in TanStack Query. SignalR events update the query cache directly with `setQueryData`, so components never subscribe to the socket themselves.
 - **UI state** (selected node, active role filters, hover, layout settings) lives in small Zustand stores.
 - **The current search** lives in the address (`/?q=Redbone&artist=Childish+Gambino`), so it can be shared and repeated with the back button; the results are server state, keyed by the title and artist.
-- **Anonymous graphs** store their `id` and `anonToken` in `localStorage`, wrapped in try/catch.
+- **Anonymous graphs** store their `id` and `anonToken` in `localStorage`, wrapped in try/catch. A graph the server answers `401` or `404` for is forgotten, so the person starts a new one instead of seeing errors.
+- **The live graph** is one query per graph (`['graph', id]`). The page connects, joins the graph's group, and only then loads the snapshot; events that arrive before the snapshot are kept and replayed on top of it, those at or below its `seq` are dropped, and a reconnect joins again and reloads (section 9). Adding or removing a song puts the change into the cache at once and then reads the snapshot again. The SignalR client is a lazy chunk, loaded only when a graph exists.
 
 ### Networking
 
@@ -642,7 +643,7 @@ Routes in M1: `/` (home; search and graph from M3), `/about` (a lazy route) and 
 | Component | D3 modules | Behaviour |
 | --- | --- | --- |
 | `GraphCanvas` | `d3-force`, `d3-zoom`, `d3-scale`, `d3-quadtree` | Force-directed graph drawn on `<canvas>` for performance; songs as squares, people as circles sized by song count; quadtree hit-testing for hover and click |
-| `GraphListView` | none | Accessible table version of the same data, keyboard navigable (NFR-A11Y-01) |
+| `GraphListView` | none | Accessible version of the same data as two real tables: songs (with status, credits and a remove button) and people (with song counts and a hub mark); keyboard navigable (NFR-A11Y-01) |
 | `HubBar` | `d3-scale` | Small bar chart of top hubs in the panel |
 | `CareerTimeline` (v3) | `d3-scale`, `d3-axis`, `d3-time` | Credits per year for a person |
 | `StudioMap` (v3) | `d3-geo` | Recording locations on a world map |
@@ -659,6 +660,7 @@ Graph rules:
 
 - JavaScript under 250 KB gzipped on first load; D3 visualisations for v3 load lazily. "First load" means the scripts `index.html` loads or preloads. Lazy route chunks and the OpenTelemetry web SDK, which loads after first paint, are reported separately and do not count (decision 0002). CI enforces the 250 KB limit on first-load scripts and prints the full table on each run.
 - Measured at the end of M1 (gzip, as reported by the CI script): first load about 150 KB, About route about 10 KB, OpenTelemetry SDK about 23 KB.
+- Measured in M3 (pull request 3, gzip): first load about 185 KB; the graph view about 8 KB and the SignalR client about 14 KB, both lazy.
 - Lighthouse performance score at least 90 on the home page, checked in CI.
 
 ## 13. Testing, CI/CD and deployment
@@ -782,9 +784,9 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [x] Search box with duplicate collapsing (FR-SEARCH-01, FR-SEARCH-02)
 - [x] Graph endpoints and SignalR hub with `seq` ordering (FR-GRAPH-01, FR-GRAPH-02)
 - [ ] D3 canvas graph with zoom, hover, click and enter animations (FR-HUB-01)
-- [ ] Accessible list view of the same graph (NFR-A11Y-01)
+- [x] Accessible list view of the same graph (NFR-A11Y-01)
 - [ ] Your hubs panel and role filters (FR-HUB-02, FR-HUB-03)
-- [ ] Credits incomplete badge (FR-GRAPH-04)
+- [x] Credits incomplete badge (FR-GRAPH-04)
 - [ ] Neutral style and filter chip for the `other` role (decision 0010)
 - [x] Persistent local database: data volume and remembered password, with a documented reset (decision 0011)
 
