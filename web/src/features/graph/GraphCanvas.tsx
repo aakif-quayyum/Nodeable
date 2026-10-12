@@ -12,8 +12,8 @@ import type { DerivedGraph, GraphNode } from './graphModel.ts'
 import { createHitTester, type HitTester } from './hitTest.ts'
 import { createLayoutEngine, WORKER_NODE_THRESHOLD, type LayoutEngine } from './layoutEngine.ts'
 
-const dark = { background: '#0f1218', text: '#e8eaf0', link: '#a3abbd', song: '#e8eaf0', selected: '#f5a524' }
-const light = { background: '#f4f5f8', text: '#151822', link: '#4a5163', song: '#151822', selected: '#8f5400' }
+const dark = { background: '#0f1218', text: '#e8eaf0', link: '#a3abbd', song: '#c5ccdb', selected: '#f5a524' }
+const light = { background: '#f4f5f8', text: '#151822', link: '#4a5163', song: '#3a4256', selected: '#8f5400' }
 
 function paletteFor(scheme: 'dark' | 'light'): Palette {
   const colours = scheme === 'dark' ? dark : light
@@ -138,9 +138,11 @@ export function GraphCanvas({ graph }: { graph: DerivedGraph }) {
       }
       const xs = nodes.map((node) => node.x ?? 0)
       const ys = nodes.map((node) => node.y ?? 0)
-      const pad = 40
-      const w = Math.max(...xs) - Math.min(...xs) + pad * 2
-      const h = Math.max(...ys) - Math.min(...ys) + pad * 2
+      // Room for the labels, which are wider than the nodes they name and sit below them.
+      const padX = 90
+      const padY = 50
+      const w = Math.max(...xs) - Math.min(...xs) + padX * 2
+      const h = Math.max(...ys) - Math.min(...ys) + padY * 2
       const k = Math.min(2, Math.max(0.15, Math.min(state.width / w, state.height / h)))
       const cx = (Math.max(...xs) + Math.min(...xs)) / 2
       const cy = (Math.max(...ys) + Math.min(...ys)) / 2

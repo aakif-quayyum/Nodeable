@@ -71,6 +71,7 @@ export class GraphLayout {
   private readonly linkForce = forceLink<SimNode, SimLink>().id((node) => node.id).distance(70).strength(0.4)
   private readonly autoStart: boolean
   private nodes: SimNode[] = []
+  private linked = new Set<string>()
   private ids = new Set<string>()
 
   private readonly onTick: (nodes: readonly { id: string; x: number; y: number }[]) => void
@@ -92,8 +93,8 @@ export class GraphLayout {
       .force('charge', forceManyBody<SimNode>().strength((node) => -40 - node.r * 6))
       .force('collide', forceCollide<SimNode>().radius((node) => node.r + 4))
       // Weak pulls toward the middle keep separate clusters from drifting apart without a centre force's jitter.
-      .force('x', forceX<SimNode>(0).strength(0.04))
-      .force('y', forceY<SimNode>(0).strength(0.04))
+      .force('x', forceX<SimNode>(0).strength((node) => this.pull(node)))
+      .force('y', forceY<SimNode>(0).strength((node) => this.pull(node)))
       .on('tick', () => this.onTick(this.nodes as { id: string; x: number; y: number }[]))
       // The simulation stops itself when alpha falls below alphaMin: nothing runs while the graph is at rest.
       .on('end', () => this.onSettled())
@@ -101,6 +102,12 @@ export class GraphLayout {
     if (!this.autoStart) {
       this.simulation.stop()
     }
+  }
+
+  // A node with no links has nothing holding it to the rest, so it is pulled in harder than the others: a song whose
+  // credits have not arrived yet should sit near the graph, not drift off the edge of the view.
+  private pull(node: SimNode): number {
+    return this.linked.has(node.id) ? 0.04 : 0.12
   }
 
   /**
@@ -165,6 +172,7 @@ export class GraphLayout {
       }
     }
 
+    this.linked = new Set(input.links.flatMap((link) => [link.source, link.target]))
     this.nodes = next
     this.ids = new Set(next.map((node) => node.id))
 
