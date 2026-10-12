@@ -4,6 +4,23 @@
  */
 
 export interface paths {
+    "/api/v1/search/recordings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search recordings by title and optional artist, cache first, then MusicBrainz (FR-SEARCH-01, FR-SEARCH-02). */
+        get: operations["SearchRecordings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/status/crawl": {
         parameters: {
             query?: never;
@@ -32,6 +49,51 @@ export interface components {
             /** Format: double */
             cacheHitRatio: null | number;
         };
+        /** @enum {unknown} */
+        CreditsStatus: "none" | "partial" | "complete" | null;
+        ProblemDetails: {
+            type?: null | string;
+            title?: null | string;
+            /** Format: int32 */
+            status?: null | number;
+            detail?: null | string;
+            instance?: null | string;
+        };
+        SearchResponse: {
+            source: components["schemas"]["SearchSource"];
+            results: components["schemas"]["SearchResultItem"][];
+        };
+        SearchResultItem: {
+            /** Format: uuid */
+            mbid: string;
+            title: string;
+            artist: string;
+            firstReleaseTitle: null | string;
+            /** Format: int32 */
+            year: null | number;
+            /** Format: int32 */
+            score: number;
+            creditsStatus: null | components["schemas"]["CreditsStatus"];
+            versions: components["schemas"]["SearchVersionItem"][];
+        };
+        /** @enum {unknown} */
+        SearchSource: "cache" | "musicBrainz";
+        SearchVersionItem: {
+            /** Format: uuid */
+            mbid: string;
+            title: string;
+            artist: string;
+            firstReleaseTitle: null | string;
+            /** Format: int32 */
+            year: null | number;
+            /** Format: int32 */
+            score: number;
+            kind: components["schemas"]["VersionKind"];
+            note: null | string;
+            creditsStatus: null | components["schemas"]["CreditsStatus"];
+        };
+        /** @enum {unknown} */
+        VersionKind: "live" | "remaster" | "compilation" | "other";
     };
     responses: never;
     parameters: never;
@@ -41,6 +103,65 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    SearchRecordings: {
+        parameters: {
+            query?: {
+                q?: string;
+                artist?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
     GetCrawlStatus: {
         parameters: {
             query?: never;

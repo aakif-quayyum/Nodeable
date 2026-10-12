@@ -5,6 +5,7 @@ import LinearProgress from '@mui/material/LinearProgress'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import { Link, NavLink, Outlet, useNavigation } from 'react-router'
+import { SearchForm } from '../features/search/SearchForm.tsx'
 import { ThemeToggle } from './ThemeToggle.tsx'
 
 export function AppShell() {
@@ -34,7 +35,8 @@ export function AppShell() {
 
       {/* AppBar renders a <header>, which screen readers announce as the banner landmark. */}
       <AppBar position="sticky">
-        <Toolbar sx={{ gap: 1 }}>
+        {/* The toolbar wraps: on a phone the search drops to its own row under the title and links. */}
+        <Toolbar sx={{ gap: 1, flexWrap: 'wrap', py: 1 }}>
           <Typography
             variant="h6"
             component={Link}
@@ -44,7 +46,7 @@ export function AppShell() {
             Nodeable
           </Typography>
 
-          <Box component="nav" aria-label="Primary" sx={{ display: 'flex', gap: 1, flexGrow: 1 }}>
+          <Box component="nav" aria-label="Primary" sx={{ display: 'flex', gap: 1, flexGrow: { xs: 1, md: 0 } }}>
             {/* NavLink adds aria-current="page" to the link for the current route. */}
             <Button color="inherit" component={NavLink} to="/" end>
               Home
@@ -54,7 +56,15 @@ export function AppShell() {
             </Button>
           </Box>
 
-          <ThemeToggle />
+          {/* Wide screens: title, links, search (grows), theme. Phones: the search drops to its own row, so the theme
+              toggle moves up beside the links. Keyboard order stays title, links, search, theme. */}
+          <Box sx={{ flexBasis: { xs: '100%', md: 'auto' }, flexGrow: { md: 1 }, order: { xs: 3, md: 0 }, display: 'flex' }}>
+            <SearchForm />
+          </Box>
+
+          <Box sx={{ order: { xs: 2, md: 0 } }}>
+            <ThemeToggle />
+          </Box>
         </Toolbar>
 
         {/* Shown while a lazy route's code is downloading, so a click never feels dead (spec principle 3). */}
