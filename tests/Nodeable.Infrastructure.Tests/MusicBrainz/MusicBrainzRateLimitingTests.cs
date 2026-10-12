@@ -70,7 +70,11 @@ public sealed class MusicBrainzRateLimitingTests(RedisFixture redis) : IDisposab
     {
         var ct = TestContext.Current.CancellationToken;
         ServeWork();
-        var (provider, _) = await BuildAsync(interval: TimeSpan.FromSeconds(5), maxGateWait: TimeSpan.FromMilliseconds(200));
+
+        // The interval is far longer than any test run, so the second call can never be given a slot by the clock moving
+        // on: it has to wait longer than maxGateWait and is refused at once. (With 5 seconds a slow first call, on a
+        // loaded machine, outlasted the interval and the second call was let through.)
+        var (provider, _) = await BuildAsync(interval: TimeSpan.FromMinutes(5), maxGateWait: TimeSpan.FromMilliseconds(200));
         await using var _ = provider;
         var client = provider.GetRequiredService<IMusicBrainzClient>();
         await client.GetWorkAsync(_workMbid, ct);
