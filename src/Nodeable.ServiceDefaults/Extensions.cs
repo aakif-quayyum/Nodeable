@@ -51,6 +51,8 @@ public static class Extensions
                 .AddRuntimeInstrumentation()
                 .AddMeter("Nodeable.*"))
             .WithTracing(tracing => tracing
+                // The default decision for every span except the Redis health check's PING (see the class).
+                .SetSampler(new IgnoreHealthCheckPingSampler())
                 .AddSource(builder.Environment.ApplicationName)
                 .AddSource("Nodeable.*")
                 .AddAspNetCoreInstrumentation(options =>

@@ -10,4 +10,8 @@ export const crawlStatusFixture: CrawlStatus = {
 }
 
 // Default handlers: every test starts from these, and individual tests override them with server.use(...).
-export const handlers = [http.get('/api/v1/status/crawl', () => HttpResponse.json(crawlStatusFixture))]
+// Search is not part of the default state of any page: a test that searches says what comes back.
+export const handlers = [
+  http.get('/api/v1/status/crawl', () => HttpResponse.json(crawlStatusFixture)),
+  http.get('/api/v1/search/recordings', () => HttpResponse.json({ source: 'musicBrainz', results: [] })),
+]

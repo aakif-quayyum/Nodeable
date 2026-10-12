@@ -20,6 +20,9 @@ namespace Nodeable.Infrastructure.Tests.Ingestion;
 // The whole ingestion chain, composed the way the Worker composes it: the real queue, runner, handlers and
 // MusicBrainz client, against a real PostgreSQL, with real MusicBrainz responses served by WireMock. Only the rate
 // gate is a no-op here (its own tests, and the combined client tests, cover it).
+// A span listener is global to the process: while one is registered, every Nodeable span in every test is recorded and
+// its trace context stored. Classes that register a listener, or assert that none exists, run one after the other.
+[Collection(CrawlTestSupport.SpanListenerCollection)]
 public sealed class CreditIngestionTests(PostgresFixture postgres) : IDisposable
 {
     private static readonly Guid _recordingMbid = Guid.Parse("7408f11c-6c4e-41e5-b81b-6a15bf6cb268");

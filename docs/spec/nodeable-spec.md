@@ -234,7 +234,7 @@ Versions M1 was built and tested against: .NET SDK 10.0 (pinned in `global.json`
 
 ## 7. System architecture
 
-The system is two .NET processes, an API and a Worker, sharing PostgreSQL and Redis; only the Worker talks to external APIs, so one place enforces the MusicBrainz rate limit. The API never waits on MusicBrainz: it queues work and returns immediately.
+The system is two .NET processes, an API and a Worker, sharing PostgreSQL and Redis. The Worker makes every background fetch, and every MusicBrainz request, from either process, passes through one shared Redis rate gate, so the limit holds for the whole system. The API queues work and returns immediately, with one exception: a search must answer in the same request, so the API asks MusicBrainz itself, through that same gate, with a short wait cap (decision 0018).
 
 &#91;embedded content: system architecture · 8 components\]
 
@@ -367,6 +367,38 @@ The OpenAPI document is written on every build and the frontend's `web/src/api/s
 
 `creditsStatus` in the API takes the stored values `complete`, `partial` and `none`, plus `loading`. `loading` is not stored: the Api reports it while crawl jobs for the song are still pending or running.
 
+### Example: search
+
+```json
+GET /api/v1/search/recordings?q=Redbone&artist=Childish%20Gambino
+
+200 OK
+{
+  "source": "musicBrainz",
+  "results": [
+    {
+      "mbid": "7408f11c-6c4e-41e5-b81b-6a15bf6cb268",
+      "title": "Redbone",
+      "artist": "Childish Gambino",
+      "firstReleaseTitle": "Awaken, My Love!",
+      "year": 2016,
+      "score": 100,
+      "creditsStatus": null,
+      "versions": [
+        { "mbid": "ac5977af-...", "title": "Redbone", "artist": "Childish Gambino", "firstReleaseTitle": "Promo Only: Modern Rock Radio, January 2017",
+          "year": 2016, "score": 100, "kind": "compilation", "note": null, "creditsStatus": null }
+      ]
+    }
+  ]
+}
+```
+
+- `q` is the title (2 to 200 characters); `artist` is optional (up to 200). Results are at most 10, best match first.
+- `source` is `cache` when the local cache filled the page by itself, and `musicBrainz` otherwise. It also says what `score` means: MusicBrainz's own 0 to 100 score, or the cache's trigram similarity times 100.
+- `year` is `null` when the first release date is unknown, never `0`. `creditsStatus` is `null` when the recording has never been fetched, and otherwise the stored status; the add-song flow serves a recording with a status other than `none` from the cache.
+- `versions` holds the duplicates folded behind the result, earliest first, each with a `kind` (`live`, `remaster`, `compilation`, `other`) and MusicBrainz's disambiguation comment as `note`. How duplicates are decided is in section 10.
+- Errors are Problem Details with these `type` values: `/errors/invalid-search` (400), `/errors/rate-limited` (429, for more than 60 searches a minute from one address, or when the shared MusicBrainz gate has no slot within the wait cap; `Retry-After` says when to try again), `/errors/upstream-unavailable` (503, MusicBrainz busy or too slow) and `/errors/upstream-error` (502, MusicBrainz rejected the query).
+
 ### Example: add a song
 
 ```json
@@ -409,7 +441,7 @@ MusicBrainz is the primary source for all credit data; Discogs fills gaps, Deeze
 
 ### MusicBrainz fetch plan per song
 
-1. `GET /ws/2/recording?query=recording:"{title}" AND artist:"{artist}"` for search.
+1. `GET /ws/2/recording?query=+recording:"{title}" +artist:"{artist}" status:official^10` for search: title and artist are required, and a recording on an official release is boosted, so the original is in the first results of a song that has hundreds of bootleg recordings. The Api makes this call itself, because a search must answer in the same request (decision 0018).
 2. `GET /ws/2/recording/{mbid}?inc=artist-credits+artist-rels+work-rels+releases+isrcs` for recording-level credits, the linked work, releases and the ISRC used for preview matching.
 3. `GET /ws/2/work/{workMbid}?inc=artist-rels` for composer, lyricist and writer credits.
 4. `GET /ws/2/release/{releaseMbid}?inc=artist-rels` only when steps 2 and 3 found no producer.
@@ -436,6 +468,15 @@ Each step is a separate `crawl_jobs` row, so a failure retries only that step. T
 - **Follow-up jobs** are queued by the recording handler after its transaction commits, inside its `crawl.job` span, with its priority: a `work` job per linked work; a `release` job for **one** release, the earliest dated (original releases carry the production credits, and every fetch costs a second of the shared budget), only when the recording has no producer credit at any level; and a `preview` job (target: the recording) when an ISRC is known, **only when `Ingestion:QueuePreviewJobs` is on**. That switch is off until the preview handler exists (FR-PREVIEW-01, M4), because a job of a kind nobody handles would only be marked failed.
 - **The release decision is made at the recording step.** Decision 0009 says "after the recording and work steps", but MusicBrainz has no producer relationship between an artist and a work (only composer, lyricist, writer and similar), so the work step cannot change the answer.
 - **Unknown entities.** MusicBrainz answering 404 for a job's MBID marks that job failed at once (a permanent failure) instead of spending retries.
+
+### How search works (implemented in M3)
+
+- **Cache first.** The local `recordings` table is searched by title with the trigram index (`pg_trgm`), optionally narrowed by artist. When the cache alone fills a page (10 results after duplicates are folded), it answers and MusicBrainz is not asked. With fewer, MusicBrainz is asked too, because it may know songs the cache has never seen; its answer replaces the cache's, and each result says what the cache already holds for it.
+- **One request.** MusicBrainz is asked for 30 recordings, so that folding duplicates still leaves a full page. The query prefers recordings on an official release without excluding any (a boosted optional clause, step 1 of the fetch plan): a famous song has hundreds of bootleg recordings that all score 100, and without the preference the original can fall outside the 30. The answer is large, several hundred kilobytes for such a song, because each recording lists every release it is on.
+- **Interactive profile.** The Api uses the same pipeline as the Worker with shorter limits, set in its configuration: a wait for the gate of at most 2 seconds, one retry, 5 seconds per attempt and 12 seconds in total. A search that cannot get a gate slot in 2 seconds is refused with 429 instead of waiting. The gate has no priority lanes: the Worker takes one slot at a time, so a search waits for at most the slot after the one the Worker is about to use.
+- **Duplicates.** Two recordings are the same song when they have the same title and artist once case, accents, apostrophes and punctuation are ignored, and a live or remaster decoration ("(Live at Wembley)", "- 2011 Remaster") is removed. Remixes, edits, acoustic and instrumental versions are different recordings (different people made them) and keep their own row.
+- **The original.** The row that stays is the recording with an official release that is neither a live album nor a compilation, earliest first; promotions and bootlegs never win. A recording whose releases are unknown (a cache row) is not marked down. The folded recordings keep their reason: live, remaster, compilation or other.
+- **First release.** The title and year shown are those of the official release with the earliest date.
 
 ### Role mapping
 
@@ -466,6 +507,7 @@ One trace follows a user's click from the browser, through the API, into the que
 | Span name | Kind | Key attributes |
 | --- | --- | --- |
 | `HTTP POST /api/v1/graphs/{id}/songs` | Server (automatic) | `graph.id`, `recording.mbid` |
+| `search.recordings` | Internal | `search.source` (cache or musicbrainz), `search.cache_matches`, `search.candidates`, `search.results`, `search.collapsed` |
 | `crawl.enqueue` | Internal | `crawl.kind`, `crawl.target_mbid`, `crawl.deduplicated` |
 | `crawl.job` | Consumer; a child of the `crawl.enqueue` span, restored from the stored `traceparent`, so the job is in the same trace as the request that queued it | `crawl.kind`, `crawl.attempt`, `crawl.queue_wait_ms`, `crawl.target_mbid` |
 | `ratelimit.acquire` | Internal | `ratelimit.source`, `ratelimit.wait_ms` |
@@ -542,6 +584,7 @@ Routes in M1: `/` (home; search and graph from M3), `/about` (a lazy route) and 
 
 - **Server state** (graphs, people, recommendations) lives in TanStack Query. SignalR events update the query cache directly with `setQueryData`, so components never subscribe to the socket themselves.
 - **UI state** (selected node, active role filters, hover, layout settings) lives in small Zustand stores.
+- **The current search** lives in the address (`/?q=Redbone&artist=Childish+Gambino`), so it can be shared and repeated with the back button; the results are server state, keyed by the title and artist.
 - **Anonymous graphs** store their `id` and `anonToken` in `localStorage`, wrapped in try/catch.
 
 ### Networking
@@ -699,7 +742,7 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 
 ### M3 Graph UI (3 weeks)
 
-- [ ] Search box with duplicate collapsing (FR-SEARCH-01, FR-SEARCH-02)
+- [x] Search box with duplicate collapsing (FR-SEARCH-01, FR-SEARCH-02)
 - [ ] Graph endpoints and SignalR hub with `seq` ordering (FR-GRAPH-01, FR-GRAPH-02)
 - [ ] D3 canvas graph with zoom, hover, click and enter animations (FR-HUB-01)
 - [ ] Accessible list view of the same graph (NFR-A11Y-01)
@@ -785,6 +828,7 @@ Raised while building M1 and decided on 2026-10-11 (each has a decision record, 
 | 2026-10-12 | A recording's credits status is derived from the roles credited: complete (producer and songwriter), partial (something), none ([0015](decisions/0015-credits-status-rule.md)) | Section 8 listed the values but not their meaning; FR-GRAPH-04 and the cache decision both depend on it |
 | 2026-10-12 | MusicBrainz requests go through a Redis token bucket placed inside the retry, replacing the default resilience handler ([0016](decisions/0016-musicbrainz-request-pipeline.md)) | A retry is a new request and must wait for its own slot; N Workers must share one budget |
 | 2026-10-12 | The crawl queue is a PostgreSQL table claimed with SKIP LOCKED, with guarded updates and stale-job recovery ([0017](decisions/0017-crawl-queue-on-postgresql.md)) | Reliability without a broker at one request per second; inspectable with SQL |
+| 2026-10-12 | The Api asks MusicBrainz for searches itself, through the shared Redis gate with a 2 second wait cap and one retry; every other fetch stays in the Worker ([0018](decisions/0018-search-calls-musicbrainz-from-the-api.md)) | A search has to answer in the same request; the gate is already shared, so the limit still holds across processes |
 
 ## 16. Learning guides
 

@@ -19,6 +19,8 @@ public sealed class MusicBrainzClient(HttpClient http) : IMusicBrainzClient
     // MusicBrainz asks for fmt=json (the default is XML).
     private const string Format = "fmt=json";
 
+    private const string OfficialBoost = "status:official^10";
+
     private const string RecordingIncludes = "artist-credits+artist-rels+work-rels+releases+isrcs";
     private const string ArtistRelationshipIncludes = "artist-rels";
 
@@ -36,11 +38,17 @@ public sealed class MusicBrainzClient(HttpClient http) : IMusicBrainzClient
         ArgumentOutOfRangeException.ThrowIfLessThan(limit, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 100);
 
-        var query = $"recording:{Quote(title)}";
+        // "+" makes a clause required. The last clause has no "+": it is optional and boosted, so recordings that are
+        // on an official release score higher and come first, without any recording being left out. Found with real
+        // data: "Creep" by Radiohead has 193 recordings, mostly bootlegs, all scoring 100; asked for 30 in MusicBrainz's
+        // own order, the 1992 original was not among them. With the boost it is.
+        var query = $"+recording:{Quote(title)}";
         if (!string.IsNullOrWhiteSpace(artist))
         {
-            query += $" AND artist:{Quote(artist)}";
+            query += $" +artist:{Quote(artist)}";
         }
+
+        query += $" {OfficialBoost}";
 
         var uri = $"recording?query={Uri.EscapeDataString(query)}&limit={limit.ToString(CultureInfo.InvariantCulture)}&{Format}";
         return GetRequiredAsync<RecordingSearchResponse>(uri, "recording_search", null, cancellationToken);

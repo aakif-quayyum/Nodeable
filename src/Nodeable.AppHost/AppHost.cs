@@ -5,13 +5,16 @@ var builder = DistributedApplication.CreateBuilder(args);
 var postgres = builder.AddPostgres("postgres");
 var nodeableDb = postgres.AddDatabase("nodeabledb");
 
-// Redis arrives now so the topology matches spec section 7; it is used from M2 (rate gate) and M3 (SignalR backplane).
+// Redis holds the shared MusicBrainz rate gate (Worker and Api, from M2/M3) and, in M3, the SignalR backplane.
 var redis = builder.AddRedis("redis");
 
 // LEARN: LG-01 service-wiring | WithReference injects the connection string as configuration (ConnectionStrings__nodeabledb) and WaitFor holds the service back until the database reports healthy
 var api = builder.AddProject<Projects.Nodeable_Api>("api")
     .WithReference(nodeableDb)
     .WaitFor(nodeableDb)
+    // Search asks MusicBrainz through the same Redis rate gate the Worker uses (decision 0018).
+    .WithReference(redis)
+    .WaitFor(redis)
     .WithHttpHealthCheck("/health");
 
 builder.AddViteApp("web", "../../web")

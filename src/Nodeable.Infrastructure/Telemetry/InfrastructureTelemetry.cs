@@ -23,6 +23,15 @@ internal static class InfrastructureTelemetry
         unit: "{request}",
         description: "Requests sent to external APIs, by source and HTTP status code (\"error\" when no response arrived).");
 
+    /// <summary>
+    /// Lookups answered by the local cache (hit) or that had to go to an external API (miss). The cache hit ratio on the
+    /// About page is hit over hit plus miss (spec section 11).
+    /// </summary>
+    public static readonly Counter<long> CacheLookups = _meter.CreateCounter<long>(
+        "cache.lookups",
+        unit: "{lookup}",
+        description: "Lookups served from the cache or sent to an external API, by entity and result (hit, miss).");
+
     /// <summary>How long each request waited for the rate gate: the number that shows the limit is the bottleneck.</summary>
     public static readonly Histogram<double> RateGateWait = _meter.CreateHistogram<double>(
         "ratelimit.wait",
