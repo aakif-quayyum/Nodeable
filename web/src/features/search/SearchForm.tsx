@@ -6,7 +6,7 @@ import { useState, type FormEvent } from 'react'
 import { createSearchParams, useNavigate, useSearchParams } from 'react-router'
 import { MIN_QUERY_LENGTH } from './useRecordingSearch.ts'
 
-// LEARN: LG-03 url-as-state | The search text lives in the address (useSearchParams), not in a store: a search can be shared, bookmarked and repeated with the back button, and the page reads it like any other input
+// The search text lives in the address (useSearchParams), not in a store: a search can be shared, bookmarked and repeated with the back button, and the page reads it like any other input
 // The search lives in the address bar (`/?q=Redbone&artist=Childish+Gambino`): a search can be shared, bookmarked and
 // repeated with the back button, and the results page needs no store to know what was asked.
 export function SearchForm() {
