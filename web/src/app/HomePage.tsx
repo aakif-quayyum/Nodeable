@@ -37,28 +37,21 @@ export function HomePage() {
         </Typography>
       )}
 
-      {/* Results and graph sit side by side on a wide screen and stack on a narrow one. The graph is the destination:
-          it stays on the page while the person searches for the next song. */}
-      <Box
-        sx={{
-          display: 'grid',
-          gap: 4,
-          gridTemplateColumns: { xs: 'minmax(0, 1fr)', lg: session !== null && searching ? 'minmax(0, 5fr) minmax(0, 7fr)' : 'minmax(0, 1fr)' },
-          alignItems: 'start',
-        }}
-      >
-        {searching && (
-          <Suspense fallback={<LinearProgress aria-label='Loading results' />}>
+      {/* The results are a bounded block above the graph: long enough to choose from, short enough that the graph the
+          person is building stays in view while they add songs. */}
+      {searching && (
+        <Box sx={{ maxHeight: { xs: 320, md: 360 }, overflowY: 'auto', mb: 3, pr: 1 }}>
+          <Suspense fallback={<LinearProgress aria-label="Loading results" />}>
             <SearchResults title={title} artist={artist} />
           </Suspense>
-        )}
+        </Box>
+      )}
 
-        {session !== null && (
-          <Suspense fallback={<LinearProgress aria-label='Loading your graph' />}>
-            <GraphView session={session} />
-          </Suspense>
-        )}
-      </Box>
+      {session !== null && (
+        <Suspense fallback={<LinearProgress aria-label="Loading your graph" />}>
+          <GraphView session={session} />
+        </Suspense>
+      )}
     </>
   )
 }
