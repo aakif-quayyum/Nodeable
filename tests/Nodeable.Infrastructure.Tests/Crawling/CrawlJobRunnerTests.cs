@@ -15,6 +15,9 @@ namespace Nodeable.Infrastructure.Tests.Crawling;
 
 // The runner is built the way the Worker builds it (AddCrawling plus a handler registered for the job kind), against a
 // real PostgreSQL. The handlers are fakes: what is under test is the lifecycle around them.
+// A span listener is global to the process: while one is registered, every Nodeable span in every test is recorded and
+// its trace context stored. Classes that register a listener, or assert that none exists, run one after the other.
+[Collection(CrawlTestSupport.SpanListenerCollection)]
 public class CrawlJobRunnerTests(PostgresFixture postgres)
 {
     [Fact]

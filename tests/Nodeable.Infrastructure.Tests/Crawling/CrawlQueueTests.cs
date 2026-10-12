@@ -10,6 +10,9 @@ namespace Nodeable.Infrastructure.Tests.Crawling;
 
 // The queue is SQL, so these run against a real PostgreSQL: a fake could not show that two workers never claim the
 // same row, which is the whole point of FOR UPDATE SKIP LOCKED.
+// A span listener is global to the process: while one is registered, every Nodeable span in every test is recorded and
+// its trace context stored. Classes that register a listener, or assert that none exists, run one after the other.
+[Collection(CrawlTestSupport.SpanListenerCollection)]
 public class CrawlQueueTests(PostgresFixture postgres)
 {
     [Fact]

@@ -12,6 +12,9 @@ namespace Nodeable.Infrastructure.Tests.Crawling;
 
 internal static class CrawlTestSupport
 {
+    /// <summary>The xUnit collection of every test class that registers a span listener (see <see cref="SpanCollector"/>).</summary>
+    public const string SpanListenerCollection = "global span listener";
+
     /// <summary>A new, migrated database inside the shared PostgreSQL container.</summary>
     public static async Task<string> NewDatabaseAsync(PostgresFixture postgres)
     {
