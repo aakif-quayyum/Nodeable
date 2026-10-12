@@ -1,12 +1,13 @@
 import Equalizer from '@mui/icons-material/Equalizer'
 import Edit from '@mui/icons-material/Edit'
+import MoreHoriz from '@mui/icons-material/MoreHoriz'
 import Mic from '@mui/icons-material/Mic'
 import Piano from '@mui/icons-material/Piano'
 import Settings from '@mui/icons-material/Settings'
 import Tune from '@mui/icons-material/Tune'
 import type { SvgIconComponent } from '@mui/icons-material'
 
-export const creditRoles = ['producer', 'songwriter', 'mixing', 'engineering', 'instrument', 'vocal'] as const
+export const creditRoles = ['producer', 'songwriter', 'mixing', 'engineering', 'instrument', 'vocal', 'other'] as const
 
 export type CreditRoleKey = (typeof creditRoles)[number]
 
@@ -26,4 +27,16 @@ export const creditRoleStyles: Record<CreditRoleKey, CreditRoleStyle> = {
   // @mui/icons-material has no guitar icon, so instruments use the piano.
   instrument: { label: 'Instrument', Icon: Piano, colors: { dark: '#6ee7a0', light: '#1d7a46' } },
   vocal: { label: 'Vocal', Icon: Mic, colors: { dark: '#ff8a5b', light: '#b8420f' } },
+  // Unmapped MusicBrainz relationship types (decision 0010): a neutral grey, and the label comes from the credit's detail.
+  other: { label: 'Other', Icon: MoreHoriz, colors: { dark: '#9aa5b4', light: '#5c6672' } },
+}
+
+/**
+ * What a credit says in words: the role, and its detail when it has one ("Instrument · guitar"). An `other` credit
+ * is named by its detail alone ("Arranger"), which is the only thing MusicBrainz told us (decision 0010).
+ */
+export function roleText(role: CreditRoleKey, detail: string): string {
+  const base = creditRoleStyles[role].label
+  if (detail === '') return base
+  return role === 'other' ? detail : `${base} · ${detail}`
 }
