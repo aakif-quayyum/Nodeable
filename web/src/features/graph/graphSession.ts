@@ -20,7 +20,7 @@ function readRaw(): string | null {
   }
 }
 
-// LEARN: LG-03 storage-guard | JSON.parse returns `any`; parsing into `unknown` and checking the fields with a type guard is what makes the value `GraphSession` for the compiler, so a stale or hand-edited entry becomes "no graph" instead of a crash later
+// JSON.parse returns `any`; parsing into `unknown` and checking the fields with a type guard is what makes the value `GraphSession` for the compiler, so a stale or hand-edited entry becomes "no graph" instead of a crash later
 function parse(raw: string | null): GraphSession | null {
   if (raw === null) return null
   try {

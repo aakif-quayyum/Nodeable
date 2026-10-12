@@ -1,9 +1,10 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 import type { components } from '../../api/schema'
 import { FakeGraphHub } from '../../test/fakeGraphHub.ts'
+import { useSelection } from '../../stores/selection.ts'
 import { renderAt } from '../../test/renderApp.tsx'
 import { server } from '../../test/server.ts'
 
@@ -71,6 +72,10 @@ function serveSearch() {
 }
 
 describe('graph list view', () => {
+  afterEach(() => {
+    useSelection.setState({ selectedId: null })
+  })
+
   it('FR_GRAPH_02 adds a song from the search, shows its node at once and fills in credits as events arrive', async () => {
     const user = userEvent.setup()
     const hub = new FakeGraphHub()
@@ -333,5 +338,76 @@ describe('graph list view', () => {
     expect(await screen.findByRole('heading', { level: 2, name: 'Your graph · 1 song' })).toBeInTheDocument()
     const section = screen.getByRole('region', { name: /Your graph/ })
     expect(within(section).getByRole('status')).toHaveTextContent('Fetching credits: 3 lookups waiting, about 3 seconds to go')
+  })
+
+  it('FR_HUB_01 names the canvas with how many songs and people it shows and says the tables have the same data', async () => {
+    rememberGraph()
+    serveSnapshot(() =>
+      snapshot({
+        songs: [{ ...redbone, creditsStatus: 'complete' }],
+        people: [donald],
+        credits: [{ songMbid: redboneMbid, personMbid: donald.mbid, role: 'songwriter', detail: '', level: 'recording' }],
+      }),
+    )
+
+    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+
+    const canvas = await screen.findByRole('img', { name: /Graph of 1 song and 1 person/ })
+    expect(canvas).toHaveAccessibleName(expect.stringContaining('The lists below hold the same information'))
+  })
+
+  it('FR_HUB_01 shows a clicked person from the graph data: songs credited on, roles, and a link to MusicBrainz', async () => {
+    rememberGraph()
+    const america: Song = { ...redbone, mbid: americaMbid, title: 'This Is America', year: 2018, creditsStatus: 'complete' }
+    serveSnapshot(() =>
+      snapshot({
+        songs: [{ ...redbone, creditsStatus: 'complete' }, america],
+        people: [donald],
+        credits: [
+          { songMbid: redboneMbid, personMbid: donald.mbid, role: 'songwriter', detail: '', level: 'recording' },
+          { songMbid: americaMbid, personMbid: donald.mbid, role: 'instrument', detail: 'drums', level: 'recording' },
+        ],
+      }),
+    )
+
+    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+    await screen.findByRole('table', { name: 'Songs and their credits' })
+    expect(screen.queryByRole('region', { name: /Details:/ })).not.toBeInTheDocument()
+
+    // The canvas writes the selection; here the store is set the way a click on the node would set it.
+    act(() => useSelection.getState().select(`person:${donald.mbid}`))
+
+    const panel = await screen.findByRole('region', { name: 'Details: Donald Glover' })
+    expect(within(panel).getByText(/Credited on 2 songs in your graph · a hub/)).toBeInTheDocument()
+    expect(within(panel).getByText('Redbone')).toBeInTheDocument()
+    expect(within(panel).getByText('Instrument · drums')).toBeInTheDocument()
+    expect(within(panel).getByRole('link', { name: /Donald Glover on MusicBrainz/ })).toHaveAttribute(
+      'href',
+      `https://musicbrainz.org/artist/${donald.mbid}`,
+    )
+
+    await userEvent.click(within(panel).getByRole('button', { name: 'Close' }))
+    expect(screen.queryByRole('region', { name: /Details:/ })).not.toBeInTheDocument()
+  })
+
+  it('FR_HUB_01 shows a clicked song with its credits, and shows nothing when the selected node is gone', async () => {
+    rememberGraph()
+    serveSnapshot(() =>
+      snapshot({
+        songs: [{ ...redbone, creditsStatus: 'complete' }],
+        people: [donald],
+        credits: [{ songMbid: redboneMbid, personMbid: donald.mbid, role: 'producer', detail: '', level: 'recording' }],
+      }),
+    )
+
+    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+    await screen.findByRole('table', { name: 'Songs and their credits' })
+
+    act(() => useSelection.getState().select(`song:${redboneMbid}`))
+    const panel = await screen.findByRole('region', { name: 'Details: Redbone' })
+    expect(within(panel).getByText('Donald Glover — Producer')).toBeInTheDocument()
+
+    act(() => useSelection.getState().select('person:00000000-0000-4000-8000-000000000000'))
+    await waitFor(() => expect(screen.queryByRole('region', { name: /Details:/ })).not.toBeInTheDocument())
   })
 })

@@ -31,3 +31,7 @@ afterEach(() => {
 afterAll(() => {
   server.close()
 })
+
+// jsdom has no canvas: getContext reports "not implemented" and returns null. The graph component treats a missing 2D
+// context as "nothing to draw" (the tables carry the data), and this keeps the test output free of that warning.
+HTMLCanvasElement.prototype.getContext = () => null

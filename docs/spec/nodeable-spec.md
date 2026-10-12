@@ -654,13 +654,16 @@ Graph rules:
 - New nodes enter near their connected song and fade in over 300 ms, so streaming feels alive rather than jumpy.
 - The simulation reheats gently on additions (`alpha` 0.3) and stops when it settles, saving battery.
 - Above 300 people, labels show only for hubs and the hovered node.
-- The layout runs in a Web Worker when the graph exceeds 500 nodes (NFR-PERF-03).
+- The layout runs in a Web Worker when the graph exceeds 500 nodes (NFR-PERF-03). Positions come back as a transferred `Float32Array` of x, y pairs and the node ids are sent once per update; a generation number drops ticks of a graph that has since changed. The same `GraphLayout` class runs in the page for smaller graphs.
+- Hit testing uses a quadtree rebuilt when positions change; a click selects the node (Zustand `selection` store) and a panel shows its details from the snapshot only. The canvas has an accessible name and the tables carry the same data; songs are squares and people circles, so shape is a second signal besides colour (NFR-A11Y-02).
+- A graph that has not been moved by the person is fitted to the view when the layout comes to rest, with room for labels; "Reset view" does the same on request. Wheel and pinch zoom over the canvas, as above.
 
 ### Performance budgets
 
 - JavaScript under 250 KB gzipped on first load; D3 visualisations for v3 load lazily. "First load" means the scripts `index.html` loads or preloads. Lazy route chunks and the OpenTelemetry web SDK, which loads after first paint, are reported separately and do not count (decision 0002). CI enforces the 250 KB limit on first-load scripts and prints the full table on each run.
 - Measured at the end of M1 (gzip, as reported by the CI script): first load about 150 KB, About route about 10 KB, OpenTelemetry SDK about 23 KB.
-- Measured in M3 (pull request 3, gzip): first load about 185 KB; the graph view about 8 KB and the SignalR client about 14 KB, both lazy.
+- Measured in M3 (pull request 3, gzip): first load about 185 KB; the graph view about 8 KB and the SignalR client about 14 KB, both lazy. With the canvas (pull request 4) the graph view chunk is about 36 KB with the D3 modules, the layout worker is a separate 6 KB chunk, and first load is unchanged at 184.8 KB.
+- Measured in M3 (pull request 4) on the development machine, in the browser, for the largest graph the app allows (50 songs and 550 people, 600 nodes and 660 links): one simulation step 2.4 ms, one canvas frame 0.4 ms, building the hit-test quadtree 0.2 ms and one lookup about 1 microsecond. With the layout in the worker, the first positions arrive after 67 ms, the layout rests after about 7 s (the worker's timer ticks at about 40 steps a second), and the page's thread was never late by more than 2 ms. A phone was not measured: NFR-PERF-03's 30 fps target on a mid-range phone is still to be checked on a device.
 - Lighthouse performance score at least 90 on the home page, checked in CI.
 
 ## 13. Testing, CI/CD and deployment
@@ -783,7 +786,7 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 
 - [x] Search box with duplicate collapsing (FR-SEARCH-01, FR-SEARCH-02)
 - [x] Graph endpoints and SignalR hub with `seq` ordering (FR-GRAPH-01, FR-GRAPH-02)
-- [ ] D3 canvas graph with zoom, hover, click and enter animations (FR-HUB-01)
+- [x] D3 canvas graph with zoom, hover, click and enter animations (FR-HUB-01)
 - [x] Accessible list view of the same graph (NFR-A11Y-01)
 - [ ] Your hubs panel and role filters (FR-HUB-02, FR-HUB-03)
 - [x] Credits incomplete badge (FR-GRAPH-04)
