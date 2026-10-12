@@ -1,8 +1,14 @@
 var builder = DistributedApplication.CreateBuilder(args);
 
-// The Postgres server container is the resource; "nodeabledb" is one database inside it.
-// Aspire generates the password and passes it to the services, so there is nothing to configure or commit (NFR-SEC-01).
-var postgres = builder.AddPostgres("postgres");
+// The Postgres server container is the resource; "nodeabledb" is one database inside it (decision 0011).
+//
+// The data lives in a named Docker volume, so the graph and the crawled MusicBrainz data survive a restart: refetching
+// costs a second per request. A volume keeps the password the server was first started with, so the password has to be
+// stable too. Aspire generates one and remembers it in this project's user secrets (Parameters:postgres-password), never
+// in the repository (NFR-SEC-01); the services get it through their connection strings.
+// To start again from an empty database, see "Resetting the local database" in the README.
+var postgres = builder.AddPostgres("postgres")
+    .WithDataVolume("nodeable-postgres-data");
 var nodeableDb = postgres.AddDatabase("nodeabledb");
 
 // Redis holds the shared MusicBrainz rate gate (Worker and Api, from M2/M3) and, in M3, the SignalR backplane.

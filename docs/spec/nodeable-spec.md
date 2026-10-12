@@ -698,7 +698,7 @@ Implemented in M1 (`.github/workflows/ci.yml`, four parallel jobs): **backend** 
 
 ### Deployment
 
-- **Local:** `dotnet run --project src/Nodeable.AppHost` starts PostgreSQL, Redis, Api, Worker, the Vite dev server and the Aspire dashboard together. Docker must be running. The dashboard is at `http://localhost:15180`; Aspire assigns the web app's port on every run and shows it in the dashboard. Running `npm run dev` on its own serves the web app on port 5173 and proxies `/api` to the Api's launch-profile port 5029. Until M3 the local database is ephemeral: every run starts empty. From M3 PostgreSQL uses a named data volume with its password remembered in user secrets, and a documented command resets it (decision 0011).
+- **Local:** `dotnet run --project src/Nodeable.AppHost` starts PostgreSQL, Redis, Api, Worker, the Vite dev server and the Aspire dashboard together. Docker must be running. The dashboard is at `http://localhost:15180`; Aspire assigns the web app's port on every run and shows it in the dashboard. Running `npm run dev` on its own serves the web app on port 5173 and proxies `/api` to the Api's launch-profile port 5029. PostgreSQL keeps its data in a named Docker volume (`nodeable-postgres-data`) with its generated password remembered in the AppHost's user secrets, so graphs and crawled data survive a restart; `node tools/dev/reset-local-db.mjs --yes` resets it (decision 0011).
 - **Production:** one small VPS provisioned by Terraform, running Docker Compose with Caddy for HTTPS, Api, Worker, Web (static files served by Caddy), PostgreSQL, Redis and the OpenTelemetry Collector.
 - **Releases:** images tagged by commit SHA; deploys pull new images and restart with health checks; EF Core migrations run as a separate one-off step before the Api starts.
 - **Backups:** nightly `pg_dump` to object storage, keeping 14 days; a restore drill runs monthly.
@@ -749,7 +749,7 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [ ] Your hubs panel and role filters (FR-HUB-02, FR-HUB-03)
 - [ ] Credits incomplete badge (FR-GRAPH-04)
 - [ ] Neutral style and filter chip for the `other` role (decision 0010)
-- [ ] Persistent local database: data volume and remembered password, with a documented reset (decision 0011)
+- [x] Persistent local database: data volume and remembered password, with a documented reset (decision 0011)
 
 ### M4 Discovery and launch (2 weeks)
 
