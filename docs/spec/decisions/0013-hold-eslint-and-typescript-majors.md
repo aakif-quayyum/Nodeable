@@ -48,3 +48,13 @@ Decision 0001 left two tools one major version behind on purpose. `eslint-plugin
 Trial, in a scratch checkout, not committed: ESLint 10.12.0, `@eslint/js` 10.0.1 and `eslint-plugin-jsx-a11y-x` 0.2.0, with the plugin import and `configs.recommended` swapped in `web/eslint.config.js`. A file with an image without `alt`, a clickable `div` and an anchor with `href="#"` produced the same four findings as the current setup, and lint, typecheck and all 18 tests passed.
 
 Outcome: the TypeScript pin stays. The ESLint pin **could** move, but only by replacing the accessibility plugin, which is the alternative rejected above when no maintained replacement could be confirmed. That premise has changed, so the choice is open and is put to the developer as a decision, not made as part of the milestone-start check.
+
+### M3 start (2026-10-12)
+
+| Question | Finding (checked against the npm registry and `.github/workflows/ci.yml` on this date) |
+| --- | --- |
+| Does typescript-eslint support TypeScript 6.1 or later? | No. Version 8.71.1 is the latest and its peer range is still `>=4.8.4 <6.1.0`. TypeScript's latest release is 7.0.2. The hold on TypeScript 6.0 stands. |
+| Is Node 24 still the runtime in CI, so that `@types/node` 24 is the matching major? | Yes: `node-version: 24` in the CI and learning-guides workflows. `@types/node` 26.6.5 is the latest; its major still does not match the runtime. The rule stands. |
+| Is `eslint-plugin-jsx-a11y-x` still being released? | It is alive but slow. 0.2.0 was published 2026-05-10; the release before it was 0.1.1 on 2025-05-21. Its peer range is `^9.0.0 \|\| ^10.0.0`, so ESLint 10 is supported. No action; the next review checks for a release since May. |
+
+Outcome: no pin can move, so nothing is lifted in M3's first pull request.
