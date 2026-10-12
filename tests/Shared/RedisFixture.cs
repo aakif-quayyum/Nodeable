@@ -12,7 +12,15 @@ namespace Nodeable.Tests.Containers;
 /// </summary>
 public sealed class RedisFixture : IAsyncLifetime
 {
-    private readonly RedisContainer _container = new RedisBuilder("redis:8.6").Build();
+    /// <summary>
+    /// How many numbered databases the server has (Redis starts with 16). A test that needs the rate gate to itself uses a
+    /// database of its own; with 16, the seventeenth such test shared one and could be slowed by another.
+    /// </summary>
+    public const int DatabaseCount = 1024;
+
+    private readonly RedisContainer _container = new RedisBuilder("redis:8.6")
+        .WithCommand("--databases", DatabaseCount.ToString(System.Globalization.CultureInfo.InvariantCulture))
+        .Build();
 
     public string ConnectionString => _container.GetConnectionString();
 
