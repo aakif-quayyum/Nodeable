@@ -1,6 +1,6 @@
 # 0019. A song is added by MBID alone, and a hub join carries the token as an argument
 
-- **Status:** Proposed (implemented in M3, pull request 2; the hub half was approved by the developer on 2026-10-12, the add-song half is put to the developer with this pull request)
+- **Status:** Accepted (implemented in M3, pull request 2; the developer approved the hub half and confirmed the add-song half, as built, on 2026-10-12)
 - **Date:** 2026-10-12
 - **Spec:** section 7 (flow: adding a song), section 9 (`POST /graphs/{id}/songs`, hub events), decisions 0007, 0009, 0018, FR-GRAPH-02, NFR-SEC-02
 
