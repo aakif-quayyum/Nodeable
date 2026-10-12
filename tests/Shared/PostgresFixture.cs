@@ -12,7 +12,12 @@ namespace Nodeable.Tests.Containers;
 /// </summary>
 public sealed class PostgresFixture : IAsyncLifetime
 {
-    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:18").Build();
+    // Every test gets a database of its own, and Npgsql keeps a pool of idle connections per database (that is, per
+    // connection string). Over a few hundred tests those pools add up past PostgreSQL's default of 100 connections
+    // ("sorry, too many clients already"), so the test server allows more. Production's limit is not affected.
+    private readonly PostgreSqlContainer _container = new PostgreSqlBuilder("postgres:18")
+        .WithCommand("-c", "max_connections=1000")
+        .Build();
 
     public string ConnectionString => _container.GetConnectionString();
 

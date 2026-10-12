@@ -57,6 +57,9 @@ public sealed class MusicBrainzClient(HttpClient http) : IMusicBrainzClient
     public Task<RecordingLookup?> GetRecordingAsync(Guid mbid, CancellationToken cancellationToken = default) =>
         GetAsync<RecordingLookup>($"recording/{mbid:D}?inc={RecordingIncludes}&{Format}", "recording", RecordingIncludes, cancellationToken);
 
+    public Task<RecordingLookup?> GetRecordingSummaryAsync(Guid mbid, CancellationToken cancellationToken = default) =>
+        GetAsync<RecordingLookup>($"recording/{mbid:D}?inc=artist-credits&{Format}", "recording", "artist-credits", cancellationToken);
+
     public Task<WorkLookup?> GetWorkAsync(Guid mbid, CancellationToken cancellationToken = default) =>
         GetAsync<WorkLookup>($"work/{mbid:D}?inc={ArtistRelationshipIncludes}&{Format}", "work", ArtistRelationshipIncludes, cancellationToken);
 

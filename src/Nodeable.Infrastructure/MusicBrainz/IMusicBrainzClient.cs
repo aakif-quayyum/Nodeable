@@ -14,6 +14,12 @@ public interface IMusicBrainzClient
     /// <summary>Step 2: a recording's credits, linked works, releases and ISRCs.</summary>
     Task<RecordingLookup?> GetRecordingAsync(Guid mbid, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// A recording's title and artist credit only, the lightest lookup MusicBrainz offers. The Api uses it to confirm
+    /// that an MBID a client sends exists, and to learn its real title, before the recording is stored.
+    /// </summary>
+    Task<RecordingLookup?> GetRecordingSummaryAsync(Guid mbid, CancellationToken cancellationToken = default);
+
     /// <summary>Step 3: a work's composer, lyricist and writer credits.</summary>
     Task<WorkLookup?> GetWorkAsync(Guid mbid, CancellationToken cancellationToken = default);
 

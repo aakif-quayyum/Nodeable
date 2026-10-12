@@ -241,9 +241,88 @@ public class CrawlJobRunnerTests(PostgresFixture postgres)
         measurements.Should().Contain(("recording", "done"));
     }
 
+    [Fact]
+    public async Task FR_GRAPH_02_an_observer_is_told_when_a_job_is_done_and_after_the_queue_recorded_it()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var observer = new RecordingObserver();
+        var (provider, connectionString) = await BuildAsync((_, _) => Task.CompletedTask, observer: observer);
+        await using var _ = provider;
+        await EnqueueAsync(provider, Mbid(1));
+
+        // The observer looks at the queue the way a real one would: the job must already be marked done.
+        observer.OnDone = async _ => observer.StatusSeenByObserver = (await JobsAsync(connectionString)).Single().Status;
+
+        await provider.GetRequiredService<ICrawlJobRunner>().RunOnceAsync(ct);
+
+        observer.Done.Should().ContainSingle().Which.TargetMbid.Should().Be(Mbid(1));
+        observer.Failed.Should().BeEmpty();
+        observer.StatusSeenByObserver.Should().Be(CrawlJobStatus.Done);
+    }
+
+    [Fact]
+    public async Task FR_GRAPH_02_an_observer_that_throws_does_not_change_the_job_or_stop_the_next_observer()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var broken = new RecordingObserver { OnDone = _ => throw new InvalidOperationException("the hub is down") };
+        var next = new RecordingObserver();
+        var (provider, connectionString) = await BuildAsync((_, _) => Task.CompletedTask, observer: broken, secondObserver: next);
+        await using var _ = provider;
+        await EnqueueAsync(provider, Mbid(1));
+
+        var ran = await provider.GetRequiredService<ICrawlJobRunner>().RunOnceAsync(ct);
+
+        ran.Should().BeTrue();
+        var job = (await JobsAsync(connectionString)).Single();
+        job.Status.Should().Be(CrawlJobStatus.Done);
+        job.LastError.Should().BeNull("a failure to report is not a failure of the job");
+        next.Done.Should().ContainSingle("one observer's failure must not keep the others from hearing");
+    }
+
+    [Fact]
+    public async Task FR_GRAPH_02_an_observer_hears_of_a_failure_once_the_job_is_out_of_attempts_and_not_before()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var observer = new RecordingObserver();
+        var (provider, connectionString) = await BuildAsync(
+            (_, _) => throw new InvalidOperationException("no"),
+            new() { ["Crawl:MaxAttempts"] = "2" },
+            observer);
+        await using var _ = provider;
+        await EnqueueAsync(provider, Mbid(1));
+        var runner = provider.GetRequiredService<ICrawlJobRunner>();
+
+        await runner.RunOnceAsync(ct);
+        observer.Failed.Should().BeEmpty("the first failure will be retried, so nobody needs to hear of it yet");
+
+        await SqlAsync(connectionString, $"UPDATE crawl_jobs SET run_after = now()");
+        await runner.RunOnceAsync(ct);
+
+        observer.Failed.Should().ContainSingle();
+        observer.Done.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task FR_GRAPH_02_a_job_that_can_never_succeed_is_reported_as_failed_at_once()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var observer = new RecordingObserver();
+        var (provider, _) = await BuildAsync(
+            (_, _) => throw new CrawlJobPermanentFailureException("MusicBrainz has no such recording"),
+            observer: observer);
+        await using var _ = provider;
+        await EnqueueAsync(provider, Mbid(1));
+
+        await provider.GetRequiredService<ICrawlJobRunner>().RunOnceAsync(ct);
+
+        observer.Failed.Should().ContainSingle();
+    }
+
     private async Task<(ServiceProvider Provider, string ConnectionString)> BuildAsync(
         Func<CrawlJob, CancellationToken, Task> handler,
-        Dictionary<string, string?>? settings = null)
+        Dictionary<string, string?>? settings = null,
+        ICrawlJobObserver? observer = null,
+        ICrawlJobObserver? secondObserver = null)
     {
         var connectionString = await NewDatabaseAsync(postgres);
 
@@ -253,6 +332,15 @@ public class CrawlJobRunnerTests(PostgresFixture postgres)
         services.AddDbContext<NodeableDbContext>(options => options.UseNpgsql(connectionString).UseNodeableConventions());
         services.AddCrawling();
         services.AddKeyedSingleton<ICrawlJobHandler>(CrawlJobKind.Recording, new DelegateHandler(handler));
+        if (observer is not null)
+        {
+            services.AddSingleton(observer);
+        }
+
+        if (secondObserver is not null)
+        {
+            services.AddSingleton(secondObserver);
+        }
 
         return (services.BuildServiceProvider(), connectionString);
     }
@@ -262,6 +350,32 @@ public class CrawlJobRunnerTests(PostgresFixture postgres)
         await using var scope = provider.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<ICrawlQueue>()
             .EnqueueAsync(CrawlJobKind.Recording, mbid, CrawlPriority.Interactive, TestContext.Current.CancellationToken);
+    }
+
+    private sealed class RecordingObserver : ICrawlJobObserver
+    {
+        public List<CrawlJob> Done { get; } = [];
+
+        public List<CrawlJob> Failed { get; } = [];
+
+        public Func<CrawlJob, Task>? OnDone { get; set; }
+
+        public CrawlJobStatus? StatusSeenByObserver { get; set; }
+
+        public async Task OnJobDoneAsync(CrawlJob job, CancellationToken cancellationToken)
+        {
+            Done.Add(job);
+            if (OnDone is not null)
+            {
+                await OnDone(job);
+            }
+        }
+
+        public Task OnJobFailedAsync(CrawlJob job, CancellationToken cancellationToken)
+        {
+            Failed.Add(job);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class DelegateHandler(Func<CrawlJob, CancellationToken, Task> handler) : ICrawlJobHandler

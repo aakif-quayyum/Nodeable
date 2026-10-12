@@ -32,6 +32,12 @@ internal static class InfrastructureTelemetry
         unit: "{lookup}",
         description: "Lookups served from the cache or sent to an external API, by entity and result (hit, miss).");
 
+    /// <summary>Browsers connected to the graph hub right now: live users (spec section 11).</summary>
+    public static readonly UpDownCounter<long> SignalRConnections = _meter.CreateUpDownCounter<long>(
+        "signalr.connections",
+        unit: "{connection}",
+        description: "Open SignalR connections to the graph hub.");
+
     /// <summary>How long each request waited for the rate gate: the number that shows the limit is the bottleneck.</summary>
     public static readonly Histogram<double> RateGateWait = _meter.CreateHistogram<double>(
         "ratelimit.wait",
