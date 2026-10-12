@@ -7,11 +7,20 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Testcontainers.PostgreSql" />
+    <PackageReference Include="Testcontainers.Redis" />
+    <!-- The search endpoint talks to MusicBrainz through the real client pipeline; WireMock stands in for MusicBrainz. -->
+    <PackageReference Include="WireMock.Net" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- One shared source file, compiled into every test project that needs a database. -->
+    <!-- One shared source file per container, compiled into every test project that needs it. -->
     <Compile Include="..\Shared\PostgresFixture.cs" Link="PostgresFixture.cs" />
+    <Compile Include="..\Shared\RedisFixture.cs" Link="RedisFixture.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The real MusicBrainz responses the Infrastructure tests use: one copy, linked, so the two cannot drift apart. -->
+    <None Include="..\Nodeable.Infrastructure.Tests\Fixtures\musicbrainz\*.json" Link="Fixtures\musicbrainz\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

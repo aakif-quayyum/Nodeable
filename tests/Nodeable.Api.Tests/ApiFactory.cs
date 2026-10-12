@@ -5,12 +5,14 @@ using Nodeable.Tests.Containers;
 namespace Nodeable.Api.Tests;
 
 /// <summary>
-/// Starts the real Api in memory, pointed at its own empty database inside the Testcontainers PostgreSQL.
-/// In production Aspire injects the connection string; here the factory injects it instead.
-/// In Development the Api migrates the database on startup.
+/// Starts the real Api in memory, pointed at its own empty database inside the Testcontainers PostgreSQL and at the
+/// shared Testcontainers Redis. In production Aspire injects the connection strings; here the factory injects them
+/// instead. In Development the Api migrates the database on startup.
 /// </summary>
-public sealed class ApiFactory(PostgresFixture postgres) : WebApplicationFactory<Program>
+public sealed class ApiFactory(PostgresFixture postgres, RedisFixture redis) : WebApplicationFactory<Program>
 {
+    private static int _nextRedisDatabase;
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         // ConfigureWebHost is synchronous, so waiting on the task here is the simple option; it runs once per factory.
@@ -18,5 +20,10 @@ public sealed class ApiFactory(PostgresFixture postgres) : WebApplicationFactory
 
         // UseSetting is applied before Program.cs runs, which matters because AddNpgsqlDbContext reads the connection string while the app is being configured.
         builder.UseSetting("ConnectionStrings:nodeabledb", connectionString);
+
+        // The MusicBrainz rate gate keeps its slot in one fixed Redis key. Each factory gets its own Redis database
+        // number (a Redis server has 16), so a test that uses up the slot cannot slow down another test class.
+        var database = Interlocked.Increment(ref _nextRedisDatabase) % 16;
+        builder.UseSetting("ConnectionStrings:redis", $"{redis.ConnectionString},defaultDatabase={database}");
     }
 }
