@@ -22,8 +22,9 @@ public sealed class ApiFactory(PostgresFixture postgres, RedisFixture redis) : W
         builder.UseSetting("ConnectionStrings:nodeabledb", connectionString);
 
         // The MusicBrainz rate gate keeps its slot in one fixed Redis key. Each factory gets its own Redis database
-        // number (a Redis server has 16), so a test that uses up the slot cannot slow down another test class.
-        var database = Interlocked.Increment(ref _nextRedisDatabase) % 16;
+        // number, so a test that uses up the slot cannot slow down another test. The fixture starts the server with
+        // enough databases that no number is reused within a run (it was 16, and the 17th factory shared one).
+        var database = Interlocked.Increment(ref _nextRedisDatabase) % RedisFixture.DatabaseCount;
         builder.UseSetting("ConnectionStrings:redis", $"{redis.ConnectionString},defaultDatabase={database}");
     }
 }
