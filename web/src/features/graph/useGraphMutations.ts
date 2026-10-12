@@ -68,7 +68,7 @@ export function useRemoveSong(session: GraphSession) {
 export function useGraphSongIds(): ReadonlySet<string> {
   const session = useGraphSession()
 
-  // LEARN: LG-03 skip-token | `skipToken` as the queryFn makes a query that observes the cache and never fetches, and TypeScript still knows the data's type: the search results can ask "is this song in the graph?" without a second request or a second owner of loading
+  // `skipToken` as the queryFn makes a query that observes the cache and never fetches, and TypeScript still knows the data's type: the search results can ask "is this song in the graph?" without a second request or a second owner of loading
   const { data } = useQuery({
     queryKey: graphQueryKey(session?.id ?? ''),
     queryFn: skipToken,

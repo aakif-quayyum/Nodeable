@@ -17,6 +17,10 @@ export function RoleChip({ role, detail = '', prefix }: { role: GraphCredit['rol
       icon={<Icon />}
       label={prefix ? `${prefix} — ${text}` : text}
       sx={(theme) => ({
+        // A long credit wraps inside the chip instead of running off a phone's screen.
+        height: 'auto',
+        maxWidth: '100%',
+        '& .MuiChip-label': { whiteSpace: 'normal', py: 0.25 },
         // applyStyles runs the block only for that colour scheme, whichever way the scheme is selected.
         borderColor: colors.dark,
         '& .MuiChip-icon': { color: colors.dark },

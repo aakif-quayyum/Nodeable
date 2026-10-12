@@ -14,6 +14,9 @@ export class FakeGraphHub implements GraphHubConnection {
   /** What JoinGraph should do: resolve, or reject with this message (a refused join). */
   joinFails: string | null = null
 
+  /** When set, JoinGraph does not answer until this promise resolves: a slow server. */
+  joinGate: Promise<void> | null = null
+
   on(method: string, handler: (message: unknown) => void) {
     this.handlers.set(method, handler)
   }
@@ -32,9 +35,11 @@ export class FakeGraphHub implements GraphHubConnection {
     return Promise.resolve()
   }
 
-  invoke(method: string, ...args: unknown[]) {
+  async invoke(method: string, ...args: unknown[]) {
     this.calls.push(`${method}(${args.map((arg) => String(arg)).join(', ')})`)
-    return this.joinFails === null ? Promise.resolve(undefined) : Promise.reject(new Error(this.joinFails))
+    await this.joinGate
+    if (this.joinFails !== null) throw new Error(this.joinFails)
+    return undefined
   }
 
   stop() {

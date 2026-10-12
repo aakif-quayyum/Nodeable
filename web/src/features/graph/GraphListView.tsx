@@ -79,20 +79,13 @@ export function GraphListView({ snapshot, failures, onRemove, removing }: GraphL
     <Box sx={{ display: 'grid', gap: 3 }}>
       <TableContainer>
         {/* A table's accessible name is its caption, so a screen reader announces "Songs and their credits, table". */}
-        <Table size="small">
-          <Box component="caption" sx={{ textAlign: 'left', py: 1, fontWeight: 600 }}>
-            Songs and their credits
-          </Box>
+        <Table size="small" sx={tableSx}>
+          <caption>Songs and their credits</caption>
           <TableHead>
             <TableRow>
+              {/* Status and the remove button sit under the song, so the table is two columns and fits a phone. */}
               <TableCell scope="col">Song</TableCell>
               <TableCell scope="col">Credits</TableCell>
-              <TableCell scope="col">Status</TableCell>
-              <TableCell scope="col">
-                <Box component="span" sx={visuallyHidden}>
-                  Actions
-                </Box>
-              </TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -113,10 +106,8 @@ export function GraphListView({ snapshot, failures, onRemove, removing }: GraphL
 
       {people.length > 0 && (
         <TableContainer>
-          <Table size="small">
-            <Box component="caption" sx={{ textAlign: 'left', py: 1, fontWeight: 600 }}>
-              People, most songs first
-            </Box>
+          <Table size="small" sx={tableSx}>
+            <caption>People, most songs first</caption>
             <TableHead>
               <TableRow>
                 <TableCell scope="col">Person</TableCell>
@@ -185,6 +176,20 @@ function SongRow({
           {song.artist}
           {song.year === null ? '' : ` · ${song.year}`}
         </Typography>
+
+        <Box sx={{ mt: 1 }}>
+          <SongStatus song={song} incomplete={incomplete} failure={failure} />
+        </Box>
+        <Button
+          size="small"
+          color="inherit"
+          disabled={removing}
+          aria-label={`Remove ${song.title} by ${song.artist} from your graph`}
+          onClick={() => onRemove(song)}
+          sx={{ mt: 0.5, ml: -1 }}
+        >
+          Remove
+        </Button>
       </TableCell>
 
       <TableCell sx={{ verticalAlign: 'top' }}>
@@ -215,21 +220,6 @@ function SongRow({
         )}
       </TableCell>
 
-      <TableCell sx={{ verticalAlign: 'top' }}>
-        <SongStatus song={song} incomplete={incomplete} failure={failure} />
-      </TableCell>
-
-      <TableCell sx={{ verticalAlign: 'top' }}>
-        <Button
-          size="small"
-          color="inherit"
-          disabled={removing}
-          aria-label={`Remove ${song.title} by ${song.artist} from your graph`}
-          onClick={() => onRemove(song)}
-        >
-          Remove
-        </Button>
-      </TableCell>
     </TableRow>
   )
 }
@@ -274,14 +264,9 @@ function SongStatus({ song, incomplete, failure }: { song: GraphSong; incomplete
   )
 }
 
-const chipListSx = { display: 'flex', flexWrap: 'wrap', gap: 0.5, listStyle: 'none', m: 0, p: 0 } as const
-
-// Hidden from the eyes, still read by screen readers: the standard "visually hidden" recipe.
-const visuallyHidden = {
-  position: 'absolute',
-  width: 1,
-  height: 1,
-  overflow: 'hidden',
-  clip: 'rect(0 0 0 0)',
-  whiteSpace: 'nowrap',
+// MUI styles a table's caption small, grey and below the table; here it names the table, so it is shown above it, like a heading.
+const tableSx = {
+  '& caption': { captionSide: 'top', color: 'text.primary', fontSize: '1rem', fontWeight: 600, px: 0 },
 } as const
+
+const chipListSx = { display: 'flex', flexWrap: 'wrap', gap: 0.5, listStyle: 'none', m: 0, p: 0 } as const

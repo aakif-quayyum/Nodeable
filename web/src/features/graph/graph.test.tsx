@@ -121,10 +121,20 @@ describe('graph list view', () => {
 
   it('FR_GRAPH_02 joins the graph before it loads the snapshot, with the token as an argument', async () => {
     const hub = new FakeGraphHub()
+    let answerJoin: () => void = () => undefined
+    // A slow join: if the snapshot were requested at the same time, it would show up in the calls while this waits.
+    hub.joinGate = new Promise<void>((resolve) => {
+      answerJoin = resolve
+    })
     rememberGraph()
     serveSnapshot(() => snapshot({ songs: [{ ...redbone, creditsStatus: 'complete' }] }), hub)
 
     renderAt('/', { graphConnection: () => hub })
+    await waitFor(() => expect(hub.calls).toContain(`JoinGraph(${graphId}, ${token})`))
+    await new Promise((resolve) => setTimeout(resolve, 150))
+    expect(hub.calls).not.toContain('GET snapshot')
+
+    answerJoin()
     await screen.findByRole('table', { name: 'Songs and their credits' })
 
     expect(hub.calls).toEqual(['start', `JoinGraph(${graphId}, ${token})`, 'GET snapshot'])
