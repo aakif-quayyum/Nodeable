@@ -27,3 +27,12 @@ Each AppHost run starts an empty PostgreSQL, which was deliberate: nothing to co
 - A volume plus a changed password is the classic way to get a database that will not start; the reset command and a short troubleshooting note in the README cover it.
 - Whether Aspire persists a generated password is verified when this is implemented; if it does not, a parameter set once with `dotnet user-secrets` is the alternative, and the fallback above applies if that is too much friction.
 - Integration tests are unaffected: they use their own Testcontainers databases.
+
+## Outcome (M3, 2026-10-12)
+
+Verified on the real stack, not assumed:
+
+- **Aspire already remembers the generated password.** `AddPostgres("postgres")` creates a `postgres-password` parameter and stores its generated value in the AppHost's user secrets (`Parameters:postgres-password`); it had been there since the first run. The explicit parameter this record planned as an alternative was tried and removed as redundant, and the fallback (an ephemeral database plus a seed script) is not needed.
+- **The volume is `nodeable-postgres-data`**, named in the AppHost with `WithDataVolume`. A row written in one run was read back in the next, from a new container, with no authentication failure; the Api's migrations applied on top of the existing data.
+- **The reset** is `node tools/dev/reset-local-db.mjs --yes` (documented in the README). It removes the volume and any container still using it, and without `--yes` only shows what it would remove. The password stays in the user secrets and is reused by the new volume, so it is not removed.
+- A container removed with `docker rm` leaves an anonymous volume behind unless `-v` is given; those are separate from `nodeable-postgres-data` and can be pruned with `docker volume prune` while the stack is stopped (which would also remove the named volume, so run the reset command's dry run first if the data matters).

@@ -74,6 +74,7 @@ public sealed partial class CrawlJobRunner(IServiceScopeFactory scopes, ILogger<
             }
 
             LogDone(logger, job.Id, kind, job.Attempts);
+            await NotifyAsync(scope, observer => observer.OnJobDoneAsync(job, CancellationToken.None), job, kind);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -91,6 +92,7 @@ public sealed partial class CrawlJobRunner(IServiceScopeFactory scopes, ILogger<
             await queue.FailAsync(job, WorkerId, exception.Message, permanent: true, CancellationToken.None);
             activity?.SetStatus(ActivityStatusCode.Error, exception.Message);
             LogPermanentFailure(logger, job.Id, kind, exception.Message);
+            await NotifyAsync(scope, observer => observer.OnJobFailedAsync(job, CancellationToken.None), job, kind);
         }
         catch (Exception exception)
         {
@@ -108,6 +110,11 @@ public sealed partial class CrawlJobRunner(IServiceScopeFactory scopes, ILogger<
             {
                 LogRetry(logger, exception, job.Id, kind, job.Attempts);
             }
+
+            if (failed == FailResult.Failed)
+            {
+                await NotifyAsync(scope, observer => observer.OnJobFailedAsync(job, CancellationToken.None), job, kind);
+            }
         }
         finally
         {
@@ -118,6 +125,23 @@ public sealed partial class CrawlJobRunner(IServiceScopeFactory scopes, ILogger<
         }
 
         return true;
+    }
+
+    // Observers run after the queue has recorded the outcome, and their failure is only logged: the job's own work is
+    // already stored, and a browser that misses an event loads the snapshot on its next reconnect.
+    private async Task NotifyAsync(AsyncServiceScope scope, Func<ICrawlJobObserver, Task> notify, CrawlJob job, string kind)
+    {
+        foreach (var observer in scope.ServiceProvider.GetServices<ICrawlJobObserver>())
+        {
+            try
+            {
+                await notify(observer);
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                LogObserverFailed(logger, exception, job.Id, kind, observer.GetType().Name);
+            }
+        }
     }
 
     public async Task<int> RecoverStaleAsync(CancellationToken cancellationToken)
@@ -152,6 +176,9 @@ public sealed partial class CrawlJobRunner(IServiceScopeFactory scopes, ILogger<
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Crawl job {JobId} ({Kind}) handed back to the queue because the worker is stopping")]
     private static partial void LogReleased(ILogger logger, long jobId, string kind);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Crawl job {JobId} ({Kind}) finished, but {Observer} could not report it")]
+    private static partial void LogObserverFailed(ILogger logger, Exception exception, long jobId, string kind, string observer);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Recovered {Count} crawl job(s) abandoned by a worker that stopped")]
     private static partial void LogRecovered(ILogger logger, int count);

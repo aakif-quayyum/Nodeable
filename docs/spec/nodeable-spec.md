@@ -242,12 +242,12 @@ Solid arrows carry requests and data; dashed arrows carry telemetry to the Colle
 
 ### Flow: adding a song
 
-1. The browser sends `POST /graphs/{id}/songs` with a `traceparent` header.
-2. The API checks PostgreSQL. Cached credits return in the response and the flow ends.
-3. Otherwise the API upserts the `recordings` row, inserts one `crawl_jobs` row for the recording fetch with the trace context stored on it, and returns 202 with the song node (decision 0009).
+1. The browser sends `POST /graphs/{id}/songs` with the graph token and a `traceparent` header. The body is the recording's MBID only.
+2. The API checks the token. It then looks the recording up in PostgreSQL. A recording it has never seen is first confirmed with MusicBrainz (title and artist only, through the shared gate with the interactive profile of decision 0018), so a made-up MBID never becomes a row of the shared cache (decision 0019).
+3. Cached credits (status other than `none`) are sent to the graph's browsers by the API itself, as the events of step 6, and the answer is 200. Otherwise the API upserts the `recordings` row, inserts one `crawl_jobs` row for the recording fetch with the trace context stored on it, and returns 202 with the song node (decision 0009).
 4. The Worker claims jobs with `FOR UPDATE SKIP LOCKED`, highest priority first, and waits for a token from the Redis rate gate.
 5. The Worker fetches from MusicBrainz, maps relationships to roles, and upserts `people` and `credits`. From the recording response it queues the follow-up jobs itself: a `work` job per linked work, a `preview` job when an ISRC is known, and a `release` job only when no producer credit was found. Each carries the same trace context and priority.
-6. The Worker publishes `CreditsResolved` and `HubsUpdated` through SignalR, using the Redis backplane, to every client in the graph's group.
+6. When a job ends, the Worker finds the recordings it concerned and the graphs that hold them, and publishes `CreditsResolved`, `SongStatusChanged`, `CrawlProgress` and `HubsUpdated` (or `CrawlFailed`) through SignalR, using the Redis backplane, to every client in each graph's group. The Worker has no hub of its own: it sends to the one the API hosts.
 7. The browser merges each event into the TanStack Query cache, and new nodes animate into the graph.
 
 ### How the queue works (implemented in M2)
@@ -303,6 +303,7 @@ User accounts use the standard ASP.NET Core Identity tables. The `traceparent` c
 ### Indexes and constraints
 
 - `credits`: unique on (`person_mbid`, `subject_type`, `subject_mbid`, `role`, `detail`) to make re-crawls idempotent (`detail` is never null, because PostgreSQL treats NULLs as distinct in a unique index); index on (`subject_type`, `subject_mbid`). A separate index on `person_mbid` is not needed: the unique index starts with that column and serves the same lookups.
+- `graph_songs`: the primary key (`graph_id`, `recording_mbid`) serves "the songs of a graph"; the foreign key to `recordings` gives an index on `recording_mbid`, which serves "the graphs that hold this recording", asked after every job.
 - `crawl_jobs`: unique on (`kind`, `target_mbid`) where `status` is pending or running, so the same fetch is never queued twice; partial index on (`priority` desc, `run_after`) where `status = 'pending'`.
 - `recordings.title`: trigram index (`pg_trgm`) for fast local search before falling back to MusicBrainz.
 
@@ -399,6 +400,34 @@ GET /api/v1/search/recordings?q=Redbone&artist=Childish%20Gambino
 - `versions` holds the duplicates folded behind the result, earliest first, each with a `kind` (`live`, `remaster`, `compilation`, `other`) and MusicBrainz's disambiguation comment as `note`. How duplicates are decided is in section 10.
 - Errors are Problem Details with these `type` values: `/errors/invalid-search` (400), `/errors/rate-limited` (429, for more than 60 searches a minute from one address, or when the shared MusicBrainz gate has no slot within the wait cap; `Retry-After` says when to try again), `/errors/upstream-unavailable` (503, MusicBrainz busy or too slow) and `/errors/upstream-error` (502, MusicBrainz rejected the query).
 
+### Graphs
+
+An anonymous graph is created without a body or with `{ "name": "..." }` (at most 100 characters; default "Untitled graph") and answers `201` with its address in `Location` and `{ id, name, anonToken }`. The token is shown once; the server keeps only its hash (decision 0007). Every other graph request sends it in `X-Graph-Token`: a missing or wrong token is `401 /errors/invalid-graph-token`, an unknown graph `404 /errors/graph-not-found`.
+
+```json
+GET /api/v1/graphs/7c1e...
+X-Graph-Token: <token>
+
+200 OK
+{
+  "id": "7c1e...", "name": "Late night",
+  "seq": 17,
+  "songs": [{ "mbid": "7408...", "title": "Redbone", "artist": "Childish Gambino", "year": 2016,
+              "creditsStatus": "complete", "addedAt": "2026-10-12T09:09:45Z" }],
+  "people": [{ "mbid": "1ba0...", "name": "Donald Glover" }],
+  "credits": [{ "songMbid": "7408...", "personMbid": "1ba0...", "role": "songwriter", "detail": "", "level": "recording" }],
+  "hubs": [{ "personMbid": "1ba0...", "songs": 2, "roles": ["songwriter", "vocal"] }],
+  "crawl": { "queued": 0, "done": 5, "failed": 0, "etaSeconds": 0 }
+}
+```
+
+- **One snapshot.** `songs` are oldest first. `credits` has one entry per song, person, role and detail (FR-GRAPH-03), kept at the level closest to the recording when the same credit exists on the recording and on its work. `hubs` lists people credited on two or more songs, most songs first (FR-HUB-02).
+- **`seq`** is the number of the last event sent for this graph, read **before** the data. Any event with a higher number is newer than the snapshot or already part of it, and applying an event twice changes nothing, so a client that joins the hub first, then loads the snapshot, and drops events with `seq` at or below the snapshot's, cannot miss or double-count anything.
+- **`crawl`** counts the crawl jobs for the graph's songs: the recording fetches and the work and release fetches they led to. `etaSeconds` is queued jobs times the gate interval (one request a second).
+- **`creditsStatus`** is `loading` while a recording, work or release fetch for the song is pending or running, and otherwise the stored `complete`, `partial` or `none`.
+- `DELETE /api/v1/graphs/{id}/songs/{mbid}` answers `204`, or `404` when the song is not in the graph; the recording and its credits stay in the cache. A graph holds at most 50 songs: adding a 51st is `409 /errors/graph-full` (FR-GRAPH-01).
+- Adding songs is limited to 20 a minute per address (NFR-SEC-02).
+
 ### Example: add a song
 
 ```json
@@ -414,9 +443,11 @@ POST /api/v1/graphs/7c1e.../songs
 
 `pendingJobs` counts the jobs outstanding for the song and starts at 1: the Worker queues the work, release and preview jobs after it has fetched the recording (decision 0009). Progress is therefore reported as a growing queue, never as "n of 4".
 
+The answer is `202` while credits are being fetched. It is `200` with `pendingJobs: 0` when the credits were already cached (the graph's browsers are sent them as events at once), and `200` when the song was already in the graph. The body carries no title: the title and artist come from MusicBrainz (decision 0019). A recording MusicBrainz does not know is `404 /errors/recording-not-found`; MusicBrainz busy or slow is `429` or `503` with `Retry-After`, as for search.
+
 ### SignalR hub events
 
-Clients join a group per graph with `JoinGraph(graphId)`. The server sends:
+Clients join a group per graph with `JoinGraph(graphId, token)` and leave it with `LeaveGraph(graphId)`. The token is an argument of the hub method, in the body of the message: a browser's WebSocket cannot send a header, and a token in the URL would reach logs (decision 0019). A wrong token and an unknown graph give the same refusal. The hub is at `/hubs/graph`, on the same origin as the app; the server sends:
 
 | Event | Payload | When |
 | --- | --- | --- |
@@ -426,7 +457,13 @@ Clients join a group per graph with `JoinGraph(graphId)`. The server sends:
 | `CrawlProgress` | `{ queued, done, failed, etaSeconds }` | Every completed job for this graph |
 | `CrawlFailed` | `{ songMbid, reason }` | A job exhausts its retries |
 
-Every message carries a monotonically increasing `seq` per graph. On reconnect the client calls `GET /graphs/{id}` and drops messages with a `seq` lower than the snapshot's.
+Every message carries `seq`, a number that grows by one for each message of its graph (a Redis counter, so it holds across the Api and the Worker). On reconnect the client joins again, calls `GET /graphs/{id}`, and drops messages with a `seq` at or below the snapshot's.
+
+- `CreditsResolved` is sent for every song a finished job concerned, with that song's credits at all levels; a credit already known is simply sent again, and the client merges by (person, role, detail).
+- `SongStatusChanged` is sent only when the status a graph was last told changes. `loading` is a status: the first event after an add is the change out of `loading`.
+- `HubsUpdated` is sent at once the first time and then at most once a second per graph; requests inside the second share one trailing send that reads the hubs at the moment it is sent. It is also sent when a song is removed.
+- `CrawlFailed` carries a reason written for the person, never the exception text.
+- Events are best effort. A browser that misses one loads the snapshot when it reconnects; a failure to send never changes the outcome of a job.
 
 ## 10. External integrations
 
@@ -529,7 +566,7 @@ The browser SDK starts traces for searches and song additions and sends `tracepa
 | `external.requests` | Counter | `source`, `status_code` | Rate limit and error tracking |
 | `cache.lookups` | Counter | `entity`, `result` (hit, miss, stale) | Cache hit ratio |
 | `graph.time_to_first_hub` | Histogram | `cached` (true, false) | The headline user-facing metric |
-| `signalr.connections` | UpDownCounter | none | Live users |
+| `signalr.connections` | UpDownCounter | none | Live users (implemented in M3) |
 | Standard ASP.NET Core, runtime and Npgsql metrics | Various | Automatic | Platform health |
 
 ### Logs
@@ -698,7 +735,7 @@ Implemented in M1 (`.github/workflows/ci.yml`, four parallel jobs): **backend** 
 
 ### Deployment
 
-- **Local:** `dotnet run --project src/Nodeable.AppHost` starts PostgreSQL, Redis, Api, Worker, the Vite dev server and the Aspire dashboard together. Docker must be running. The dashboard is at `http://localhost:15180`; Aspire assigns the web app's port on every run and shows it in the dashboard. Running `npm run dev` on its own serves the web app on port 5173 and proxies `/api` to the Api's launch-profile port 5029. Until M3 the local database is ephemeral: every run starts empty. From M3 PostgreSQL uses a named data volume with its password remembered in user secrets, and a documented command resets it (decision 0011).
+- **Local:** `dotnet run --project src/Nodeable.AppHost` starts PostgreSQL, Redis, Api, Worker, the Vite dev server and the Aspire dashboard together. Docker must be running. The dashboard is at `http://localhost:15180`; Aspire assigns the web app's port on every run and shows it in the dashboard. Running `npm run dev` on its own serves the web app on port 5173 and proxies `/api` to the Api's launch-profile port 5029. PostgreSQL keeps its data in a named Docker volume (`nodeable-postgres-data`) with its generated password remembered in the AppHost's user secrets, so graphs and crawled data survive a restart; `node tools/dev/reset-local-db.mjs --yes` resets it (decision 0011).
 - **Production:** one small VPS provisioned by Terraform, running Docker Compose with Caddy for HTTPS, Api, Worker, Web (static files served by Caddy), PostgreSQL, Redis and the OpenTelemetry Collector.
 - **Releases:** images tagged by commit SHA; deploys pull new images and restart with health checks; EF Core migrations run as a separate one-off step before the Api starts.
 - **Backups:** nightly `pg_dump` to object storage, keeping 14 days; a restore drill runs monthly.
@@ -743,13 +780,13 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 ### M3 Graph UI (3 weeks)
 
 - [x] Search box with duplicate collapsing (FR-SEARCH-01, FR-SEARCH-02)
-- [ ] Graph endpoints and SignalR hub with `seq` ordering (FR-GRAPH-01, FR-GRAPH-02)
+- [x] Graph endpoints and SignalR hub with `seq` ordering (FR-GRAPH-01, FR-GRAPH-02)
 - [ ] D3 canvas graph with zoom, hover, click and enter animations (FR-HUB-01)
 - [ ] Accessible list view of the same graph (NFR-A11Y-01)
 - [ ] Your hubs panel and role filters (FR-HUB-02, FR-HUB-03)
 - [ ] Credits incomplete badge (FR-GRAPH-04)
 - [ ] Neutral style and filter chip for the `other` role (decision 0010)
-- [ ] Persistent local database: data volume and remembered password, with a documented reset (decision 0011)
+- [x] Persistent local database: data volume and remembered password, with a documented reset (decision 0011)
 
 ### M4 Discovery and launch (2 weeks)
 
@@ -829,6 +866,7 @@ Raised while building M1 and decided on 2026-10-11 (each has a decision record, 
 | 2026-10-12 | MusicBrainz requests go through a Redis token bucket placed inside the retry, replacing the default resilience handler ([0016](decisions/0016-musicbrainz-request-pipeline.md)) | A retry is a new request and must wait for its own slot; N Workers must share one budget |
 | 2026-10-12 | The crawl queue is a PostgreSQL table claimed with SKIP LOCKED, with guarded updates and stale-job recovery ([0017](decisions/0017-crawl-queue-on-postgresql.md)) | Reliability without a broker at one request per second; inspectable with SQL |
 | 2026-10-12 | The Api asks MusicBrainz for searches itself, through the shared Redis gate with a 2 second wait cap and one retry; every other fetch stays in the Worker ([0018](decisions/0018-search-calls-musicbrainz-from-the-api.md)) | A search has to answer in the same request; the gate is already shared, so the limit still holds across processes |
+| 2026-10-12 | A song is added by MBID only; the Api confirms an unknown recording with MusicBrainz and a hub join carries the token as an argument ([0019](decisions/0019-add-by-mbid-and-hub-token-argument.md)) | The shared cache must not accept client-supplied titles; a WebSocket cannot send a header and a URL token reaches logs |
 
 ## 16. Learning guides
 

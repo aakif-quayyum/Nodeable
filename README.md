@@ -4,7 +4,7 @@ Nodeable is a music discovery web app that maps the producers, songwriters, engi
 
 It is also a portfolio project, built to learn C#/.NET, TypeScript and modern observability tooling.
 
-> **Status:** Milestone M1 (Foundations) is complete apart from its learning guide. The stack runs end to end and one request is traced from the browser through the Api to PostgreSQL. Search, the graph and recommendations arrive in M2 to M4; see the [roadmap](docs/spec/nodeable-spec.md#14-roadmap-and-tasks).
+> **Status:** Milestones M1 (Foundations) and M2 (Ingestion) are released as v0.1.0 and v0.2.0. Milestone M3 (the graph interface) is in progress: search works; the graph, hubs and filters arrive next. See the [roadmap](docs/spec/nodeable-spec.md#14-roadmap-and-tasks).
 
 ## Run it
 
@@ -16,7 +16,17 @@ dotnet run --project src/Nodeable.AppHost
 
 - Open the dashboard at <http://localhost:15180>. The **web** row in its URLs column is the app: Aspire picks the port on every run.
 - Reload the dashboard once if it first shows "0 resources".
-- The database is ephemeral: each run starts empty and the Api applies the migrations.
+- The database persists in a Docker volume (`nodeable-postgres-data`), so graphs and crawled MusicBrainz data survive a restart. The Api applies new migrations on top of it.
+
+### Resetting the local database
+
+Stop the AppHost (Ctrl+C), then:
+
+```bash
+node tools/dev/reset-local-db.mjs --yes
+```
+
+This removes the volume and any container still using it; the next run starts empty. Without `--yes` it only shows what it would remove. The database password is generated once and remembered in the AppHost's user secrets, so it needs no attention. If the database refuses to start with "password authentication failed" after you cleared those secrets, reset it with the command above.
 
 ## Prerequisites
 

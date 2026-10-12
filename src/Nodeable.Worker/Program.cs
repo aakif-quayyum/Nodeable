@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nodeable.Infrastructure.Crawling;
+using Nodeable.Infrastructure.Graphs;
 using Nodeable.Infrastructure.Ingestion;
 using Nodeable.Infrastructure.MusicBrainz;
 using Nodeable.Infrastructure.Persistence;
@@ -26,6 +27,11 @@ builder.Services.AddMusicBrainz();
 // The queue, its runner and its settings, and the handlers that turn recording, work and release jobs into credits.
 builder.Services.AddCrawling();
 builder.Services.AddIngestion();
+
+// After each job, tell the browsers watching the songs it concerned: the Worker has no hub of its own, it sends
+// through the Redis backplane to the one the Api hosts (spec section 7, step 6).
+builder.Services.AddGraphEvents();
+builder.Services.AddGraphJobEvents();
 
 builder.Services.AddHostedService<CrawlWorker>();
 

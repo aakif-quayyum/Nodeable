@@ -1,8 +1,11 @@
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using Nodeable.Api.Endpoints;
 using Nodeable.Api.RateLimiting;
+using Nodeable.Infrastructure.Crawling;
+using Nodeable.Infrastructure.Graphs;
 using Nodeable.Infrastructure.MusicBrainz;
 using Nodeable.Infrastructure.Persistence;
 using Nodeable.Infrastructure.Search;
@@ -22,6 +25,12 @@ builder.AddNpgsqlDbContext<NodeableDbContext>(
 builder.AddRedisClient("redis");
 builder.Services.AddMusicBrainz();
 builder.Services.AddRecordingSearch();
+
+// Graphs: the queue the add-song flow writes to (the Worker reads it), the graph operations, and the SignalR hub with
+// its Redis backplane. The Worker sends events through the same backplane (spec section 7, step 6).
+builder.Services.AddCrawling();
+builder.Services.AddGraphEvents();
+builder.Services.AddGraphs();
 
 // RFC 9457 Problem Details for every error the framework itself produces (404, 415, unhandled exceptions).
 builder.Services.AddProblemDetails();
@@ -57,6 +66,15 @@ app.MapOpenApi();
 
 app.MapStatusEndpoints();
 app.MapSearchEndpoints();
+app.MapGraphEndpoints();
+
+// The one SignalR hub (spec section 9). Browsers connect to the same origin; Vite and Caddy proxy /hubs (decision 0004).
+// The build-time OpenAPI generator runs this startup code with no configuration. The hub is not part of the document,
+// and mapping it connects the Redis backplane, so it is left out in that one case.
+if (Assembly.GetEntryAssembly()?.GetName().Name != "GetDocument.Insider")
+{
+    app.MapHub<GraphHub>(GraphHub.Path);
+}
 
 app.Run();
 

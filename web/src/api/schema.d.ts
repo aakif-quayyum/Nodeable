@@ -37,10 +37,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/graphs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create an anonymous graph and return its token once (FR-GRAPH-01). */
+        post: operations["CreateGraph"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/graphs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The graph with its songs, people, credits, hubs and crawl progress (FR-GRAPH-01, FR-HUB-01). */
+        get: operations["GetGraph"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/graphs/{id}/songs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add a recording by MBID; 202 with the song node while its credits are fetched (FR-GRAPH-02). */
+        post: operations["AddSong"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/graphs/{id}/songs/{mbid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Remove a song from a graph (FR-GRAPH-01). */
+        delete: operations["RemoveSong"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AddSongRequest: {
+            /** Format: uuid */
+            recordingMbid: string;
+        };
+        AddSongResponse: {
+            song: components["schemas"]["GraphSongItem"];
+            /** Format: int32 */
+            pendingJobs: number;
+        };
+        CrawlProgressItem: {
+            /** Format: int32 */
+            queued: number;
+            /** Format: int32 */
+            done: number;
+            /** Format: int32 */
+            failed: number;
+            /** Format: int32 */
+            etaSeconds: number;
+        };
         CrawlStatusResponse: {
             /** Format: int32 */
             queueDepth: number;
@@ -49,8 +136,65 @@ export interface components {
             /** Format: double */
             cacheHitRatio: null | number;
         };
+        CreateGraphRequest: {
+            name: null | string;
+        };
+        CreateGraphResponse: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            anonToken: string;
+        };
+        /** @enum {unknown} */
+        CreditLevel: "recording" | "work" | "release";
+        /** @enum {unknown} */
+        CreditRole: "producer" | "songwriter" | "mixing" | "engineering" | "instrument" | "vocal" | "other";
         /** @enum {unknown} */
         CreditsStatus: "none" | "partial" | "complete" | null;
+        GraphCreditItem: {
+            /** Format: uuid */
+            songMbid: string;
+            /** Format: uuid */
+            personMbid: string;
+            role: components["schemas"]["CreditRole"];
+            detail: string;
+            level: components["schemas"]["CreditLevel"];
+        };
+        GraphSnapshot: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** Format: int64 */
+            seq: number;
+            songs: components["schemas"]["GraphSongItem"][];
+            people: components["schemas"]["PersonItem"][];
+            credits: components["schemas"]["GraphCreditItem"][];
+            hubs: components["schemas"]["HubItem"][];
+            crawl: components["schemas"]["CrawlProgressItem"];
+        };
+        GraphSongItem: {
+            /** Format: uuid */
+            mbid: string;
+            title: string;
+            artist: string;
+            /** Format: int32 */
+            year: null | number;
+            creditsStatus: components["schemas"]["SongStatus"];
+            /** Format: date-time */
+            addedAt: string;
+        };
+        HubItem: {
+            /** Format: uuid */
+            personMbid: string;
+            /** Format: int32 */
+            songs: number;
+            roles: components["schemas"]["CreditRole"][];
+        };
+        PersonItem: {
+            /** Format: uuid */
+            mbid: string;
+            name: string;
+        };
         ProblemDetails: {
             type?: null | string;
             title?: null | string;
@@ -92,6 +236,8 @@ export interface components {
             note: null | string;
             creditsStatus: null | components["schemas"]["CreditsStatus"];
         };
+        /** @enum {unknown} */
+        SongStatus: "loading" | "none" | "partial" | "complete";
         /** @enum {unknown} */
         VersionKind: "live" | "remaster" | "compilation" | "other";
     };
@@ -178,6 +324,204 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CrawlStatusResponse"];
+                };
+            };
+        };
+    };
+    CreateGraph: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": null | components["schemas"]["CreateGraphRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreateGraphResponse"];
+                };
+            };
+        };
+    };
+    GetGraph: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Graph-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GraphSnapshot"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    AddSong: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Graph-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddSongRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddSongResponse"];
+                };
+            };
+            /** @description Accepted */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AddSongResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    RemoveSong: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Graph-Token"?: string;
+            };
+            path: {
+                id: string;
+                mbid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
                 };
             };
         };

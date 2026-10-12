@@ -14,4 +14,18 @@ public static class ProblemTypes
     public const string UpstreamUnavailable = "/errors/upstream-unavailable";
 
     public const string UpstreamError = "/errors/upstream-error";
+
+    /// <summary>The graph id is unknown (404).</summary>
+    public const string GraphNotFound = "/errors/graph-not-found";
+
+    /// <summary>The <c>X-Graph-Token</c> header is missing, or is not this graph's token (401).</summary>
+    public const string InvalidGraphToken = "/errors/invalid-graph-token";
+
+    /// <summary>The graph already holds the most songs it may (409, FR-GRAPH-01).</summary>
+    public const string GraphFull = "/errors/graph-full";
+
+    /// <summary>MusicBrainz has no recording with the MBID that was sent (404).</summary>
+    public const string RecordingNotFound = "/errors/recording-not-found";
+
+    public const string InvalidRequest = "/errors/invalid-request";
 }

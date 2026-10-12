@@ -6,6 +6,8 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <!-- A real SignalR client, connected to the Api in memory, to test the hub end to end. -->
+    <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="Testcontainers.Redis" />
     <!-- The search endpoint talks to MusicBrainz through the real client pipeline; WireMock stands in for MusicBrainz. -->

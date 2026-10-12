@@ -1,14 +1,11 @@
 using System.Diagnostics;
-using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Nodeable.Domain.Enums;
 using Nodeable.Domain.Search;
 using Nodeable.Infrastructure.MusicBrainz;
 using Nodeable.Infrastructure.Persistence;
-using Nodeable.Infrastructure.RateLimiting;
 using Nodeable.Infrastructure.Telemetry;
-using Polly.Timeout;
 
 namespace Nodeable.Infrastructure.Search;
 
@@ -26,9 +23,6 @@ public sealed class RecordingSearchService(
     IMusicBrainzClient musicBrainz,
     IOptions<SearchOptions> options) : IRecordingSearchService
 {
-    // How long a refused caller is told to wait when MusicBrainz is busy: long enough for its 503s to clear.
-    private static readonly TimeSpan _upstreamRetryAfter = TimeSpan.FromSeconds(5);
-
     public async Task<SearchOutcome> SearchAsync(string title, string? artist, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(title);
@@ -120,35 +114,13 @@ public sealed class RecordingSearchService(
         return (candidates, statuses);
     }
 
-    private async Task<MusicBrainz.Models.RecordingSearchResponse> AskMusicBrainzAsync(
+    private Task<MusicBrainz.Models.RecordingSearchResponse> AskMusicBrainzAsync(
         string title,
         string? artist,
         int limit,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await musicBrainz.SearchRecordingsAsync(title, artist, limit, cancellationToken);
-        }
-        catch (RateGateSaturatedException ex)
-        {
-            throw new SearchUnavailableException(SearchFailure.RateLimited, ex.MaxWait, ex);
-        }
-        catch (MusicBrainzException ex) when (ex.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.TooManyRequests)
-        {
-            throw new SearchUnavailableException(SearchFailure.UpstreamUnavailable, _upstreamRetryAfter, ex);
-        }
-        catch (MusicBrainzException ex)
-        {
-            throw new SearchUnavailableException(SearchFailure.UpstreamError, _upstreamRetryAfter, ex);
-        }
-        catch (Exception ex) when (ex is TimeoutRejectedException or HttpRequestException)
-        {
-            // The resilience pipeline gave up (its timeout, or the network). A caller that cancelled is not caught
-            // here: OperationCanceledException is neither of these and propagates.
-            throw new SearchUnavailableException(SearchFailure.UpstreamUnavailable, _upstreamRetryAfter, ex);
-        }
-    }
+        CancellationToken cancellationToken) =>
+        MusicBrainzUnavailableException.TranslateAsync(
+            () => musicBrainz.SearchRecordingsAsync(title, artist, limit, cancellationToken));
 
     private async Task<Dictionary<Guid, CreditsStatus>> LoadStatusesAsync(
         IReadOnlyList<SearchGroup> groups,
