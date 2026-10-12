@@ -48,3 +48,7 @@ Thumbs.db
 
 # --- Claude Code local settings ---
 .claude/settings.local.json
+
+# Lighthouse CI output (web/lighthouserc.json): scratch files of a local run
+web/lighthouse-report/
+web/.lighthouseci/
