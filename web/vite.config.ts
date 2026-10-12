@@ -19,6 +19,8 @@ export default defineConfig({
     strictPort: Boolean(process.env['PORT']),
     proxy: {
       '/api': { target: apiTarget, changeOrigin: true },
+      // SignalR (decision 0004: the browser only talks to its own origin). ws lets the WebSocket upgrade through.
+      '/hubs': { target: apiTarget, changeOrigin: true, ws: true },
       // /otlp/v1/traces becomes /v1/traces on the dashboard.
       '/otlp': { target: otlpTarget, changeOrigin: true, rewrite: (path) => path.replace(/^\/otlp/, '') },
     },
