@@ -25,11 +25,22 @@ public sealed record WorkRef(
     [property: JsonPropertyName("id")] Guid Id,
     [property: JsonPropertyName("title")] string Title);
 
-/// <summary>A release (album or single) a recording appears on.</summary>
+/// <summary>
+/// A release (album or single) a recording appears on. <see cref="Status"/> (Official, Promotion, Bootleg) and the
+/// release group's secondary types (Live, Compilation, DJ-mix) are what search uses to pick the original of several
+/// duplicate recordings (FR-SEARCH-02).
+/// </summary>
 public sealed record ReleaseRef(
     [property: JsonPropertyName("id")] Guid Id,
     [property: JsonPropertyName("title")] string Title,
-    [property: JsonPropertyName("date")] string? Date = null);
+    [property: JsonPropertyName("date")] string? Date = null,
+    [property: JsonPropertyName("status")] string? Status = null,
+    [property: JsonPropertyName("release-group")] ReleaseGroupRef? ReleaseGroup = null);
+
+/// <summary>The release group a release belongs to; its secondary types say whether it is a live album or a compilation.</summary>
+public sealed record ReleaseGroupRef(
+    [property: JsonPropertyName("primary-type")] string? PrimaryType = null,
+    [property: JsonPropertyName("secondary-types")] IReadOnlyList<string>? SecondaryTypes = null);
 
 /// <summary>
 /// A link from the entity being looked up to an artist (a credit such as producer) or to a work. <see cref="Type"/> is
@@ -50,7 +61,8 @@ public sealed record RecordingSearchResult(
     [property: JsonPropertyName("artist-credit")] IReadOnlyList<ArtistCreditName>? ArtistCredit = null,
     [property: JsonPropertyName("first-release-date")] string? FirstReleaseDate = null,
     [property: JsonPropertyName("length")] int? LengthMs = null,
-    [property: JsonPropertyName("releases")] IReadOnlyList<ReleaseRef>? Releases = null);
+    [property: JsonPropertyName("releases")] IReadOnlyList<ReleaseRef>? Releases = null,
+    [property: JsonPropertyName("disambiguation")] string? Disambiguation = null);
 
 public sealed record RecordingSearchResponse(
     [property: JsonPropertyName("count")] int Count,

@@ -59,7 +59,7 @@ public sealed class MusicBrainzClientTests : IDisposable
         await client.SearchRecordingsAsync("Say \"Hello\"", "Childish Gambino", 10, ct);
 
         var query = _server.LogEntries.Single().RequestMessage!.Query!;
-        query["query"].Single().Should().Be("recording:\"Say \\\"Hello\\\"\" AND artist:\"Childish Gambino\"");
+        query["query"].Single().Should().Be("+recording:\"Say \\\"Hello\\\"\" +artist:\"Childish Gambino\" status:official^10");
         query["fmt"].Single().Should().Be("json");
         query["limit"].Single().Should().Be("10");
     }
