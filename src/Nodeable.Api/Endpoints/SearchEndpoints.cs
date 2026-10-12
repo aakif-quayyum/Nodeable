@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http.HttpResults;
 using Nodeable.Api.RateLimiting;
 using Nodeable.Domain.Enums;
 using Nodeable.Domain.Search;
+using Nodeable.Infrastructure.MusicBrainz;
 using Nodeable.Infrastructure.Search;
 
 namespace Nodeable.Api.Endpoints;
@@ -63,40 +64,12 @@ public static class SearchEndpoints
             var outcome = await search.SearchAsync(title, artistName, cancellationToken);
             return TypedResults.Ok(ToResponse(outcome));
         }
-        catch (SearchUnavailableException ex)
+        catch (MusicBrainzUnavailableException ex)
         {
             http.Response.Headers.RetryAfter = Math.Max(1, (int)Math.Ceiling(ex.RetryAfter.TotalSeconds))
                 .ToString(CultureInfo.InvariantCulture);
-            return ToProblem(ex);
+            return MusicBrainzProblems.From(ex);
         }
-    }
-
-    private static ProblemHttpResult ToProblem(SearchUnavailableException ex)
-    {
-        var retryAfterSeconds = Math.Max(1, (int)Math.Ceiling(ex.RetryAfter.TotalSeconds));
-        var extensions = new Dictionary<string, object?> { ["retryAfterSeconds"] = retryAfterSeconds };
-
-        return ex.Failure switch
-        {
-            SearchFailure.RateLimited => TypedResults.Problem(
-                type: ProblemTypes.RateLimited,
-                title: "Search is busy",
-                detail: "MusicBrainz allows one request per second and other searches are using it. Try again in a moment.",
-                statusCode: StatusCodes.Status429TooManyRequests,
-                extensions: extensions),
-            SearchFailure.UpstreamUnavailable => TypedResults.Problem(
-                type: ProblemTypes.UpstreamUnavailable,
-                title: "MusicBrainz is not answering",
-                detail: "MusicBrainz is busy or did not answer in time. Try again in a few seconds.",
-                statusCode: StatusCodes.Status503ServiceUnavailable,
-                extensions: extensions),
-            _ => TypedResults.Problem(
-                type: ProblemTypes.UpstreamError,
-                title: "MusicBrainz could not run the search",
-                detail: "MusicBrainz refused the search. Try different words.",
-                statusCode: StatusCodes.Status502BadGateway,
-                extensions: extensions),
-        };
     }
 
     private static SearchResponse ToResponse(SearchOutcome outcome)

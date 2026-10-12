@@ -256,8 +256,8 @@ public sealed class RecordingSearchServiceTests(PostgresFixture postgres) : IDis
 
         var act = () => Service(db, provider).SearchAsync("Redbone", null, ct);
 
-        var thrown = (await act.Should().ThrowAsync<SearchUnavailableException>()).Which;
-        thrown.Failure.Should().Be(SearchFailure.RateLimited);
+        var thrown = (await act.Should().ThrowAsync<MusicBrainzUnavailableException>()).Which;
+        thrown.Failure.Should().Be(MusicBrainzFailure.RateLimited);
         thrown.RetryAfter.Should().Be(TimeSpan.FromSeconds(2));
         _server.LogEntries.Should().BeEmpty();
     }
@@ -273,8 +273,8 @@ public sealed class RecordingSearchServiceTests(PostgresFixture postgres) : IDis
 
         var act = () => Service(db, provider).SearchAsync("Redbone", null, ct);
 
-        var thrown = (await act.Should().ThrowAsync<SearchUnavailableException>()).Which;
-        thrown.Failure.Should().Be(SearchFailure.UpstreamUnavailable);
+        var thrown = (await act.Should().ThrowAsync<MusicBrainzUnavailableException>()).Which;
+        thrown.Failure.Should().Be(MusicBrainzFailure.UpstreamUnavailable);
 
         // One attempt and one retry: the interactive profile keeps a search from waiting through five backoffs.
         _server.LogEntries.Should().HaveCount(2);
@@ -291,7 +291,7 @@ public sealed class RecordingSearchServiceTests(PostgresFixture postgres) : IDis
 
         var act = () => Service(db, provider).SearchAsync("Redbone", null, ct);
 
-        (await act.Should().ThrowAsync<SearchUnavailableException>()).Which.Failure.Should().Be(SearchFailure.UpstreamError);
+        (await act.Should().ThrowAsync<MusicBrainzUnavailableException>()).Which.Failure.Should().Be(MusicBrainzFailure.UpstreamError);
     }
 
     [Fact]
