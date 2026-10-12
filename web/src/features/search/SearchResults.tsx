@@ -9,6 +9,8 @@ import ListItem from '@mui/material/ListItem'
 import Typography from '@mui/material/Typography'
 import { useId, useState } from 'react'
 import type { components } from '../../api/schema'
+import { GraphRequestError } from '../graph/graphApi.ts'
+import { useAddSong, useGraphSongIds } from '../graph/useGraphMutations.ts'
 import { SearchError, useRecordingSearch } from './useRecordingSearch.ts'
 
 type Result = components['schemas']['SearchResultItem']
@@ -54,8 +56,19 @@ function errorMessage(error: unknown): string {
   return 'The search did not work. Try again.'
 }
 
+function addErrorMessage(error: unknown): string {
+  if (error instanceof GraphRequestError) {
+    if (error.status === 409) return 'Your graph is full: it holds up to 50 songs. Remove one to add another.'
+    if (error.status === 404) return 'MusicBrainz does not know this recording.'
+    if (error.status === 429) return 'Adding is busy right now. Try again in a few seconds.'
+    if (error.status === 503) return 'MusicBrainz is not answering right now. Try again in a few seconds.'
+  }
+  return 'The song could not be added. Try again.'
+}
+
 export function SearchResults({ title, artist }: { title: string; artist: string | undefined }) {
   const search = useRecordingSearch(title, artist)
+  const inGraph = useGraphSongIds()
   const heading = artist ? `Results for “${title}” by ${artist}` : `Results for “${title}”`
 
   return (
@@ -95,7 +108,7 @@ export function SearchResults({ title, artist }: { title: string; artist: string
 
           <List aria-label="Search results" disablePadding sx={{ maxWidth: 720 }}>
             {search.data.results.map((result) => (
-              <ResultRow key={result.mbid} result={result} />
+              <ResultRow key={result.mbid} result={result} inGraph={inGraph.has(result.mbid)} />
             ))}
           </List>
         </>
@@ -104,8 +117,9 @@ export function SearchResults({ title, artist }: { title: string; artist: string
   )
 }
 
-function ResultRow({ result }: { result: Result }) {
+function ResultRow({ result, inGraph }: { result: Result; inGraph: boolean }) {
   const [expanded, setExpanded] = useState(false)
+  const add = useAddSong()
   const versionsId = useId()
   const cached = cachedLabel(result.creditsStatus)
   const count = result.versions.length
@@ -126,6 +140,15 @@ function ResultRow({ result }: { result: Result }) {
           {result.score}% match
         </Typography>
         {cached !== null && <Chip size="small" variant="outlined" label={cached} />}
+        <Button
+          size="small"
+          variant="outlined"
+          disabled={inGraph || add.isPending}
+          aria-label={inGraph ? `${result.title} is in your graph` : `Add to graph: ${result.title} by ${result.artist}`}
+          onClick={() => add.mutate(result.mbid)}
+        >
+          {inGraph ? 'In your graph' : add.isPending ? 'Adding…' : 'Add to graph'}
+        </Button>
         {count > 0 && (
           <Button
             size="small"
@@ -137,6 +160,12 @@ function ResultRow({ result }: { result: Result }) {
           </Button>
         )}
       </Box>
+
+      {add.isError && (
+        <Alert severity="warning" sx={{ mt: 1 }}>
+          {addErrorMessage(add.error)}
+        </Alert>
+      )}
 
       {count > 0 && (
         <Collapse in={expanded} unmountOnExit id={versionsId}>
