@@ -931,7 +931,7 @@ The script `tools/learning/collect-anchors` scans the repository for `LEARN:` co
 | --- | --- | --- |
 | LG-01 Foundations | M1 | Aspire AppHost and service defaults, EF Core entities and migrations, Vite + TypeScript + MUI theme setup, generating API types from OpenAPI, OpenTelemetry wiring across browser and server |
 | LG-02 Ingestion | M2 | Typed `HttpClient`, resilience pipelines, Redis token bucket with Lua, durable queue with `FOR UPDATE SKIP LOCKED`, trace context across background jobs, relationship-to-role mapping |
-| LG-03 Graph UI | M3 | SignalR hubs and groups, TanStack Query cache updates, Zustand stores, D3 force simulation on canvas, quadtree hit testing, accessible list view |
+| LG-03 Graph UI | M3 | SignalR hubs, groups and the Redis backplane, sequence-numbered events and join-then-load, TanStack Query cache updates, Zustand stores, D3 force simulation on a canvas and in a Web Worker, quadtree hit testing, pg_trgm search, accessible tables |
 | LG-04 Discovery and launch | M4 | Recommendation SQL and scoring, Deezer integration, Grafana dashboards and SLO alerts, Terraform and Caddy deployment, Playwright and k6 |
 | LG-05 Accounts and saves | v2 | ASP.NET Core Identity, Google sign-in, migrating anonymous data to accounts |
 | LG-06 Six degrees | v2 | Bidirectional breadth-first search in C#, adjacency lists, recursive CTEs |

@@ -4,7 +4,7 @@ Nodeable is a music discovery web app that maps the producers, songwriters, engi
 
 It is also a portfolio project, built to learn C#/.NET, TypeScript and modern observability tooling.
 
-> **Status:** Milestones M1 (Foundations) and M2 (Ingestion) are released as v0.1.0 and v0.2.0. Milestone M3 (the graph interface) is in progress: search works; the graph, hubs and filters arrive next. See the [roadmap](docs/spec/nodeable-spec.md#14-roadmap-and-tasks).
+> **Status:** Milestones M1 (Foundations), M2 (Ingestion) and M3 (the graph interface) are released as v0.1.0, v0.2.0 and v0.3.0. You can search for a song, add it to a graph, and watch its credits arrive; people credited on more than one song become hubs you can filter by role. Discovery and recommendations (M4) are next. See the [roadmap](docs/spec/nodeable-spec.md#14-roadmap-and-tasks).
 
 ## Run it
 
