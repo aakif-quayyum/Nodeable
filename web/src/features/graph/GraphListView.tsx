@@ -11,7 +11,7 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
 import { useId, useMemo, useState } from 'react'
-import { hasIncompleteCredits, type GraphCredit, type GraphSnapshot, type GraphSong } from './graphEvents.ts'
+import type { GraphCredit, GraphSnapshot, GraphSong } from './graphEvents.ts'
 import { RoleChip } from './RoleChip.tsx'
 
 const creditsShownAtFirst = 8
@@ -59,7 +59,10 @@ function distinctRoles(credits: readonly GraphCredit[]) {
 }
 
 interface GraphListViewProps {
+  /** The snapshot as it is to be shown: credits of roles that are filtered out are not in it. */
   snapshot: GraphSnapshot
+  /** Songs that have neither a producer nor a songwriter at all. Worked out from the unfiltered credits (FR-GRAPH-04). */
+  incomplete: ReadonlySet<string>
   /** Why a song's credits could not be fetched, by song MBID. */
   failures: Readonly<Record<string, string>>
   onRemove: (song: GraphSong) => void
@@ -71,7 +74,7 @@ interface GraphListViewProps {
  * The accessible version of the graph (NFR-A11Y-01): the same songs, people and credits as the canvas, as two real
  * tables that a keyboard and a screen reader can move through. It does not use D3.
  */
-export function GraphListView({ snapshot, failures, onRemove, removing }: GraphListViewProps) {
+export function GraphListView({ snapshot, incomplete, failures, onRemove, removing }: GraphListViewProps) {
   const people = useMemo(() => sortPeople(peopleOf(snapshot)), [snapshot])
   const names = useMemo(() => new Map(snapshot.people.map((person) => [person.mbid, person.name])), [snapshot.people])
 
@@ -95,6 +98,7 @@ export function GraphListView({ snapshot, failures, onRemove, removing }: GraphL
                 song={song}
                 snapshot={snapshot}
                 names={names}
+                incomplete={incomplete.has(song.mbid)}
                 failure={failures[song.mbid]}
                 removing={removing === song.mbid}
                 onRemove={onRemove}
@@ -148,6 +152,7 @@ function SongRow({
   song,
   snapshot,
   names,
+  incomplete,
   failure,
   removing,
   onRemove,
@@ -155,6 +160,7 @@ function SongRow({
   song: GraphSong
   snapshot: GraphSnapshot
   names: ReadonlyMap<string, string>
+  incomplete: boolean
   failure: string | undefined
   removing: boolean
   onRemove: (song: GraphSong) => void
@@ -164,7 +170,6 @@ function SongRow({
   const credits = snapshot.credits.filter((credit) => credit.songMbid === song.mbid)
   const shown = showAll ? credits : credits.slice(0, creditsShownAtFirst)
   const nameOf = (mbid: string) => names.get(mbid) ?? 'Unknown person'
-  const incomplete = hasIncompleteCredits(snapshot, song)
 
   return (
     <TableRow>

@@ -160,3 +160,53 @@ jobs:
       # Principle 6: if the Api's contract changed, the committed types must change in the same pull request.
       - name: Fail if the generated types changed
         run: git diff --exit-code -- web/src/api/schema.d.ts
+
+  # Spec section 12 (performance budgets) and NFR-PERF-04: Lighthouse performance of the production build's home page
+  # must be 90 or better. Three runs, median score, on the mobile profile (slow 4G, a slowed CPU), which is the
+  # stricter of Lighthouse's two. The page is the one a first-time visitor sees: no graph, so no Api is needed.
+  # @lhci/cli is run with npx at a fixed version instead of being added to web/package.json, so its large dependency
+  # tree (a headless-browser driver) stays out of the lock file and out of `npm audit`.
+  lighthouse:
+    name: Lighthouse (home page performance 90 or better)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # The hosted runner has Google Chrome installed; lighthouserc.json starts it headless and without the sandbox
+      # (a container's user namespaces do not allow Chrome's own).
+      - name: Lighthouse
+        run: npx --yes @lhci/cli@0.15.1 autorun
+
+      - name: Show the scores
+        if: always()
+        run: |
+          node -e '
+            const fs = require("fs");
+            const manifest = JSON.parse(fs.readFileSync("lighthouse-report/manifest.json", "utf8"));
+            const run = manifest.find((entry) => entry.isRepresentativeRun) ?? manifest[0];
+            const rows = Object.entries(run.summary).map(([name, score]) => `| ${name} | ${Math.round(score * 100)} |`);
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, ["### Lighthouse (median run)", "", "| Category | Score |", "| --- | ---: |", ...rows, ""].join("\n"));
+          '
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: lighthouse-report
+          path: web/lighthouse-report
+          if-no-files-found: ignore

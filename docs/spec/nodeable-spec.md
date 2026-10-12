@@ -637,6 +637,7 @@ Routes in M1: `/` (home; search and graph from M3), `/about` (a lazy route) and 
 - The backend's `other` role (unmapped MusicBrainz relationship types) is shown in a neutral grey with a generic icon, labelled from its `detail` ("Arranger"), has its own filter chip that is on by default, and counts towards hubs like any other credit. M3 implements it; the grey is covered by the same contrast test (decision 0010).
 - Pages that are not needed for the first render are lazy routes, with a loading bar while their code downloads; the app bar has a skip link and labelled landmarks (NFR-A11Y-01).
 - Layout: an app bar with search, a full-bleed graph canvas, a collapsible left panel for hubs and filters, and a right drawer for person details. On phones the panels become bottom sheets.
+- As built in M3: the search results are a block of limited height above the graph, so the graph stays in view while songs are added. The graph workspace is a collapsible left panel ("Your hubs" as a bar chart and the role chips, which are also the colour legend), the canvas, and, when a node is selected, a right panel with its details from the graph's own data. On a window narrower than 900 px the left panel is a bottom sheet opened by a "Hubs and roles" button and the details are a bottom sheet too. Role filters apply to the canvas, the hubs and the tables; hubs are derived again from the credits that are on. The canvas follows the colour scheme (dark or light).
 
 ### D3 visualisations
 
@@ -664,7 +665,7 @@ Graph rules:
 - Measured at the end of M1 (gzip, as reported by the CI script): first load about 150 KB, About route about 10 KB, OpenTelemetry SDK about 23 KB.
 - Measured in M3 (pull request 3, gzip): first load about 185 KB; the graph view about 8 KB and the SignalR client about 14 KB, both lazy. With the canvas (pull request 4) the graph view chunk is about 36 KB with the D3 modules, the layout worker is a separate 6 KB chunk, and first load is unchanged at 184.8 KB.
 - Measured in M3 (pull request 4) on the development machine, in the browser, for the largest graph the app allows (50 songs and 550 people, 600 nodes and 660 links): one simulation step 2.4 ms, one canvas frame 0.4 ms, building the hit-test quadtree 0.2 ms and one lookup about 1 microsecond. With the layout in the worker, the first positions arrive after 67 ms, the layout rests after about 7 s (the worker's timer ticks at about 40 steps a second), and the page's thread was never late by more than 2 ms. A phone was not measured: NFR-PERF-03's 30 fps target on a mid-range phone is still to be checked on a device.
-- Lighthouse performance score at least 90 on the home page, checked in CI.
+- Lighthouse performance score at least 90 on the home page, checked in CI (the `lighthouse` job: `@lhci/cli` 0.15.1 against the production build, three runs, mobile profile, `web/lighthouserc.json`). First measurement, on the development machine: performance 97, accessibility 100, best practices 100, SEO 100, with a largest contentful paint of 2.1 s on the simulated slow 4G of the mobile profile (NFR-PERF-04 asks for under 2.5 s). The check runs the page a first-time visitor sees, without a graph; a page with a graph needs the Api and is outside it.
 
 ## 13. Testing, CI/CD and deployment
 
@@ -788,9 +789,10 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [x] Graph endpoints and SignalR hub with `seq` ordering (FR-GRAPH-01, FR-GRAPH-02)
 - [x] D3 canvas graph with zoom, hover, click and enter animations (FR-HUB-01)
 - [x] Accessible list view of the same graph (NFR-A11Y-01)
-- [ ] Your hubs panel and role filters (FR-HUB-02, FR-HUB-03)
+- [x] Your hubs panel and role filters (FR-HUB-02, FR-HUB-03)
 - [x] Credits incomplete badge (FR-GRAPH-04)
-- [ ] Neutral style and filter chip for the `other` role (decision 0010)
+- [x] Neutral style and filter chip for the `other` role (decision 0010)
+- [x] Lighthouse performance check in CI, 90 or better on the home page (spec section 12)
 - [x] Persistent local database: data volume and remembered password, with a documented reset (decision 0011)
 
 ### M4 Discovery and launch (2 weeks)

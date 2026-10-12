@@ -5,7 +5,7 @@ import { afterAll, afterEach, beforeAll } from 'vitest'
 import { server } from './server.ts'
 
 // jsdom has no matchMedia, which MUI's colour-scheme support calls to follow the operating system setting.
-window.matchMedia = (query: string): MediaQueryList => ({
+const defaultMatchMedia = (query: string): MediaQueryList => ({
   matches: false,
   media: query,
   onchange: null,
@@ -15,6 +15,7 @@ window.matchMedia = (query: string): MediaQueryList => ({
   removeListener: () => undefined,
   dispatchEvent: () => false,
 })
+window.matchMedia = defaultMatchMedia
 
 // "error" makes a request with no matching handler fail the test, so no test can silently reach a real server.
 beforeAll(() => {
@@ -25,6 +26,8 @@ beforeAll(() => {
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  // A test that picked a window width (test/viewport.ts) does not leave it for the next one.
+  window.matchMedia = defaultMatchMedia
   server.resetHandlers()
 })
 

@@ -59,6 +59,21 @@ export interface DerivedGraph {
 export const songRadius = 10
 const personRadius = scaleSqrt().domain([1, 50]).range([5, 18]).clamp(true)
 
+/**
+ * The snapshot with only the credits of the active roles (FR-HUB-03). Hubs are not read from the snapshot afterwards:
+ * they are derived again from what is left, so a person credited on two songs only as a vocalist stops being a hub
+ * while vocals are off. With every role active the same object is returned.
+ */
+export function filterCredits(snapshot: GraphSnapshot, active: ReadonlySet<CreditRoleKey>): GraphSnapshot {
+  if (creditRoles.every((role) => active.has(role))) return snapshot
+  return { ...snapshot, credits: snapshot.credits.filter((credit) => active.has(credit.role)) }
+}
+
+/** The people credited on two or more songs, most songs first (FR-HUB-02). */
+export function hubsOf(graph: DerivedGraph): PersonNode[] {
+  return graph.nodes.filter((node): node is PersonNode => node.kind === 'person' && node.isHub)
+}
+
 export const songNodeId = (mbid: string) => `song:${mbid}`
 export const personNodeId = (mbid: string) => `person:${mbid}`
 

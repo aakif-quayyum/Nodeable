@@ -1,18 +1,26 @@
+import ChevronLeft from '@mui/icons-material/ChevronLeft'
+import ChevronRight from '@mui/icons-material/ChevronRight'
 import Alert from '@mui/material/Alert'
+import Badge from '@mui/material/Badge'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
+import Drawer from '@mui/material/Drawer'
+import IconButton from '@mui/material/IconButton'
 import LinearProgress from '@mui/material/LinearProgress'
 import Typography from '@mui/material/Typography'
-import { useMemo } from 'react'
+import useMediaQuery from '@mui/material/useMediaQuery'
+import { useMemo, useState } from 'react'
 import { creditRoles } from '../../app/creditRoles.ts'
+import { useRoleFilters } from '../../stores/roleFilters.ts'
 import { useSelection } from '../../stores/selection.ts'
+import { HubsPanel } from '../hubs/HubsPanel.tsx'
 import { GraphCanvas } from './GraphCanvas.tsx'
 import { GraphListView } from './GraphListView.tsx'
-import type { GraphSnapshot } from './graphEvents.ts'
-import { deriveGraph } from './graphModel.ts'
-import { NodePanel } from './NodePanel.tsx'
-import { RoleChip } from './RoleChip.tsx'
+import { filterCredits, hubsOf, deriveGraph } from './graphModel.ts'
+import { hasIncompleteCredits, type GraphSnapshot } from './graphEvents.ts'
 import type { GraphSession } from './graphSession.ts'
+import { NodePanel } from './NodePanel.tsx'
+import { RoleFilters } from './RoleFilters.tsx'
 import { useRemoveSong } from './useGraphMutations.ts'
 import { useLiveGraph, type LiveState } from './useLiveGraph.ts'
 
@@ -37,18 +45,56 @@ function liveText(live: LiveState): string | null {
   return null
 }
 
-/** Your graph: the canvas, the details of the selected node, and the accessible lists of the same data (FR-GRAPH-01..04, FR-HUB-01, NFR-A11Y-01). */
+const leftPanelWidth = 280
+const rightPanelWidth = 340
+const collapsedWidth = 48
+
+/**
+ * Your graph (FR-GRAPH-01..04, FR-HUB-01..03, NFR-A11Y-01): the canvas with a collapsible left panel for hubs and role
+ * filters and a right panel for the selected node; on a phone the two panels are bottom sheets. The accessible tables
+ * of the same data follow.
+ */
 export function GraphView({ session }: { session: GraphSession }) {
   const graph = useLiveGraph(session)
   const remove = useRemoveSong(session)
   const snapshot = graph.snapshot
 
+  const wide = useMediaQuery((theme) => theme.breakpoints.up('md'))
+  const [leftOpen, setLeftOpen] = useState(true)
+  const [sheetOpen, setSheetOpen] = useState(false)
+
+  const active = useRoleFilters((state) => state.active)
+  const selectedId = useSelection((state) => state.selectedId)
+  const select = useSelection((state) => state.select)
+
+  // What is on screen is the snapshot with the credits of the roles that are switched on. The hubs are worked out from
+  // that, not read from the server's list, so they follow the filters; with every role on they are the same people.
+  const visible = useMemo(() => (snapshot ? filterCredits(snapshot, active) : null), [snapshot, active])
+  const derived = useMemo(() => (visible ? deriveGraph(visible) : null), [visible])
+  const hubs = useMemo(() => (derived ? hubsOf(derived) : []), [derived])
+  // The badge is about the song's credits, not about what the filters leave on screen.
+  const incomplete = useMemo(
+    () => new Set(snapshot?.songs.filter((song) => hasIncompleteCredits(snapshot, song)).map((song) => song.mbid)),
+    [snapshot],
+  )
+
   const status = snapshot ? crawlText(snapshot.crawl) : null
   const connectionNote = liveText(graph.live)
   const songCount = snapshot?.songs.length ?? 0
-  const derived = useMemo(() => (snapshot ? deriveGraph(snapshot) : null), [snapshot])
-  const selectedId = useSelection((state) => state.selectedId)
-  const select = useSelection((state) => state.select)
+  const filtersOff = creditRoles.length - active.size
+
+  const panels = (
+    <Box sx={{ display: 'grid', gap: 3 }}>
+      {derived && <HubsPanel hubs={hubs} />}
+      <RoleFilters />
+    </Box>
+  )
+
+  const details =
+    derived && visible ? (
+      <NodePanel graph={derived} snapshot={visible} selectedId={selectedId} onClose={() => select(null)} />
+    ) : null
+  const hasSelection = selectedId !== null && derived?.nodes.some((node) => node.id === selectedId) === true
 
   return (
     <Box component="section" aria-labelledby="graph-heading" aria-busy={graph.isPending}>
@@ -85,23 +131,76 @@ export function GraphView({ session }: { session: GraphSession }) {
         </Typography>
       )}
 
-      {snapshot && derived && songCount > 0 && (
+      {snapshot && visible && derived && songCount > 0 && (
         <Box sx={{ mb: 3 }}>
-          <GraphCanvas graph={derived} />
-          <Box component="ul" aria-label="Role colours" sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, listStyle: 'none', m: 0, mt: 1, p: 0 }}>
-            {creditRoles.map((role) => (
-              <li key={role}>
-                <RoleChip role={role} />
-              </li>
-            ))}
+          {!wide && (
+            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+              <Badge color="warning" badgeContent={filtersOff} invisible={filtersOff === 0}>
+                <Button variant="outlined" size="small" onClick={() => setSheetOpen(true)}>
+                  Hubs and roles
+                </Button>
+              </Badge>
+            </Box>
+          )}
+
+          <Box
+            sx={{
+              display: 'grid',
+              gap: 2,
+              alignItems: 'start',
+              gridTemplateColumns: wide
+                ? `${leftOpen ? leftPanelWidth : collapsedWidth}px minmax(0, 1fr)${hasSelection ? ` ${rightPanelWidth}px` : ''}`
+                : 'minmax(0, 1fr)',
+            }}
+          >
+            {wide && (
+              <Box component="aside" aria-label="Hubs and role filters" sx={{ minWidth: 0 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => setLeftOpen((open) => !open)}
+                  aria-expanded={leftOpen}
+                  aria-controls="hubs-and-roles"
+                  aria-label={leftOpen ? 'Hide hubs and roles' : 'Show hubs and roles'}
+                  sx={{ mb: 1 }}
+                >
+                  {leftOpen ? <ChevronLeft /> : <ChevronRight />}
+                </IconButton>
+                <Box id="hubs-and-roles" hidden={!leftOpen} sx={{ maxHeight: 520, overflowY: 'auto' }}>
+                  {panels}
+                </Box>
+              </Box>
+            )}
+
+            <GraphCanvas graph={derived} />
+
+            {wide && hasSelection && <Box sx={{ minWidth: 0 }}>{details}</Box>}
           </Box>
-          <NodePanel graph={derived} snapshot={snapshot} selectedId={selectedId} onClose={() => select(null)} />
+
+          {/* The two panels as bottom sheets on a phone: a sheet keeps the canvas as large as the screen allows. */}
+          {!wide && (
+            <>
+              <Drawer anchor="bottom" open={sheetOpen} onClose={() => setSheetOpen(false)}>
+                <Box sx={{ p: 2, maxHeight: '70vh', overflowY: 'auto' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button size="small" onClick={() => setSheetOpen(false)}>
+                      Done
+                    </Button>
+                  </Box>
+                  {panels}
+                </Box>
+              </Drawer>
+              <Drawer anchor="bottom" open={hasSelection} onClose={() => select(null)}>
+                <Box sx={{ p: 2, maxHeight: '60vh', overflowY: 'auto' }}>{details}</Box>
+              </Drawer>
+            </>
+          )}
         </Box>
       )}
 
-      {snapshot && songCount > 0 && (
+      {snapshot && visible && songCount > 0 && (
         <GraphListView
-          snapshot={snapshot}
+          snapshot={visible}
+          incomplete={incomplete}
           failures={graph.failures}
           removing={remove.isPending ? remove.variables : null}
           onRemove={(song) => remove.mutate(song.mbid)}
