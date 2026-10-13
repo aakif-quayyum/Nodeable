@@ -5,7 +5,7 @@ import DialogContent from '@mui/material/DialogContent'
 import LinearProgress from '@mui/material/LinearProgress'
 import Typography from '@mui/material/Typography'
 import { lazy, Suspense } from 'react'
-import { useLocation, useSearchParams } from 'react-router'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { SearchForm } from './SearchForm.tsx'
 import { useAddSheet } from './addSheet.ts'
 import { MIN_QUERY_LENGTH } from './useRecordingSearch.ts'
@@ -21,6 +21,15 @@ export function SearchSheet() {
   const { open, closeSheet } = useAddSheet()
   const { pathname } = useLocation()
   const [params] = useSearchParams()
+  const navigate = useNavigate()
+
+  // Adding a song, or choosing one that is in the graph, closes the sheet and moves the orbit to that song (FR-VIEW-01).
+  function showSong(mbid: string) {
+    const next = new URLSearchParams(params)
+    for (const key of ['sheet', 'q', 'artist']) next.delete(key)
+    next.set('focus', `song:${mbid}`)
+    void navigate({ pathname: '/graph', search: next.toString() })
+  }
 
   const title = params.get('q')?.trim() ?? ''
   const artist = params.get('artist')?.trim() || undefined
@@ -50,7 +59,7 @@ export function SearchSheet() {
         {searching && (
           <Box sx={{ mt: 2.5 }}>
             <Suspense fallback={<LinearProgress aria-label="Loading results" />}>
-              <SearchResults title={title} artist={artist} onAdded={closeSheet} onShowInGraph={closeSheet} />
+              <SearchResults title={title} artist={artist} onAdded={showSong} onShowInGraph={showSong} />
             </Suspense>
           </Box>
         )}

@@ -1,7 +1,9 @@
 import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useCallback } from 'react'
 import { addSongToGraph, ensureGraphSession, fetchGraphSnapshot, graphQueryKey, removeSongFromGraph } from './graphApi.ts'
 import type { GraphSnapshot } from './graphEvents.ts'
 import { useGraphSession, type GraphSession } from './graphSession.ts'
+import { scheduleRemoval, type PendingRemoval } from './removals.ts'
 
 /**
  * Adds a recording to the browser's graph, creating the graph on first use (FR-GRAPH-01, FR-GRAPH-02).
@@ -37,28 +39,33 @@ export function useAddSong() {
   })
 }
 
+/**
+ * Removes a song from the browser's graph, with a window to undo it (FR-GRAPH-01, FR-GRAPH-06). The song leaves the views
+ * at once; the request is sent when the window is over (see removals.ts), and only then is the cached snapshot changed.
+ */
 export function useRemoveSong(session: GraphSession) {
   const queryClient = useQueryClient()
 
-  return useMutation({
-    mutationFn: (songMbid: string) => removeSongFromGraph(session, songMbid),
+  return useCallback(
+    (song: PendingRemoval) => {
+      scheduleRemoval(song, async () => {
+        await removeSongFromGraph(session, song.mbid)
+        const key = graphQueryKey(session.id)
 
-    onSuccess: (_, songMbid) => {
-      const key = graphQueryKey(session.id)
-
-      // Gone from the list at once; the hubs and the counts follow from the next snapshot and the HubsUpdated event.
-      queryClient.setQueryData<GraphSnapshot>(key, (current) =>
-        current === undefined
-          ? current
-          : {
-              ...current,
-              songs: current.songs.filter((song) => song.mbid !== songMbid),
-              credits: current.credits.filter((credit) => credit.songMbid !== songMbid),
-            },
-      )
-      void queryClient.invalidateQueries({ queryKey: key })
+        queryClient.setQueryData<GraphSnapshot>(key, (current) =>
+          current === undefined
+            ? current
+            : {
+                ...current,
+                songs: current.songs.filter((entry) => entry.mbid !== song.mbid),
+                credits: current.credits.filter((credit) => credit.songMbid !== song.mbid),
+              },
+        )
+        void queryClient.invalidateQueries({ queryKey: key })
+      })
     },
-  })
+    [session, queryClient],
+  )
 }
 
 /**

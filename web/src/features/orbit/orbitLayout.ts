@@ -1,0 +1,519 @@
+import { hierarchy, tree } from 'd3-hierarchy'
+import { creditRoleStyles, type CreditRoleKey } from '../../app/creditRoles.ts'
+import { primaryRole, type Workspace, type WorkspacePerson, type WorkspaceSong } from '../graph/workspaceModel.ts'
+
+/**
+ * What the orbit can be centred on: the whole graph (the default, FR-VIEW-04), a song or a person. `id` is the MBID,
+ * and empty for the graph.
+ */
+export interface NodeRef {
+  type: 'graph' | 'song' | 'person'
+  id: string
+}
+
+/** The whole graph as a centre: the first place on every trail, so there is always a way back to the overview. */
+export const rootRef: NodeRef = { type: 'graph', id: '' }
+
+/** The key of a node in the layout: `g:`, `s:<mbid>` or `p:<mbid>`, the same on every layout so a node can be moved, not redrawn. */
+export const nodeKey = (ref: NodeRef) => (ref.type === 'graph' ? 'g:' : `${ref.type === 'song' ? 's' : 'p'}:${ref.id}`)
+
+/** `song:<mbid>` or `person:<mbid>`, as written in the address (`?focus=`). Anything else is "no focus", the whole graph. */
+export function parseFocus(value: string | null): NodeRef | null {
+  if (value === null) return null
+  const [type, ...rest] = value.split(':')
+  const id = rest.join(':')
+  if ((type === 'song' || type === 'person') && id !== '') return { type, id }
+  return null
+}
+
+export const focusParam = (ref: NodeRef) => `${ref.type}:${ref.id}`
+
+/** The second ring shows at most this many nodes; the rest are one "+N more" node (spec section 12). */
+export const maxSecondRing = 60
+
+/** Above this many nodes on the first ring their names are left off (the tooltip and the accessible name still give them). */
+const maxLabelledFirstRing = 16
+
+export interface OrbitNode {
+  /** `g:`, `s:<mbid>`, `p:<mbid>` or `more`. */
+  id: string
+  kind: 'graph' | 'song' | 'person' | 'more'
+  /** The MBID; empty for the graph and for the "+N more" node. */
+  ref: string
+  depth: 0 | 1 | 2
+  parent: string | null
+  /** Radians, 0 pointing up and growing clockwise. */
+  angle: number
+  /** Pixels from the centre. */
+  radius: number
+  /** The drawn radius in pixels. */
+  size: number
+  label: string
+  /** For the "+N more" node: how many people it stands for. */
+  moreCount: number
+}
+
+export interface OrbitLink {
+  id: string
+  source: string
+  target: string
+  /** The person's main role on the song, which colours the link; `plain` for the graph's own links to its songs. */
+  role: CreditRoleKey | 'plain'
+}
+
+export interface RoleArc {
+  id: string
+  role: CreditRoleKey
+  a0: number
+  a1: number
+  radius: number
+  /** The role's name in capitals, or null when the arc is too short to carry it. */
+  label: string | null
+  /** True on the lower half, where the text is set the other way so it never reads upside down. */
+  flip: boolean
+}
+
+export type EmptyCentre = 'noCredits' | 'filtered'
+
+export interface OrbitLayout {
+  centre: NodeRef
+  nodes: OrbitNode[]
+  links: OrbitLink[]
+  /** A node reachable from two parents is drawn once; the second route is a dashed cross-link. */
+  crossLinks: { id: string; source: string; target: string }[]
+  /** The radii of the dotted guide circles. */
+  guides: number[]
+  arcs: RoleArc[]
+  /** The outer ring's radius in pixels: the tree is fitted to the stage, so this is what the stage allows. */
+  radius: number
+  /** Where the centre goes in the stage: the middle of what the breadcrumbs and the legend leave free. */
+  origin: { x: number; y: number }
+  /** The node discs' size relative to the design size. */
+  scale: number
+  /** The labels' size relative to 12 px. Never below 1: no label is smaller than 12 px. */
+  fontScale: number
+  /** What is drawn, not where: it is the same across a resize, so a resize can snap instead of animate. */
+  key: string
+  /** A centre song with nothing to draw: it has no credits at all, or none that the filters and hidden people leave. */
+  empty: EmptyCentre | null
+}
+
+export interface StageSize {
+  width: number
+  height: number
+}
+
+/** The angle moved the short way round, so a node that crosses the top does not swing across the whole circle. */
+// LEARN: LG-03R polar-interpolation | Interpolating an angle linearly can swing the long way round the circle; the difference is wrapped into [-π, π) first, so a node that crosses the top takes the short arc, which is what makes a re-root read as a turn instead of a scramble
+export function lerpAngle(from: number, to: number, t: number): number {
+  const turn = Math.PI * 2
+  const delta = ((((to - from + Math.PI) % turn) + turn) % turn) - Math.PI
+  return from + delta * t
+}
+
+/** Polar (0 up, clockwise) to the SVG's cartesian coordinates around the centre. */
+export function polarToXY(radius: number, angle: number): [number, number] {
+  return [radius * Math.sin(angle), -radius * Math.cos(angle)]
+}
+
+interface TreeNode {
+  id: string
+  kind: OrbitNode['kind']
+  ref: string
+  children: TreeNode[]
+  moreCount?: number
+}
+
+const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
+
+function degreeOf(ws: Workspace, kind: OrbitNode['kind'], ref: string): number {
+  if (kind === 'person') return ws.personById.get(ref)?.songs.length ?? 0
+  if (kind === 'song') return ws.peopleBySong.get(ref)?.length ?? 0
+  return 0
+}
+
+/** A node's drawn radius at design size 1; the layout multiplies by its scale. */
+function baseSize(kind: OrbitNode['kind'], depth: number, degree: number): number {
+  if (kind === 'more') return 14
+  if (kind === 'graph') return 46
+  if (kind === 'song') return depth === 0 ? 52 : depth === 1 ? 24 : 17
+  if (depth === 0) return 36
+  if (depth === 1) return Math.min(19, 9 + (degree - 1) * 3)
+  return Math.min(15, 7 + (degree - 1) * 2.4)
+}
+
+function shortLabel(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
+}
+
+function nameOf(ws: Workspace, kind: OrbitNode['kind'], ref: string): string {
+  if (kind === 'song') return ws.songById.get(ref)?.title ?? ''
+  if (kind === 'person') return ws.personById.get(ref)?.name ?? ''
+  return ''
+}
+
+const asRef = (kind: 'song' | 'person', id: string): NodeRef => ({ type: kind, id })
+
+/** What a node is joined to: the graph's songs, a song's people, a person's songs. */
+function neighboursOf(ws: Workspace, ref: NodeRef): NodeRef[] {
+  if (ref.type === 'graph') return ws.songs.map((song) => asRef('song', song.mbid))
+  if (ref.type === 'song') return (ws.peopleBySong.get(ref.id) ?? []).map((person: WorkspacePerson) => asRef('person', person.mbid))
+  return (ws.personById.get(ref.id)?.songs ?? []).map((mbid) => asRef('song', mbid))
+}
+
+/** A point on the drawing, and a fixed number of pixels beyond it: where a disc's edge or a label's end lands. */
+interface Extent {
+  px: number
+  py: number
+  ex: number
+  ey: number
+}
+
+/** The box the extents fill when the tree has this radius: each point is `radius * (px, py) + (ex, ey)`. */
+function boundsOf(extents: readonly Extent[], radius: number) {
+  let minX = Number.POSITIVE_INFINITY
+  let maxX = Number.NEGATIVE_INFINITY
+  let minY = Number.POSITIVE_INFINITY
+  let maxY = Number.NEGATIVE_INFINITY
+  for (const extent of extents) {
+    const x = radius * extent.px + extent.ex
+    const y = radius * extent.py + extent.ey
+    minX = Math.min(minX, x)
+    maxX = Math.max(maxX, x)
+    minY = Math.min(minY, y)
+    maxY = Math.max(maxY, y)
+  }
+  return { minX, maxX, minY, maxY }
+}
+
+/**
+ * The largest radius at which the tree, names included, fits a box of `width` by `height`. The fixed pixel parts of
+ * an extent (a disc's size, a name's length) do not scale with the radius, so there is no closed form; the box grows
+ * with the radius, so a bisection finds where it stops fitting. It fits the box the extents really fill, not a circle
+ * around the centre: a tree whose names all point up is moved down instead of being shrunk to leave room below.
+ */
+function fitBox(extents: readonly Extent[], width: number, height: number): number {
+  let low = 40
+  let high = 900
+  for (let step = 0; step < 28; step += 1) {
+    const mid = (low + high) / 2
+    const box = boundsOf(extents, mid)
+    if (box.maxX - box.minX <= width && box.maxY - box.minY <= height) low = mid
+    else high = mid
+  }
+  return low
+}
+
+/**
+ * The orbit around one centre (FR-VIEW-01, FR-VIEW-04): the centre, its neighbours on a ring, and their neighbours on a
+ * second ring, as a radial tree, fitted to the stage it is drawn on. It is a pure function of the data and the stage's
+ * size, so it is tested without a DOM, and the view animates between two layouts by moving each node from where it was
+ * to where it is now.
+ */
+// LEARN: LG-03R radial-tree | d3-hierarchy's tree() gives every node an x in [0, 2π] and a depth; reading x as an angle and depth as a radius turns a tree layout into an orbit, and because the layout is a pure function of the data and the stage size it is tested without a DOM
+export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): OrbitLayout {
+  const rootKey = nodeKey(centre)
+
+  const ring1 = neighboursOf(ws, centre)
+  const seen = new Set<string>([rootKey, ...ring1.map(nodeKey)])
+  const crossRaw: { source: string; target: string }[] = []
+  const rootChildren: TreeNode[] = ring1.map((ref) => ({ id: nodeKey(ref), kind: ref.type as 'song' | 'person', ref: ref.id, children: [] }))
+
+  for (const parent of rootChildren) {
+    for (const kid of neighboursOf(ws, asRef(parent.kind as 'song' | 'person', parent.ref))) {
+      const key = nodeKey(kid)
+      if (key === rootKey) continue
+      if (seen.has(key)) {
+        crossRaw.push({ source: parent.id, target: key })
+        continue
+      }
+      seen.add(key)
+      parent.children.push({ id: key, kind: kid.type, ref: kid.id, children: [] })
+    }
+  }
+
+  // The second ring is capped (spec section 12): connectors first, then by name, so the nodes kept are the useful ones.
+  const secondRing = rootChildren.flatMap((parent) => parent.children)
+  if (secondRing.length > maxSecondRing) {
+    const keep = new Set(
+      [...secondRing]
+        .sort((a, b) => degreeOf(ws, b.kind, b.ref) - degreeOf(ws, a.kind, a.ref) || nameOf(ws, a.kind, a.ref).localeCompare(nameOf(ws, b.kind, b.ref)))
+        .slice(0, maxSecondRing)
+        .map((node) => node.id),
+    )
+    for (const parent of rootChildren) parent.children = parent.children.filter((child) => keep.has(child.id))
+    const last = [...rootChildren].reverse().find((parent) => parent.children.length > 0) ?? rootChildren.at(-1)
+    last?.children.push({ id: 'more', kind: 'more', ref: '', children: [], moreCount: secondRing.length - keep.size })
+  }
+
+  const shownSecond = new Set(rootChildren.flatMap((parent) => parent.children.map((child) => child.id)))
+  const crossLinks = crossRaw
+    .filter((link) => shownSecond.has(link.target))
+    .map((link) => ({ id: `${link.source}>${link.target}`, ...link }))
+
+  const root: TreeNode = { id: rootKey, kind: centre.type, ref: centre.id, children: rootChildren }
+  const h = hierarchy(root)
+  tree<TreeNode>()
+    .size([Math.PI * 2, 1])
+    .separation((a, b) => (a.parent === b.parent ? 1 : 1.6) / Math.max(1, a.depth))(h)
+
+  // ---- Fitting the tree to the stage ------------------------------------------------------------------------------
+  // The breadcrumbs sit along the top and the legend along the bottom; the orbit is fitted to what they leave free.
+  const compact = size.width < 560
+  const side = 14
+  const top = compact ? 118 : 54
+  const bottom = compact ? 96 : 64
+  const halfW = Math.max(40, size.width / 2 - side)
+  const halfH = Math.max(40, (size.height - top - bottom) / 2)
+
+  const hasSecond = h.height >= 2
+  const first = rootChildren.length
+  const ratio1 = hasSecond ? (first > 24 ? 0.62 : 0.55) : 0.7
+
+  // Design size from the room there is, so a big stage draws bigger nodes and bigger names, and a small one smaller
+  // nodes but never smaller than 12 px names.
+  const designScale = clamp(Math.min(halfW, halfH) / 230, 0.7, 1.5)
+  const fontScale = clamp(designScale, 1, 1.2)
+  const fontPx = 12 * fontScale
+  const textWidth = (chars: number) => chars * 0.56 * fontPx
+
+  // The whole graph: each song has an equal wedge of the circle, and its people fan out inside it, so songs that share
+  // nobody sit apart instead of being pushed together by the tree's leaf spacing.
+  const wedgeAngles = new Map<string, number>()
+  if (centre.type === 'graph' && first > 0) {
+    const wedge = (Math.PI * 2) / first
+    rootChildren.forEach((child, index) => {
+      const mid = first === 1 ? Math.PI / 2 : (index + 0.5) * wedge
+      wedgeAngles.set(child.id, mid)
+      const count = child.children.length
+      const step = Math.min(wedge / Math.max(1, count), 0.34)
+      child.children.forEach((grandchild, at) => wedgeAngles.set(grandchild.id, mid + (at - (count - 1) / 2) * step))
+    })
+  }
+
+  const described = h.descendants().map((d) => {
+    const data = d.data
+    const depth = d.depth as 0 | 1 | 2
+    const full = data.kind === 'more' ? `+${data.moreCount ?? 0} more` : nameOf(ws, data.kind, data.ref)
+    const angle = depth === 0 ? 0 : (wedgeAngles.get(data.id) ?? d.x ?? 0)
+    return { d, data, depth, angle, full, degree: degreeOf(ws, data.kind, data.ref) }
+  })
+
+  /** Names the fit allows for: a first-ring name is up to 22 characters, a second-ring one up to `chars` (null: none). */
+  const labelFor = (depth: number, full: string, chars: number | null): string => {
+    if (depth === 0) return ''
+    if (depth === 1) return first > maxLabelledFirstRing ? '' : shortLabel(full, 22)
+    return chars === null ? '' : shortLabel(full, chars)
+  }
+
+  /** What the tree fills when second-ring names are cut to `chars` characters (null: no second-ring names). */
+  const extentsFor = (chars: number | null): Extent[] => {
+    const extents: Extent[] = []
+    for (const node of described) {
+      if (node.depth === 0) {
+        const disc = baseSize(node.data.kind, 0, 0) * designScale
+        extents.push({ px: 0, py: 0, ex: disc, ey: disc }, { px: 0, py: 0, ex: -disc, ey: -disc })
+        continue
+      }
+      const unit = node.depth === 1 ? ratio1 : 1
+      const [px, py] = polarToXY(unit, node.angle)
+      const disc = baseSize(node.data.kind, node.depth, node.degree) * designScale
+      extents.push({ px, py, ex: disc, ey: disc }, { px, py, ex: -disc, ey: -disc })
+
+      const label = labelFor(node.depth, node.full, chars)
+      if (label === '') continue
+      const width = textWidth(label.length)
+      if (node.depth === 2) {
+        // Set along the radius, outward from the disc: the end of the name is `reach` beyond the node in that direction.
+        const reach = disc + 6 + width
+        const dx = Math.sin(node.angle)
+        const dy = -Math.cos(node.angle)
+        extents.push({ px, py, ex: dx * reach + (dx >= 0 ? 7 : -7), ey: dy * reach + (dy >= 0 ? 7 : -7) })
+      } else {
+        // Centred under the disc.
+        extents.push(
+          { px, py, ex: width / 2, ey: disc + 20 },
+          { px, py, ex: -width / 2, ey: disc + 20 },
+        )
+      }
+    }
+    return extents
+  }
+
+  // The tree is made as large as the stage allows with at least a short name (`shortest` characters) at the top and
+  // bottom, where a name runs up and down and the stage is shortest. When that costs too much of the radius (a small
+  // stage), the second ring goes without names: the tooltip and the accessible name still give them.
+  const shortest = 9
+  const named = extentsFor(shortest)
+  const unnamed = extentsFor(null)
+  const withNames = fitBox(named, 2 * halfW, 2 * halfH)
+  const withoutNames = fitBox(unnamed, 2 * halfW, 2 * halfH)
+  const ringNames = hasSecond && withNames >= 0.6 * withoutNames
+  const radius = clamp(ringNames ? withNames : withoutNames, 70, 560)
+  const r1 = radius * ratio1
+
+  // The centre goes where the box the tree fills sits in the middle of what the breadcrumbs and the legend leave free.
+  const filled = boundsOf(ringNames ? named : unnamed, radius)
+  const origin = {
+    x: size.width / 2 - (filled.minX + filled.maxX) / 2,
+    y: top + halfH - (filled.minY + filled.maxY) / 2,
+  }
+
+  // The nodes are no bigger than the tree can carry: the same scale as the radius, and no bigger than the design size.
+  const scale = clamp(Math.min(designScale, radius / 180), 0.7, 1.5)
+  const secondCount = described.filter((node) => node.depth === 2).length
+  const spacing1 = first > 0 ? (Math.PI * 2 * r1) / first : Number.POSITIVE_INFINITY
+  const spacing2 = secondCount > 0 ? (Math.PI * 2 * radius) / secondCount : Number.POSITIVE_INFINITY
+
+  const nodes: OrbitNode[] = described.map((node) => {
+    let discSize = baseSize(node.data.kind, node.depth, node.degree) * scale
+    // On a crowded ring a node takes no more than its share of the circle, so neighbours do not overlap.
+    if (node.depth === 1) discSize = Math.min(discSize, Math.max(6.5, spacing1 * 0.44))
+    if (node.depth === 2) discSize = Math.min(discSize, Math.max(5, spacing2 * 0.44))
+    return {
+      id: node.data.id,
+      kind: node.data.kind,
+      ref: node.data.ref,
+      depth: node.depth,
+      parent: node.d.parent?.data.id ?? null,
+      angle: node.angle,
+      radius: node.depth === 0 ? 0 : node.depth === 1 ? r1 : radius,
+      size: discSize,
+      label: '',
+      moreCount: node.data.moreCount ?? 0,
+    }
+  })
+
+  // Each name gets the room its own node has: a second-ring name runs outward along the radius until the stage's edge,
+  // so on the sides it can be long and at the top and bottom it is short; a first-ring name sits under its node and
+  // is no wider than the room beside it and the gap to the next node on the same line.
+  const charWidth = textWidth(1)
+  // The free part of the stage, in the drawing's own coordinates (the centre is at 0, 0).
+  const boxLeft = side - origin.x
+  const boxRight = size.width - side - origin.x
+  const boxTop = top - origin.y
+  const boxBottom = size.height - bottom - origin.y
+  nodes.forEach((node, index) => {
+    const full = described[index]!.full
+    if (node.depth === 0 || full === '') return
+    const [x, y] = polarToXY(node.radius, node.angle)
+    if (node.depth === 2) {
+      if (!ringNames) return
+      const dx = Math.sin(node.angle)
+      const dy = -Math.cos(node.angle)
+      const toEdge = Math.min(
+        Math.abs(dx) < 1e-6 ? Number.POSITIVE_INFINITY : ((dx > 0 ? boxRight : boxLeft) - x) / dx,
+        Math.abs(dy) < 1e-6 ? Number.POSITIVE_INFINITY : ((dy > 0 ? boxBottom : boxTop) - y) / dy,
+      )
+      const room = toEdge - node.size - 6 - 7
+      const chars = Math.min(28, Math.floor(room / charWidth))
+      node.label = chars < 4 ? '' : shortLabel(full, chars)
+      return
+    }
+
+    if (first > maxLabelledFirstRing) return
+    let room = 2 * Math.min(boxRight - x, x - boxLeft) - 8
+    for (const other of nodes) {
+      if (other === node || other.depth !== 1) continue
+      const [ox, oy] = polarToXY(other.radius, other.angle)
+      if (Math.abs(oy - y) < 26) room = Math.min(room, Math.abs(ox - x) - 8)
+    }
+    const chars = Math.min(24, Math.floor(room / charWidth))
+    node.label = chars < 5 ? '' : shortLabel(full, chars)
+  })
+
+  // The centre leaves room for the first ring (and, for a song, the role arcs inside it).
+  const ringMax = Math.max(0, ...nodes.filter((node) => node.depth === 1).map((node) => node.size))
+  const arcRadius = r1 - ringMax - 8
+  const centreNode = nodes[0]!
+  centreNode.size = Math.max(20, Math.min(centreNode.size, hasSecond || first > 0 ? arcRadius - 12 : centreNode.size))
+
+  const links: OrbitLink[] = h.links().map((link) => {
+    const source = link.source.data
+    const target = link.target.data
+    const songRef = source.kind === 'song' ? source.ref : target.kind === 'song' ? target.ref : ''
+    const personRef = source.kind === 'person' ? source.ref : target.kind === 'person' ? target.ref : ''
+    const person = ws.personById.get(personRef)
+    return {
+      id: `${source.id}>${target.id}`,
+      source: source.id,
+      target: target.id,
+      role: source.kind === 'graph' ? 'plain' : person !== undefined && songRef !== '' ? primaryRole(person, songRef) : 'other',
+    }
+  })
+
+  const song: WorkspaceSong | undefined = centre.type === 'song' ? ws.songById.get(centre.id) : undefined
+  let empty: EmptyCentre | null = null
+  if (song !== undefined && song.creditsStatus !== 'loading' && song.credits.length === 0) {
+    empty = song.totalCredits === 0 ? 'noCredits' : 'filtered'
+  }
+  // A centre with nothing around it is drawn by the stage as a large cover, not as a dot with a ring.
+  if (empty !== null) centreNode.size = 0.01
+
+  return {
+    centre,
+    nodes,
+    links,
+    crossLinks,
+    guides: empty !== null ? [] : hasSecond ? [r1, radius] : [r1],
+    arcs: centre.type === 'song' && empty === null ? roleArcs(ws, centre.id, nodes, arcRadius, centreNode.size) : [],
+    radius,
+    origin,
+    scale,
+    fontScale,
+    key: `${rootKey}|${nodes.map((node) => node.id).join(',')}`,
+    empty,
+  }
+}
+
+/**
+ * The coloured arcs inside the first ring that name the roles of a song's people (FR-VIEW-01). The first ring is
+ * ordered by main role, so consecutive people with the same role are one group and one arc; the arc stops half way to
+ * the next group, so the arcs never overlap.
+ */
+function roleArcs(ws: Workspace, songMbid: string, nodes: OrbitNode[], radius: number, centreSize: number): RoleArc[] {
+  if (radius < centreSize + 10) return []
+
+  const kids = nodes.filter((node) => node.depth === 1 && node.kind === 'person').sort((a, b) => a.angle - b.angle)
+  if (kids.length === 0) return []
+
+  const groups: { role: CreditRoleKey; min: number; max: number }[] = []
+  for (const kid of kids) {
+    const person = ws.personById.get(kid.ref)
+    const role = person === undefined ? 'other' : primaryRole(person, songMbid)
+    const last = groups.at(-1)
+    if (last !== undefined && last.role === role) last.max = kid.angle
+    else groups.push({ role, min: kid.angle, max: kid.angle })
+  }
+
+  const turn = Math.PI * 2
+  const arcs: RoleArc[] = []
+  groups.forEach((group, index) => {
+    const prev = groups[(index - 1 + groups.length) % groups.length]!
+    const next = groups[(index + 1) % groups.length]!
+    const single = groups.length === 1
+    const leftLimit = single ? group.min - Math.PI : index === 0 ? (prev.max - turn + group.min) / 2 : (prev.max + group.min) / 2
+    const rightLimit = single
+      ? group.max + Math.PI
+      : index === groups.length - 1
+        ? (group.max + next.min + turn) / 2
+        : (group.max + next.min) / 2
+    const a0 = Math.max(group.min - 0.16, leftLimit + 0.05)
+    const a1 = Math.min(group.max + 0.16, rightLimit - 0.05)
+    if (a1 <= a0) return
+
+    const text = creditRoleStyles[group.role].label.toUpperCase()
+    const fits = (a1 - a0) * radius >= text.length * 8.4 + 12
+    const mid = ((((a0 + a1) / 2) % turn) + turn) % turn
+    arcs.push({
+      id: `${group.role}-${index}`,
+      role: group.role,
+      a0,
+      a1,
+      radius,
+      label: fits ? text : null,
+      flip: mid > Math.PI / 2 && mid < Math.PI * 1.5,
+    })
+  })
+  return arcs
+}

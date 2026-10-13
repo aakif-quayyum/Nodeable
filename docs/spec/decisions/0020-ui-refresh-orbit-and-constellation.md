@@ -1,6 +1,6 @@
 # 0020. UI refresh: orbit and constellation replace the force canvas
 
-- **Status:** Accepted (approved by the developer on 2026-10-13, with the answers listed under "Confirmed on approval"; nothing is implemented yet)
+- **Status:** Accepted (approved by the developer on 2026-10-13, with the answers listed under "Confirmed on approval"; built pull request by pull request, see "Changes after the first screens were reviewed")
 - **Date:** 2026-10-13
 - **Spec:** section 4 (FR-VIEW-01, FR-VIEW-02, FR-NOTES-01, FR-LAND-01, FR-GRAPH-05, FR-ART-01, FR-HUB-02 reworded), section 5 (NFR-MOTION-01), section 8 (`releases`), section 10 (album art), section 12 (frontend, rewritten), section 14 (M3R), decisions 0002, 0010, 0013
 - **Reference design:** `docs/design/nodeable-ui-prototype.html`, a self-contained prototype with fake data. Its CSS, markup and interaction code are the visual reference; its data is not.
@@ -77,3 +77,37 @@ The prototype is a design reference, not code to port. It uses fake data, builds
 - **The learning guide** for this work needs a guide id that the tools do not accept today (`LG-03R`); see spec section 16.
 - **The Lighthouse check** (a 90 performance score on the home page) will run against the landing page from the first refresh pull request: fonts and the hero must keep it there.
 - **No Playwright suite exists yet** (spec section 13 places it in M4). The refresh's end-to-end flow (search, add, orbit) needs one; see the open points in the pull request that proposes this record.
+
+## Changes after the first screens were reviewed (2026-10-13)
+
+The developer saw the landing page, results and sheet running, and reordered the rest of the work. Decided by the developer; recorded here so the spec and the pull requests agree.
+
+| Before | Now | Why |
+| --- | --- | --- |
+| The orbit, then the cards and notes, in separate pull requests, with the M3 canvas and panels staying until pull request 5 | The whole `/graph` page is replaced in pull request 3: orbit, strip, legend filters, connector cards, liner notes, Text view; the M3 canvas page, left panel, details panel and tables are removed in it | The page should switch over in one go instead of showing half of each design |
+| Pull request 4: constellation, cards, notes | Pull request 4: constellation and the toggle, the cards' FLIP and count-up, the new-credit highlight, "Find in your graph" | What is left once the page has switched |
+| Removing a song was a button | FR-GRAPH-06: an exit animation and six seconds of undo; the request is sent when the time is up | A removal that cannot be taken back is hard to offer on a button in a card |
+| Role filters were the only way to thin the views | FR-VIEW-03: "Hide from view" for one person, for the session, with a "n hidden · show" chip | One person can drown a graph (the artist is on every song), and a role filter is too blunt for that |
+| The Playwright flow was search, add, orbit | Search, add, orbit, remove | The removal is the flow's one destructive step |
+| Review by merging on green | Each UI pull request waits for the developer's "merge", with side-by-side screenshots of the prototype and the app at desktop and phone width and a list of every difference | Fidelity to the prototype is the bar |
+
+Choices made inside the new items (open to change): the removal is **deferred** rather than undone by adding the song again, because the server then never holds a state the person did not mean and an undo needs no request; hidden people are kept in `sessionStorage` per graph; and the browser flow of pull request 3 runs the built web app with the Api and the hub faked at the network edge, because the end-to-end suite against the whole stack (with a recorded MusicBrainz) is M4's.
+
+## Changes after the workspace was reviewed (2026-10-13)
+
+The developer added two unrelated songs to the workspace of pull request 3 and gave five findings. Decided by the developer; the spec (sections 4 and 12) says what is built.
+
+| Finding | Now | Why |
+| --- | --- | --- |
+| Two unrelated songs could only be seen one at a time | FR-VIEW-04: the default centre is **the whole graph**, a hub labelled with the number of songs, every song on the first ring with its cover and their people on the second; the first breadcrumb, "Your graph", always goes back | The workspace is about the graph; a song is a place to go into from it |
+| The orbit rendered small in a large stage | The layout is **fitted to the stage**: the largest radius at which every disc and name fits the free part of the stage, nodes and names that grow with the room, names never under 12 px, refitted on resize and on every re-root | A fixed radius leaves a large stage empty; names that cannot be read are not labels |
+| It was not obvious that a role filter was on | FR-HUB-03: a bar under the headline names what is shown or hidden and says the counts follow it, with "Show all roles"; a chip toggles its role (it never solos it) | A state that changes every number should not live only in a struck-through chip at the bottom of the stage |
+| The first liner-notes card's header was cut off when the column scrolled | The two headings of the column stick to its top on an opaque background | Cards slide under a heading instead of under the container's edge |
+| A song with no credits was a dot with small print | Its cover large at the centre and, in 17 px type, "No credits on MusicBrainz yet · Add them" | The empty state is the song's whole view; it should say what is wrong and what to do |
+
+Choices made inside these (open to change):
+
+- **The fit is a bisection over the box the tree really fills**, not a closed-form radius: a disc's size and a name's length do not scale with the radius, so there is no formula, and a bisection on a monotonic function takes 28 steps over at most a few hundred points. The tree is then centred in the free box, so a tree whose names all point up is moved down instead of being made smaller to leave room below.
+- **Names get the room their own node has**: a second-ring name runs outward along the radius to the stage's edge, so it is long on the sides and short at the top and bottom, where the stage is shortest. A name is cut with an ellipsis; on a small stage the second ring has none (the tooltip and the accessible name give them).
+- **Adding a song still puts the orbit on that song**, so its crew can be watched arriving; "Your graph" is the first breadcrumb and one click away.
+- **Covers are the labels of the records** in the orbit, drawn as an SVG `<image>` with the same source chain as the cards. The no-referrer rule for cover images (NFR-PRIV-01) became a page-level `<meta name="referrer">`, because an SVG `<image>` has no `referrerPolicy` prop in React.

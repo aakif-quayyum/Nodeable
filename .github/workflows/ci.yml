@@ -113,6 +113,48 @@ jobs:
       - name: Audit npm dependencies
         run: npm audit --audit-level=high
 
+  # The browser flow of the UI refresh (spec section 13, decision 0020): search, add, orbit, remove, in a real browser
+  # against the production build, with the Api and the hub faked at the network edge (web/e2e/fakeApi.ts). The suite
+  # against the whole stack with a recorded MusicBrainz is M4's. It is not run on a developer's machine by default.
+  e2e:
+    name: End to end (search, add, orbit, remove)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install
+        run: npm ci
+
+      - name: Install the browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Build
+        run: npm run build
+
+      - name: Run the flow
+        run: npm run e2e
+
+      # The trace of a failed run shows every step with a screenshot, which is what a failure needs.
+      - name: Keep the report of a failed run
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report
+            web/test-results
+          retention-days: 7
+
   learning-tools:
     name: Learning anchors (well-formed, unique ids)
     runs-on: ubuntu-24.04

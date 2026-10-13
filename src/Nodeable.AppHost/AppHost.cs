@@ -23,7 +23,10 @@ var api = builder.AddProject<Projects.Nodeable_Api>("api")
     .WaitFor(redis)
     .WithHttpHealthCheck("/health");
 
+// The address people open (and bookmark) is fixed at 5173, Vite's own default. Aspire's proxy listens there and forwards
+// to the port it hands Vite as PORT (see web/vite.config.ts), so the dashboard link and the bookmark are the same.
 builder.AddViteApp("web", "../../web")
+    .WithEndpoint("http", endpoint => endpoint.Port = 5173)
     .WithReference(api)
     .WaitFor(api);
 

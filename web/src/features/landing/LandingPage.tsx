@@ -116,8 +116,8 @@ export function LandingPage() {
                   title={title}
                   artist={artist}
                   loadGraphSongs
-                  onAdded={() => void navigate('/graph')}
-                  onShowInGraph={() => void navigate('/graph')}
+                  onAdded={(mbid) => void navigate(`/graph?focus=song:${mbid}`)}
+                  onShowInGraph={(mbid) => void navigate(`/graph?focus=song:${mbid}`)}
                 />
               </Suspense>
             </Box>

@@ -129,6 +129,6 @@ describe('landing page', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Add to graph: Redbone by Childish Gambino' }))
 
-    expect(await screen.findByRole('heading', { level: 1, name: /Your graph/ })).toBeInTheDocument()
+    expect(await screen.findByRole('region', { name: 'Your graph' })).toBeInTheDocument()
   })
 })

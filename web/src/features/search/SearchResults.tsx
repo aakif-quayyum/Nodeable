@@ -84,10 +84,10 @@ function addErrorMessage(error: unknown): string {
 interface SearchResultsProps {
   title: string
   artist: string | undefined
-  /** Called a moment after a song was added (long enough for the button's pop): the landing page opens the graph. */
-  onAdded?: () => void
-  /** Called when the person chooses a song that is already in the graph. */
-  onShowInGraph?: () => void
+  /** Called a moment after a song was added (long enough for the button's pop) with its MBID: the orbit moves to it. */
+  onAdded?: (mbid: string) => void
+  /** Called with the MBID when the person chooses a song that is already in the graph. */
+  onShowInGraph?: (mbid: string) => void
   /** Whether to read the graph's songs from the server when they are not loaded yet (the landing page has no graph on screen). */
   loadGraphSongs?: boolean
 }
@@ -194,8 +194,8 @@ function ResultRow({
   result: Result
   index: number
   inGraph: boolean
-  onAdded: (() => void) | undefined
-  onShowInGraph: (() => void) | undefined
+  onAdded: ((mbid: string) => void) | undefined
+  onShowInGraph: ((mbid: string) => void) | undefined
 }) {
   const [expanded, setExpanded] = useState(false)
   const add = useAddSong()
@@ -207,9 +207,9 @@ function ResultRow({
   // A moment after the song is added, long enough for the button's pop to be seen, the page moves on.
   useEffect(() => {
     if (!add.isSuccess || onAdded === undefined) return
-    const timer = setTimeout(onAdded, reduced ? 0 : 420)
+    const timer = setTimeout(() => onAdded(result.mbid), reduced ? 0 : 420)
     return () => clearTimeout(timer)
-  }, [add.isSuccess, onAdded, reduced])
+  }, [add.isSuccess, onAdded, reduced, result.mbid])
 
   return (
     <ListItem
@@ -280,7 +280,7 @@ function ResultRow({
             variant="text"
             color="success"
             aria-label={`${result.title} is in your graph`}
-            onClick={onShowInGraph}
+            onClick={() => onShowInGraph?.(result.mbid)}
             sx={{ fontFamily: 'inherit', fontWeight: 700, whiteSpace: 'nowrap' }}
           >
             ✓ In your graph

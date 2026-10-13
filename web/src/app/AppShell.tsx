@@ -5,7 +5,7 @@ import LinearProgress from '@mui/material/LinearProgress'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
 import { lazy, Suspense } from 'react'
-import { Link, NavLink, Outlet, useNavigation } from 'react-router'
+import { Link, NavLink, Outlet, useMatch, useNavigation } from 'react-router'
 import { useAddSheet } from '../features/search/addSheet.ts'
 import { ThemeToggle } from './ThemeToggle.tsx'
 
@@ -15,9 +15,11 @@ const SearchSheet = lazy(() => import('../features/search/SearchSheet.tsx').then
 export function AppShell() {
   const navigation = useNavigation()
   const { open, openSheet } = useAddSheet()
+  // The workspace is as tall as the window (the stage fills it and the column beside it scrolls); other pages flow.
+  const workspace = useMatch('/graph') !== null
 
   return (
-    <>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', height: workspace ? { md: '100dvh' } : undefined }}>
       {/* WCAG 2.4.1: keyboard users can skip the navigation. The link is invisible until it receives focus. */}
       <Box
         component="a"
@@ -80,7 +82,18 @@ export function AppShell() {
       </AppBar>
 
       {/* tabIndex -1 lets the skip link move focus here without adding a tab stop. */}
-      <Box component="main" id="main-content" tabIndex={-1} sx={{ p: { xs: 2, sm: 3 }, outline: 'none' }}>
+      <Box
+        component="main"
+        id="main-content"
+        tabIndex={-1}
+        sx={{
+          p: { xs: 2, sm: 3 },
+          outline: 'none',
+          flex: '1 1 auto',
+          minHeight: 0,
+          ...(workspace ? { display: 'flex', flexDirection: 'column', pb: { md: 2.5 } } : {}),
+        }}
+      >
         <Outlet />
       </Box>
 
@@ -89,6 +102,6 @@ export function AppShell() {
           <SearchSheet />
         </Suspense>
       )}
-    </>
+    </Box>
   )
 }
