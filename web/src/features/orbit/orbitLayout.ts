@@ -596,6 +596,7 @@ function buildOrbit(
  * (a chord of `hit + hit`); the nodes are pushed apart a pair at a time until every gap has it. False when the gaps
  * cannot all be had at once, which is when the ring holds more than its circumference allows.
  */
+// LEARN: LG-03R hit-areas | A target's size is what takes the press, not what is drawn: each node gets an invisible circle of at least 12 px radius, and because circles that overlap make a press ambiguous the layout spreads a ring until they do not, and thins the ring when its circumference cannot hold them (WCAG 2.2, 2.5.8)
 function spreadRing(ring: OrbitNode[], radius: number): boolean {
   const n = ring.length
   if (n < 2) return true
