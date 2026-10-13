@@ -85,7 +85,9 @@ public static class SearchEndpoints
             group.Primary.FirstReleaseDate?.Date.Year,
             group.Primary.Score,
             StatusOf(group.Primary.Mbid),
-            group.Versions.Select(version => ToVersion(version, StatusOf(version.Candidate.Mbid))).ToList()));
+            group.Versions.Select(version => ToVersion(version, StatusOf(version.Candidate.Mbid))).ToList(),
+            group.Primary.Cover.ReleaseMbid,
+            group.Primary.Cover.ReleaseGroupMbid));
 
         return new SearchResponse(outcome.Source, results.ToList());
     }
@@ -99,5 +101,7 @@ public static class SearchEndpoints
         version.Candidate.Score,
         version.Kind,
         version.Candidate.Disambiguation,
-        status);
+        status,
+        version.Candidate.Cover.ReleaseMbid,
+        version.Candidate.Cover.ReleaseGroupMbid);
 }

@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Nodeable.Domain.Art;
 using Nodeable.Domain.Entities;
 using Nodeable.Domain.Graphs;
 using Nodeable.Infrastructure.Crawling;
@@ -147,7 +148,8 @@ public sealed class GraphService(
             cancellationToken);
 
         var status = (await read.GetSongStatusesAsync([recordingMbid], cancellationToken))[recordingMbid];
-        var song = new GraphSongItem(recordingMbid, title, artist, year, status, time.GetUtcNow());
+        var cover = (await read.GetCoversAsync([recordingMbid], cancellationToken)).GetValueOrDefault(recordingMbid, CoverChoice.None);
+        var song = new GraphSongItem(recordingMbid, title, artist, year, status, time.GetUtcNow(), cover.ReleaseMbid, cover.ReleaseGroupMbid);
 
         if (request == IngestionRequestResult.Cached)
         {

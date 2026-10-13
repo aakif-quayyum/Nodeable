@@ -57,13 +57,19 @@ public sealed class RecordingJobHandler(
                 var parsed = releases.Select(r => ParseDate(r.Date)).ToList();
                 await db.Database.ExecuteSqlAsync(
                     $"""
-                    INSERT INTO releases (mbid, title, date, date_precision, fetched_at)
-                    SELECT t.mbid, t.title, t.date, t.precision, now()
+                    INSERT INTO releases (mbid, title, date, date_precision, status, release_group_mbid, release_group_type, release_group_secondary_types, fetched_at)
+                    SELECT t.mbid, t.title, t.date, t.precision, t.status, t.group_mbid, t.group_type, string_to_array(t.group_secondary, ','), now()
                     FROM unnest({releases.Select(r => r.Id).ToArray()}::uuid[], {releases.Select(r => r.Title).ToArray()}::text[],
-                                {parsed.Select(d => d?.Date).ToArray()}::date[], {parsed.Select(d => ToText(d?.Precision)).ToArray()}::text[])
-                        AS t(mbid, title, date, precision)
+                                {parsed.Select(d => d?.Date).ToArray()}::date[], {parsed.Select(d => ToText(d?.Precision)).ToArray()}::text[],
+                                {releases.Select(r => r.Status).ToArray()}::text[], {releases.Select(r => r.ReleaseGroup?.Id).ToArray()}::uuid[],
+                                {releases.Select(r => r.ReleaseGroup?.PrimaryType).ToArray()}::text[],
+                                {releases.Select(r => string.Join(',', r.ReleaseGroup?.SecondaryTypes ?? [])).ToArray()}::text[])
+                        AS t(mbid, title, date, precision, status, group_mbid, group_type, group_secondary)
                     ON CONFLICT (mbid) DO UPDATE
-                        SET title = EXCLUDED.title, date = EXCLUDED.date, date_precision = EXCLUDED.date_precision, fetched_at = now()
+                        SET title = EXCLUDED.title, date = EXCLUDED.date, date_precision = EXCLUDED.date_precision,
+                            status = EXCLUDED.status, release_group_mbid = EXCLUDED.release_group_mbid,
+                            release_group_type = EXCLUDED.release_group_type,
+                            release_group_secondary_types = EXCLUDED.release_group_secondary_types, fetched_at = now()
                     """,
                     cancellationToken);
 

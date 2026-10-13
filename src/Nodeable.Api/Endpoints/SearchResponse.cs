@@ -16,6 +16,8 @@ public sealed record SearchResponse(SearchSource Source, IReadOnlyList<SearchRes
 /// <param name="Score">Match score, 0 to 100.</param>
 /// <param name="CreditsStatus">What the cache already holds for the recording; null when it has never been fetched.</param>
 /// <param name="Versions">Live takes, remasters and compilation appearances, earliest first. Empty when there are none.</param>
+/// <param name="ArtReleaseMbid">The release whose front cover is tried first (FR-ART-01); null when no release is known.</param>
+/// <param name="ArtReleaseGroupMbid">The release group tried second; null when it is not known.</param>
 public sealed record SearchResultItem(
     Guid Mbid,
     string Title,
@@ -24,7 +26,9 @@ public sealed record SearchResultItem(
     int? Year,
     int Score,
     CreditsStatus? CreditsStatus,
-    IReadOnlyList<SearchVersionItem> Versions);
+    IReadOnlyList<SearchVersionItem> Versions,
+    Guid? ArtReleaseMbid = null,
+    Guid? ArtReleaseGroupMbid = null);
 
 /// <summary>A recording folded behind a result: same song, and the reason it is not the original.</summary>
 /// <param name="Note">MusicBrainz's disambiguation comment, for example which DJ-mix it is part of.</param>
@@ -37,4 +41,6 @@ public sealed record SearchVersionItem(
     int Score,
     VersionKind Kind,
     string? Note,
-    CreditsStatus? CreditsStatus);
+    CreditsStatus? CreditsStatus,
+    Guid? ArtReleaseMbid = null,
+    Guid? ArtReleaseGroupMbid = null);

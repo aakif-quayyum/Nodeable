@@ -1,3 +1,4 @@
+using Nodeable.Domain.Art;
 namespace Nodeable.Infrastructure.Graphs;
 
 /// <summary>
@@ -25,6 +26,7 @@ public sealed class GraphEventNotifier(GraphReadModel read, IGraphEvents events,
         var people = (await read.GetPeopleAsync(credits.SelectMany(g => g).Select(c => c.PersonMbid), cancellationToken))
             .ToDictionary(p => p.Mbid);
         var statuses = await read.GetSongStatusesAsync(songs, cancellationToken);
+        var covers = await read.GetCoversAsync(songs, cancellationToken);
 
         foreach (var graph in held.GroupBy(h => h.GraphId))
         {
@@ -39,6 +41,7 @@ public sealed class GraphEventNotifier(GraphReadModel read, IGraphEvents events,
                     song,
                     songPeople,
                     songCredits.Select(c => new CreditItem(c.PersonMbid, c.Role, c.Detail, c.Level)).ToList(),
+                    covers.GetValueOrDefault(song, CoverChoice.None),
                     cancellationToken);
 
                 if (statuses.TryGetValue(song, out var status))

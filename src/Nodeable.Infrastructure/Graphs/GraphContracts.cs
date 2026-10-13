@@ -25,7 +25,17 @@ public enum CreditLevel
     Release,
 }
 
-public sealed record GraphSongItem(Guid Mbid, string Title, string Artist, int? Year, SongStatus CreditsStatus, DateTimeOffset AddedAt);
+/// <param name="ArtReleaseMbid">The release whose front cover is tried first (FR-ART-01); null until a release is known.</param>
+/// <param name="ArtReleaseGroupMbid">The release group tried second; null when it is not known.</param>
+public sealed record GraphSongItem(
+    Guid Mbid,
+    string Title,
+    string Artist,
+    int? Year,
+    SongStatus CreditsStatus,
+    DateTimeOffset AddedAt,
+    Guid? ArtReleaseMbid = null,
+    Guid? ArtReleaseGroupMbid = null);
 
 public sealed record PersonItem(Guid Mbid, string Name);
 
@@ -57,7 +67,14 @@ public sealed record GraphSnapshot(
 /// <summary>A credit as the hub sends it: the song is named once, in the message.</summary>
 public sealed record CreditItem(Guid PersonMbid, CreditRole Role, string Detail, CreditLevel Level);
 
-public sealed record CreditsResolvedMessage(long Seq, Guid SongMbid, IReadOnlyList<PersonItem> People, IReadOnlyList<CreditItem> Credits);
+/// <param name="ArtReleaseMbid">The song's cover release as known now, so a page that added the song before its releases were fetched learns it; null when unknown.</param>
+public sealed record CreditsResolvedMessage(
+    long Seq,
+    Guid SongMbid,
+    IReadOnlyList<PersonItem> People,
+    IReadOnlyList<CreditItem> Credits,
+    Guid? ArtReleaseMbid = null,
+    Guid? ArtReleaseGroupMbid = null);
 
 public sealed record SongStatusChangedMessage(long Seq, Guid SongMbid, SongStatus CreditsStatus);
 

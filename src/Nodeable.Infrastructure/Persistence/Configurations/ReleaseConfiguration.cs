@@ -14,6 +14,7 @@ internal sealed class ReleaseConfiguration : IEntityTypeConfiguration<Release>
         builder.Property(r => r.Mbid).ValueGeneratedNever();
         builder.Property(r => r.Title).IsRequired();
         builder.Property(r => r.DatePrecision).HasConversion<LowerCaseEnumConverter<DatePrecision>>();
+        builder.Property(r => r.ReleaseGroupSecondaryTypes).HasDefaultValueSql("'{}'");
         builder.Property(r => r.FetchedAt).HasDefaultValueSql("now()");
 
         builder.ToTable(t =>

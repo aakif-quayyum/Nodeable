@@ -395,6 +395,25 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                         .HasColumnName("fetched_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<Guid?>("ReleaseGroupMbid")
+                        .HasColumnType("uuid")
+                        .HasColumnName("release_group_mbid");
+
+                    b.PrimitiveCollection<string[]>("ReleaseGroupSecondaryTypes")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("release_group_secondary_types")
+                        .HasDefaultValueSql("'{}'");
+
+                    b.Property<string>("ReleaseGroupType")
+                        .HasColumnType("text")
+                        .HasColumnName("release_group_type");
+
+                    b.Property<string>("Status")
+                        .HasColumnType("text")
+                        .HasColumnName("status");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text")

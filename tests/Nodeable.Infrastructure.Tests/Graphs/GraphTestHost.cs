@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Time.Testing;
+using Nodeable.Domain.Art;
 using Nodeable.Domain.Crawling;
 using Nodeable.Domain.Entities;
 using Nodeable.Domain.Enums;
@@ -183,8 +184,8 @@ internal sealed class GraphTestHost : IAsyncDisposable
 
         public Task<long> CurrentSeqAsync(Guid graphId, CancellationToken cancellationToken = default) => Task.FromResult(Sent.Count(e => e.GraphId == graphId) + 0L);
 
-        public Task CreditsResolvedAsync(Guid graphId, Guid songMbid, IReadOnlyList<PersonItem> people, IReadOnlyList<CreditItem> credits, CancellationToken cancellationToken = default) =>
-            Record(new SentEvent(graphId, "CreditsResolved", songMbid, new CreditsResolvedMessage(0, songMbid, people, credits)));
+        public Task CreditsResolvedAsync(Guid graphId, Guid songMbid, IReadOnlyList<PersonItem> people, IReadOnlyList<CreditItem> credits, CoverChoice? cover = null, CancellationToken cancellationToken = default) =>
+            Record(new SentEvent(graphId, "CreditsResolved", songMbid, new CreditsResolvedMessage(0, songMbid, people, credits, cover?.ReleaseMbid, cover?.ReleaseGroupMbid)));
 
         public Task<bool> SongStatusChangedAsync(Guid graphId, Guid songMbid, SongStatus status, CancellationToken cancellationToken = default)
         {

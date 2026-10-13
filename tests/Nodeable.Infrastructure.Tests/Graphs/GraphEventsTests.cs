@@ -55,6 +55,29 @@ public class GraphEventsTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task FR_ART_01_credits_resolved_carries_the_cover_so_a_page_that_added_the_song_early_learns_it()
+    {
+        await using var host = await GraphTestHost.CreateAsync(postgres);
+        var graph = await host.SeedGraphAsync();
+        var release = Guid.NewGuid();
+        var group = Guid.NewGuid();
+        await host.SeedRecordingAsync(_redbone, "Redbone", "Childish Gambino", CreditsStatus.Partial);
+        await host.SeedAsync(db =>
+        {
+            db.Releases.Add(new Release { Mbid = release, Title = "Redbone", Status = "Official", ReleaseGroupMbid = group });
+            db.RecordingReleases.Add(new RecordingRelease { RecordingMbid = _redbone, ReleaseMbid = release });
+            return Task.CompletedTask;
+        });
+        await host.AddToGraphAsync(graph, _redbone);
+
+        await Done(host, Job(CrawlJobKind.Recording, _redbone));
+
+        var message = (CreditsResolvedMessage)host.Events.Named("CreditsResolved").Single().Payload!;
+        message.ArtReleaseMbid.Should().Be(release);
+        message.ArtReleaseGroupMbid.Should().Be(group);
+    }
+
+    [Fact]
     public async Task FR_GRAPH_02_a_finished_work_job_reaches_every_recording_linked_to_the_work()
     {
         await using var host = await GraphTestHost.CreateAsync(postgres);

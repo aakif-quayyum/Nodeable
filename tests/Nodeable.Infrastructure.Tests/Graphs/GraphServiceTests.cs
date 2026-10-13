@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nodeable.Domain.Crawling;
+using Nodeable.Domain.Entities;
 using Nodeable.Domain.Enums;
 using Nodeable.Domain.Graphs;
 using Nodeable.Infrastructure.Graphs;
@@ -58,6 +59,44 @@ public class GraphServiceTests(PostgresFixture postgres)
         var created = await host.InScopeAsync(s => s.GetRequiredService<GraphService>().CreateAsync(new string('x', 50), Ct));
 
         created.Name.Should().HaveLength(10);
+    }
+
+    [Fact]
+    public async Task FR_ART_01_the_snapshot_names_the_release_and_release_group_each_cover_is_loaded_for()
+    {
+        await using var host = await GraphTestHost.CreateAsync(postgres);
+        var graph = await host.SeedGraphAsync();
+        var release = Guid.NewGuid();
+        var group = Guid.NewGuid();
+        await host.SeedRecordingAsync(_redbone, "Redbone", "Childish Gambino", CreditsStatus.Complete);
+        await host.SeedAsync(db =>
+        {
+            db.Releases.Add(new Release { Mbid = release, Title = "Awaken, My Love!", Status = "Official", ReleaseGroupMbid = group, ReleaseGroupType = "Album" });
+            db.RecordingReleases.Add(new RecordingRelease { RecordingMbid = _redbone, ReleaseMbid = release });
+            return Task.CompletedTask;
+        });
+        await host.AddToGraphAsync(graph, _redbone);
+
+        var snapshot = await host.InScopeAsync(s => s.GetRequiredService<GraphService>().GetSnapshotAsync(graph, Ct));
+
+        var song = snapshot!.Songs.Should().ContainSingle().Subject;
+        song.ArtReleaseMbid.Should().Be(release);
+        song.ArtReleaseGroupMbid.Should().Be(group);
+    }
+
+    [Fact]
+    public async Task FR_ART_01_a_song_with_no_releases_yet_has_no_cover_ids()
+    {
+        await using var host = await GraphTestHost.CreateAsync(postgres);
+        var graph = await host.SeedGraphAsync();
+        await host.SeedRecordingAsync(_redbone, "Redbone", "Childish Gambino", CreditsStatus.None);
+        await host.AddToGraphAsync(graph, _redbone);
+
+        var snapshot = await host.InScopeAsync(s => s.GetRequiredService<GraphService>().GetSnapshotAsync(graph, Ct));
+
+        var song = snapshot!.Songs.Should().ContainSingle().Subject;
+        song.ArtReleaseMbid.Should().BeNull();
+        song.ArtReleaseGroupMbid.Should().BeNull();
     }
 
     [Fact]

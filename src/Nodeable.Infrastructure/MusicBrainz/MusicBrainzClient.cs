@@ -21,7 +21,8 @@ public sealed class MusicBrainzClient(HttpClient http) : IMusicBrainzClient
 
     private const string OfficialBoost = "status:official^10";
 
-    private const string RecordingIncludes = "artist-credits+artist-rels+work-rels+releases+isrcs";
+    // release-groups adds each release's group (its ID, type and secondary types), which choosing a cover needs (FR-ART-01).
+    private const string RecordingIncludes = "artist-credits+artist-rels+work-rels+releases+release-groups+isrcs";
     private const string ArtistRelationshipIncludes = "artist-rels";
 
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web)

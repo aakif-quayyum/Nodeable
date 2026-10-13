@@ -1,11 +1,14 @@
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Nodeable.Domain.Art;
 using Nodeable.Domain.Crawling;
 using Nodeable.Domain.Entities;
 using Nodeable.Domain.Enums;
 using Nodeable.Infrastructure.Crawling;
+using Nodeable.Infrastructure.Graphs;
 using Nodeable.Infrastructure.Ingestion;
+using Nodeable.Infrastructure.MusicBrainz;
 using Nodeable.Infrastructure.Persistence;
 using Nodeable.Infrastructure.Tests.Crawling;
 using Nodeable.Infrastructure.Tests.MusicBrainz;
@@ -72,6 +75,54 @@ public sealed class CreditIngestionTests(PostgresFixture postgres) : IDisposable
         releases.Should().Contain(r => r.DatePrecision == DatePrecision.Year);
         releases.Should().Contain(r => r.DatePrecision == DatePrecision.Day);
         releases.Should().OnlyContain(r => (r.Date == null) == (r.DatePrecision == null));
+    }
+
+    [Fact]
+    public async Task FR_ART_01_releases_are_stored_with_their_status_and_release_group()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        Serve($"/ws/2/recording/{_recordingMbid:D}", "recording-lookup-release-groups.json");
+        Serve($"/ws/2/work/{_workMbid:D}", "work-lookup.json");
+        await using var world = await WorldAsync();
+
+        await world.RequestSongAsync(_recordingMbid, "Redbone", "Childish Gambino");
+        await world.DrainAsync();
+
+        await using var db = Context(world.ConnectionString);
+        var releases = await db.Releases.AsNoTracking().ToListAsync(ct);
+
+        releases.Should().HaveCount(15);
+        releases.Should().OnlyContain(r => r.ReleaseGroupMbid != null && r.Status == "Official");
+
+        var single = releases.Single(r => r.Mbid == Guid.Parse("60b98e3b-a038-40b8-b17a-c0b1606c41a8"));
+        single.ReleaseGroupMbid.Should().Be(Guid.Parse("e1adb327-2619-427c-acec-d8bb3efb5dca"));
+        single.ReleaseGroupType.Should().Be("Single");
+        single.ReleaseGroupSecondaryTypes.Should().BeEmpty();
+
+        // Five of the fifteen releases are on compilations, and that is what keeps them from being the cover.
+        releases.Count(r => r.ReleaseGroupSecondaryTypes.Contains("Compilation")).Should().Be(5);
+    }
+
+    [Fact]
+    public async Task FR_ART_01_the_cover_of_a_song_is_its_earliest_official_studio_release_and_that_releases_group()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        Serve($"/ws/2/recording/{_recordingMbid:D}", "recording-lookup-release-groups.json");
+        Serve($"/ws/2/work/{_workMbid:D}", "work-lookup.json");
+        await using var world = await WorldAsync();
+        await world.RequestSongAsync(_recordingMbid, "Redbone", "Childish Gambino");
+        await world.DrainAsync();
+
+        await using var db = Context(world.ConnectionString);
+        var read = new GraphReadModel(db, Microsoft.Extensions.Options.Options.Create(new MusicBrainzOptions()));
+
+        var covers = await read.GetCoversAsync([_recordingMbid], ct);
+
+        // The album release that MusicBrainz dates only "2016" counts as 2016-01-01 (decision 0008), so it is earlier
+        // than the single's exact day in November; both are official studio releases and the album is the cover.
+        covers[_recordingMbid].Should().Be(new CoverChoice(
+            Guid.Parse("2017e952-42c9-41e0-9e39-69d5aa7b17a6"),
+            Guid.Parse("fd817615-3d43-4f07-9509-d0a46b2bc278")));
     }
 
     [Fact]
