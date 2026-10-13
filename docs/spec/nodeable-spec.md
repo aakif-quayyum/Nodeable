@@ -124,6 +124,7 @@ Requirements are grouped by release phase. The MVP is the smallest version that 
 | FR-REC-01 | Recommendations rank recordings by the number of graph hubs credited on them, excluding songs already in the graph | US-03 |
 | FR-REC-02 | Each recommendation shows a plain-language reason | US-03 |
 | FR-PREVIEW-01 | Recordings play a 30-second preview when one is available from Deezer | US-03 |
+| FR-WAVE-01 | The preview player shows the recording's waveform with a playhead, drawn with D3 from peaks computed once before the first frame; clicking or keying along it seeks; the record of the playing song spins while it plays, and with reduced motion it does not (the playhead and the time still move: they are the position, not decoration). Where the audio cannot be decoded the player works without the waveform (decision 0022). | US-03 |
 | FR-ABOUT-01 | An About page shows the architecture, a live crawl status panel from real telemetry, and links to the repository and spec | US-08 |
 
 ### M3R UI refresh (approved 2026-10-13, decision 0020)
@@ -155,6 +156,8 @@ The design is the prototype in `docs/design/nodeable-ui-prototype.html`. These r
 | FR-RADAR-02 | New credits create in-app notifications and optional email digests | US-06 |
 | FR-SHARE-01 | Graphs can be made public with a read-only link and an Open Graph preview image | US-07 |
 | FR-ENRICH-01 | Discogs fills credits when MusicBrainz has none for a release | US-01 |
+| FR-CREDIT-USER-01 | A signed-in person adds credits (person, role, detail) to a song in their own graph. They are stored apart from MusicBrainz's credits, with source `user`, the author's account id only, a status and timestamps; they are labelled "Added by you", are private to the author until approved, are never mixed into MusicBrainz's rows, and are kept when MusicBrainz later adds credits. The "Add credits on MusicBrainz" link stays | US-01, US-04 |
+| FR-CREDIT-REVIEW-01 | "Submit for review" sends a credit to an approval queue for the `admin` role. The reviewer approves, or rejects with a reason; every step is kept in an audit trail. An approved credit is shown to everyone labelled "Community". When MusicBrainz later has the same credit, ours is marked superseded. Submitting means accepting CC0 terms. Each person has a daily submission limit. An approved credit offers a link to submit it to MusicBrainz | US-01, US-04 |
 
 ### v3
 
@@ -166,20 +169,8 @@ The design is the prototype in `docs/design/nodeable-ui-prototype.html`. These r
 | FR-TIMELINE-01 | A person's career timeline shows credits by year, with collaborators and roles | US-03 |
 | FR-COMPARE-01 | Two users' graphs can be overlaid to show shared hubs | US-07 |
 | FR-QUIZ-01 | A "guess the producer" quiz built from cached credits and previews | US-03 |
-
-### Proposals (2026-10-14, awaiting approval)
-
-Written on the branch `docs/community-credits-and-waveform-proposals`; nothing here is built, and the developer has asked to approve it before milestone M3R continues. If approved, the rows move into the tables above and this subsection is deleted; the supporting rules are in sections 5, 8, 9 and 10 (each marked "proposed") and decisions 0021 and 0022.
-
-| ID | Phase | Requirement | Story |
-| --- | --- | --- | --- |
-| FR-WAVE-01 | M4, with FR-PREVIEW-01 | The preview player shows the recording's waveform with a playhead, drawn with D3 from peaks computed once before the first frame; clicking or keying along it seeks; the record of the playing song spins while it plays, and with reduced motion it does not (the playhead and the time still move: they are the position, not decoration). Where the audio cannot be decoded the player works without the waveform (decision 0022) | US-03 |
-| FR-CREDIT-USER-01 | v2 | A signed-in person adds credits (person, role, detail) to a song in their own graph. They are stored apart from MusicBrainz's credits, with source `user`, the author's account id only, a status and timestamps; they are labelled "Added by you", are private to the author until approved, are never mixed into MusicBrainz's rows, and are kept when MusicBrainz later adds credits. The "Add credits on MusicBrainz" link stays | US-01, US-04 |
-| FR-CREDIT-REVIEW-01 | v2 | "Submit for review" sends a credit to an approval queue for the `admin` role. The reviewer approves, or rejects with a reason; every step is kept in an audit trail. An approved credit is shown to everyone labelled "Community". When MusicBrainz later has the same credit, ours is marked superseded. Submitting means accepting CC0 terms. Each person has a daily submission limit. An approved credit offers a link to submit it to MusicBrainz | US-01, US-04 |
-| FR-CREDIT-VOTE-01 | v3 | Signed-in people vote on community credits, and trust levels (for example 5 or more approved credits) let a person skip the queue. Started only when there are enough active signed-in users for votes to mean something (proposal: 100 active in 30 days, to be set at the v2 retrospective) | US-01, US-04 |
-| FR-WAVE-02 | v3 | A three-band (low, mid, high) coloured waveform, an estimated tempo (BPM) and, as a stretch, the musical key, computed in the Worker from the preview and cached. With reduced motion the waveform is static: drawn at once, with no draw-in and no motion that follows the sound | US-03 |
-
-NFR-MOTION-01 gains two items if FR-WAVE-01 is approved: the record's spin while a preview plays and the waveform's draw-in respect `prefers-reduced-motion` like every other animation; both are `transform` and `opacity` only.
+| FR-CREDIT-VOTE-01 | Signed-in people vote on community credits, and trust levels (5 or more approved credits and none rejected in the last 90 days) let a person skip the queue. Started only when there are enough active signed-in users for votes to mean something (100 active signed-in users in 30 days; the number may be revisited at the v2 retrospective) | US-01, US-04 |
+| FR-WAVE-02 | A three-band (low, mid, high) coloured waveform, an estimated tempo (BPM) and, as a stretch, the musical key, computed in the Worker from the preview and cached. With reduced motion the waveform is static: drawn at once, with no draw-in and no motion that follows the sound | US-03 |
 
 ## 5. Non-functional requirements
 
@@ -197,24 +188,19 @@ The hardest non-functional constraint is the MusicBrainz limit of about one requ
 | NFR-REL-01 | Reliability | Crawl jobs survive an API restart and resume from the queue |
 | NFR-REL-02 | Reliability | Monthly availability of 99.5% for the public API |
 | NFR-REL-03 | Reliability | Cached credits are refreshed when older than 30 days, in the background |
+| NFR-CACHE-01 | Caching | Every recording added to a graph is persisted with its releases, works, people and credits and is reused, never fetched twice (until NFR-REL-03's refresh): search reads the stored recordings first, and adding a stored recording with credits makes no MusicBrainz request. This states what M2 and M3 already do (section 10, "Persist, then reuse"); it adds no behaviour |
 | NFR-SEC-01 | Security | Secrets are never committed; local development uses user secrets, production uses the host's secret store |
 | NFR-SEC-02 | Security | Public endpoints are rate limited per IP: 60 searches per minute, 20 song additions per minute |
 | NFR-SEC-03 | Security | OAuth tokens for Spotify are encrypted at rest and never sent to the browser |
 | NFR-SEC-04 | Security | Dependencies are scanned on every pull request |
+| NFR-SEC-05 | Security | Community credits are written only by their signed-in author and moderated only by the `admin` role, both checked by the Api on every request, never by what the browser sends; there is a per-person daily submission limit (10 a day, a configuration value); `detail` is length-limited and rendered as text, never as markup; review decisions are kept in an append-only audit trail |
 | NFR-A11Y-01 | Accessibility | WCAG 2.2 AA; the graph has a keyboard-navigable list view with the same data |
 | NFR-A11Y-02 | Accessibility | Colour is never the only carrier of meaning; role colours also use icons or patterns (the legend and filter chips carry an icon and the name; arcs and notes carry the role's name) |
-| NFR-MOTION-01 | Accessibility | List and graph animations (staggered rise, match bars, add pop, version expand, FLIP reorder, count-up, new-credit highlight, streaming bloom, polar transitions) respect `prefers-reduced-motion`, including a change made while the page is open; CSS animations change only `transform` and `opacity` |
+| NFR-MOTION-01 | Accessibility | List and graph animations (staggered rise, match bars, add pop, version expand, FLIP reorder, count-up, new-credit highlight, streaming bloom, polar transitions and, from M4, the record's spin while a preview plays and the waveform's draw-in) respect `prefers-reduced-motion`, including a change made while the page is open; CSS animations change only `transform` and `opacity` |
 | NFR-OBS-01 | Observability | Every request and job is traced end to end, from browser click to external API call |
 | NFR-PRIV-01 | Privacy | No tracking cookies; analytics are first-party and anonymous |
-| NFR-COST-01 | Cost | The production stack runs for under USD 25 per month at portfolio traffic |
-
-### Proposed (2026-10-14, awaiting approval)
-
-| ID | Area | Requirement |
-| --- | --- | --- |
-| NFR-CACHE-01 | Caching | Every recording added to a graph is persisted with its releases, works, people and credits and is reused, never fetched twice (until NFR-REL-03's refresh): search reads the stored recordings first, and adding a stored recording with credits makes no MusicBrainz request. This states what M2 and M3 already do (section 10, "Persist, then reuse"); it adds no behaviour |
 | NFR-PRIV-02 | Privacy | A privacy notice is published before accounts exist (FR-AUTH-01) and is updated by FR-CREDIT-USER-01. It says what is stored about a person (an email address and account id; for a community credit the account id, the credit and timestamps, and the accepted CC0 terms' version and time), that a credit's author is never shown, that a CC0 submission is public and cannot be withdrawn once approved, how long data is kept, and what deleting the account does (private and rejected credits are deleted, submitted ones withdrawn, approved ones kept without the author id). Legal review of the text is the developer's to arrange |
-| NFR-SEC-05 | Security | Community credits are written only by their signed-in author and moderated only by the `admin` role, both checked by the Api on every request, never by what the browser sends; there is a per-person daily submission limit (proposal: 10); `detail` is length-limited and rendered as text, never as markup; review decisions are kept in an append-only audit trail |
+| NFR-COST-01 | Cost | The production stack runs for under USD 25 per month at portfolio traffic |
 | NFR-LIC-01 | Licensing | Nodeable uses only MusicBrainz's core data (CC0, section 10) and community credits submitted under CC0; no supplementary (CC BY-NC-SA) data is stored; every credit shown carries its origin, so MusicBrainz's data and the community's are never presented as one thing |
 
 ## 6. Tech stack and learning goals
@@ -332,7 +318,7 @@ All music data is keyed by MusicBrainz IDs (MBIDs), and every credit is stored o
 
 User accounts use the standard ASP.NET Core Identity tables. The `traceparent` column on `crawl_jobs` stores the W3C trace context of the request that queued the job, so a background fetch appears in the same trace as the click that caused it.
 
-### Proposed tables (v2 and v3; 2026-10-14, awaiting approval)
+### Tables for community credits and previews (v2 and v3; approved 2026-10-14)
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
@@ -425,7 +411,7 @@ The OpenAPI document is written on every build and the frontend's `web/src/api/s
 
 `creditsStatus` in the API takes the stored values `complete`, `partial` and `none`, plus `loading`. `loading` is not stored: the Api reports it while crawl jobs for the song are still pending or running.
 
-### Proposed endpoints (2026-10-14, awaiting approval)
+### Community credit and waveform endpoints (v2 and v3; approved 2026-10-14)
 
 | Method | Path | Purpose | Requirement |
 | --- | --- | --- | --- |
@@ -604,7 +590,7 @@ The database grows with use, and what it holds is read before MusicBrainz is ask
 | --- | --- | --- | --- |
 | A song is added to any graph | The `recordings` row (title, artist credit, dates, length), the `releases` and `works` it links to and the link rows, the `people` it credits and every `credits` row at recording, work and release level, with `credits_status` | Section 7 (flow, steps 2 to 5); "How credits are stored" below; section 8 | Adding the same recording to any graph: a stored recording with a status other than `none` makes **no** MusicBrainz request and its credits go to the browser at once (section 7, step 3). Hubs, the liner notes and, from M4, recommendations and person pages read the stored rows |
 | A song is searched for | **Nothing.** A search result is not stored; only a song someone adds is (decision 0019: the shared cache never receives a title a person did not add) | "How search works" above | Search reads the stored `recordings` by title with the trigram index **before** it asks MusicBrainz. It does not skip MusicBrainz unless the stored rows alone fill a page of 10 after duplicates are folded; with fewer, MusicBrainz is asked as well, so a small database still calls MusicBrainz on most searches and the call is avoided more often as the database grows |
-| A stored row is older than 30 days | The refresh rewrites it in the background. **Not built:** no job implements NFR-REL-03 yet (it is part of the scheduled work, section 7), so stored rows are not refreshed today | NFR-REL-03 | The same readers |
+| A stored row is older than 30 days | The refresh rewrites it in the background. **Not built:** no job implements NFR-REL-03 yet (it is a task in M4, section 14), so stored rows are not refreshed today | NFR-REL-03 | The same readers |
 
 So every song added (recording, releases, works, people, credits) is persisted and is reused first by both search and add-song; the saving shows up as fewer MusicBrainz requests per search as the stored recordings grow, and `cache.lookups` (`recording_search` hit or miss, section 11) is the measure of it. What is **not** specified, and not proposed here, is persisting search results that nobody added: it would put titles and MBIDs the person never chose into the shared cache.
 
@@ -621,7 +607,7 @@ Rules: images are fixed-size and `loading="lazy"` (no layout shift), have `alt` 
 
 Privacy: each image request tells the image host the person's IP address and that Nodeable's page asked for it (without a referrer). That does not breach NFR-PRIV-01 (no cookies, no analytics sent to third parties) but it is stated here; an image proxy through the Api is the remedy if it ever matters, and is not built.
 
-### Community credits (proposed 2026-10-14, v2 and v3; decision 0021)
+### Community credits (approved 2026-10-14, v2 and v3; decision 0021)
 
 - **Licence.** MusicBrainz's core data, which includes relationships and so every credit Nodeable reads, is CC0; its supplementary data (annotations, tags, ratings, derived statistics, edit history) is CC BY-NC-SA 3.0 (checked 2026-10-14 on musicbrainz.org/doc/About/Data_License and /doc/MusicBrainz_Database). Nodeable reads core data only. A person who submits a credit accepts CC0 for it, so an approved credit has the same terms as MusicBrainz's and can be given to MusicBrainz without a conflict (NFR-LIC-01).
 - **Where credits live.** MusicBrainz's in `credits`, the community's in `user_credits` (section 8), never in the same table, upsert or unique index. A refresh from MusicBrainz cannot overwrite or delete a user credit.
@@ -640,11 +626,11 @@ Privacy: each image request tells the image host the person's IP address and tha
 - **What does not change.** `credits_status` and the "credits incomplete" badge describe MusicBrainz's data (decision 0015), and "Add credits on MusicBrainz" stays; an approved credit also offers "Submit to MusicBrainz", a link to the song's MusicBrainz page where the person makes the edit themselves. Nodeable never writes to MusicBrainz.
 - **Where each set is used.** The author's own graph shows all their credits, and its hubs and cards count them. Public graphs (FR-SHARE-01), recommendations (FR-REC-01) and paths (FR-PATH-01) use MusicBrainz's and `approved` credits only. Every credit in the views carries its label as a word and an icon (NFR-A11Y-02).
 - **Abuse limits.** Sign-in is required; a daily submission limit per person; `detail` is length-limited and shown as text; the queue is read by one reviewer, so its length and the age of its oldest item are metrics when it is built (NFR-SEC-05, section 11).
-- **Votes and trust (v3, FR-CREDIT-VOTE-01).** A vote is "confirm" or "dispute" on an approved community credit; a credit disputed by more people than confirmed it (the numbers set at the v2 retrospective) returns to the queue. A person with 5 or more approved credits and none rejected in the last 90 days is trusted: their submissions are approved without the queue but still get an audit row, and the reviewer can sample them. The 5 and the 90 days are proposals.
+- **Votes and trust (v3, FR-CREDIT-VOTE-01).** A vote is "confirm" or "dispute" on an approved community credit; a credit disputed by more people than confirmed it (the numbers set at the v2 retrospective) returns to the queue. A person with 5 or more approved credits and none rejected in the last 90 days is trusted: their submissions are approved without the queue but still get an audit row, and the reviewer can sample them. The 5 and the 90 days were approved on 2026-10-14.
 
-### Preview waveform (proposed 2026-10-14, M4 and v3; decision 0022)
+### Preview waveform (approved 2026-10-14, M4 and v3; decision 0022)
 
-- **FR-WAVE-01 (M4).** The page fetches the preview audio from the URL the Api returns (resolved from the stored track id, valid for about 15 minutes), decodes it with Web Audio's `decodeAudioData`, folds it to mono and reduces it to a fixed number of peaks (the maximum absolute sample per bucket, proposal 160 buckets), and draws them with D3 as bars with a playhead. The audio element and the playhead share one clock, a click or arrow key on the waveform seeks (it is a slider with `aria-valuetext` such as "0:12 of 0:30"), and the record spins only while playing. Nothing is stored: not the audio and not the peaks.
+- **FR-WAVE-01 (M4).** The page fetches the preview audio from the URL the Api returns (resolved from the stored track id, valid for about 15 minutes), decodes it with Web Audio's `decodeAudioData`, folds it to mono and reduces it to a fixed number of peaks (the maximum absolute sample per bucket, 160 buckets), and draws them with D3 as bars with a playhead. The audio element and the playhead share one clock, a click or arrow key on the waveform seeks (it is a slider with `aria-valuetext` such as "0:12 of 0:30"), and the record spins only while playing. Nothing is stored: not the audio and not the peaks.
 - **Checked on 2026-10-14 (decision 0022).** The preview audio answers with `Access-Control-Allow-Origin: *` to both a ranged `GET` and a preflight, so the browser may read the bytes; the Deezer API host sends no such header, so the Api, not the browser, asks it. The check is repeated at the start of M4. If the header is gone, the Worker fetches the preview, computes the peaks and the duration and stores them (the audio is never stored), and this subsection is rewritten.
 - **When it cannot be decoded** the player plays without a waveform and shows a progress bar and the time; the waveform never blocks a preview (FR-PREVIEW-01).
 - **FR-WAVE-02 (v3).** An `analysis` job in the Worker fetches one preview at a time at the scheduled priority, splits it into three bands (low, mid, high), keeps peaks for each, estimates the tempo and, as a stretch, the key, and stores them in `preview_analysis` with an `algorithm_version`, so a better algorithm can recompute. The browser draws three coloured layers (band colours also differ by pattern or lightness, not by hue alone: NFR-A11Y-02) and shows the BPM as text; when a row exists FR-WAVE-01 reads its peaks and does not decode. With reduced motion the waveform is static (drawn at once, with no draw-in and no motion that follows the sound).
@@ -1012,7 +998,8 @@ Reordered after the first screens were reviewed (2026-10-13): the `/graph` page 
 - [ ] Person drawer with credited recordings (FR-PERSON-01)
 - [ ] Recommendation scoring with reasons (FR-REC-01, FR-REC-02)
 - [ ] Deezer previews by ISRC (FR-PREVIEW-01), including turning on `Ingestion:QueuePreviewJobs` with the handler
-- [ ] *Proposed 2026-10-14, awaiting approval:* before the preview work starts, re-check that the preview audio host still sends `Access-Control-Allow-Origin` (decision 0022); then the waveform player: fetch and decode in the browser, peaks drawn with D3 with a playhead, seeking, the spinning record, reduced motion, and the player working without a waveform (FR-WAVE-01, FR-PREVIEW-01, NFR-MOTION-01, NFR-A11Y-01)
+- [ ] Before the preview work starts, re-check that the preview audio host still sends `Access-Control-Allow-Origin` (decision 0022); then the waveform player: fetch and decode in the browser, peaks drawn with D3 with a playhead, seeking, the spinning record, reduced motion, and the player working without a waveform (FR-WAVE-01, FR-PREVIEW-01, NFR-MOTION-01, NFR-A11Y-01)
+- [ ] The 30-day refresh (NFR-REL-03), which is specified but not built: a scheduled job (Hangfire, section 7) at the scheduled priority that refetches stored recordings, works, releases and people whose `fetched_at` is over 30 days old through the same crawl queue and rate gate, at random times across the day (section 10, constraints), and so also fills what rows fetched earlier lack (the `releases` release-group columns of M3R); `cache.lookups` counts `stale`, and a test shows a refresh changes nothing when MusicBrainz has not
 - [ ] About page with architecture and live crawl status (FR-ABOUT-01)
 - [ ] Grafana dashboards and SLO alerts (section 11)
 - [ ] Terraform VPS, Caddy, Docker Compose deploy; seed the demo cache
@@ -1022,7 +1009,7 @@ Reordered after the first screens were reviewed (2026-10-13): the `/graph` page 
 
 Break v2 and v3 into tasks at the MVP retrospective, using the requirement tables in section 4 as the backlog.
 
-Proposed 2026-10-14, awaiting approval (nothing is started; these join the backlog if approved, in this order inside their phase):
+Approved 2026-10-14 (nothing is started; these join the backlog, in this order inside their phase):
 
 - [ ] **v2, gate: the privacy notice** (NFR-PRIV-02) is written and published before FR-AUTH-01 ships, because an account stores an email address
 - [ ] **v2, FR-CREDIT-USER-01:** `user_credits` and its migration, add / list / delete endpoints, the person picker (stored people, then MusicBrainz artist search), the "Added by you" label in the orbit, liner notes and Text view, `origin` in the snapshot and its generated types, and tests that a MusicBrainz refresh keeps user credits (NFR-SEC-05, NFR-LIC-01, decision 0021)
@@ -1063,15 +1050,16 @@ Raised while building M1 and decided on 2026-10-11 (each has a decision record, 
 - [x] **Assertion library.** AwesomeAssertions. Decision 0012, added in M2.
 - [x] **ESLint 10 and TypeScript 7.** ESLint moved to 10 with the `eslint-plugin-jsx-a11y-x` fork at the start of M2 (decision 0014). TypeScript stays on 6.0, with Dependabot ignoring its major and minor updates and a check at the start of each milestone (decision 0013).
 
-Raised on 2026-10-14 with the community-credit and waveform proposals (decisions 0021 and 0022; open until the proposals are approved and, for the last two, until v3):
+Raised on 2026-10-14 with the community-credit and waveform proposals (decisions 0021 and 0022, approved the same day; the unchecked ones stay open):
 
-- [ ] **Free-text people.** Should a person be able to credit someone who has no MusicBrainz entry (a name only)? The design requires an MBID (decision 0021); a name-only credit cannot be matched, merged or superseded.
-- [ ] **The daily submission limit.** 10 a day is a proposal; the right number depends on how many people use the app.
+- [ ] **Free-text people.** Should a person be able to credit someone who has no MusicBrainz entry (a name only)? Approved for now: an MBID is required (decision 0021), because a name-only credit cannot be matched, merged or superseded. This stays open.
+- [x] **The daily submission limit.** 10 a day, a configuration value. Approved 2026-10-14.
 - [ ] **The privacy notice's text** and whether the CC0 dedication and the account-deletion rules in NFR-PRIV-02 need a legal reading before v2. This spec is a design, not legal advice.
 - [ ] **One reviewer.** The `admin` is the developer; what happens to the queue when they are away (a time limit after which a credit stays `submitted`, with no automatic approval, is the proposal)?
 - [ ] **Deezer's terms for analysis.** May a preview be fetched by the Worker, analysed and the derived values (band peaks, tempo, key) stored? Not read yet; settled before FR-WAVE-02.
 - [ ] **Which decoder and algorithms** for FR-WAVE-02 in .NET (an MP3 decoder, tempo and key estimation), chosen and tested against known-tempo recordings when v3 starts.
-- [ ] **The active-user gate** for FR-CREDIT-VOTE-01 (proposal: 100 signed-in users active in 30 days), set at the v2 retrospective.
+- [x] **The active-user gate** for FR-CREDIT-VOTE-01: 100 signed-in users active in 30 days. Approved 2026-10-14; may be revisited at the v2 retrospective.
+- [x] **The 30-day refresh (NFR-REL-03)** is specified but was not built; it is a task in M4 (section 14).
 
 ### Decision log
 
@@ -1110,9 +1098,10 @@ Raised on 2026-10-14 with the community-credit and waveform proposals (decisions
 | 2026-10-13 | The constellation is SVG up to 60 nodes and a canvas above (measured, not the 250 first guessed); the toggle and find sit in the app bar through a portal; names wrap at a word before they are cut ([0020](decisions/0020-ui-refresh-orbit-and-constellation.md), "Changes after the overview was built") | The measurement the decision asked for; the developer's review of the workspace |
 | 2026-10-12 | A song is added by MBID only; the Api confirms an unknown recording with MusicBrainz and a hub join carries the token as an argument ([0019](decisions/0019-add-by-mbid-and-hub-token-argument.md)) | The shared cache must not accept client-supplied titles; a WebSocket cannot send a header and a URL token reaches logs |
 | 2026-10-14 | The developer approved the constellation's canvas threshold of **60** nodes ([0020](decisions/0020-ui-refresh-orbit-and-constellation.md), "Changes after the overview was built") | The measurement the decision asked for; pull request 4 was merged |
-| 2026-10-14 | **Proposed:** community credits are stored apart from MusicBrainz's, reviewed by an admin before anyone else sees them, and released as CC0 (FR-CREDIT-USER-01, FR-CREDIT-REVIEW-01 in v2; FR-CREDIT-VOTE-01 in v3) ([0021](decisions/0021-community-credits-data-model-and-licensing.md)) | Sparse credits are the spec's biggest data risk; MusicBrainz's core data is CC0, so a CC0 contribution has the same terms; mixing the tables would lose the licence boundary and expose MusicBrainz's idempotent upserts to user data |
-| 2026-10-14 | **Proposed:** the preview waveform is decoded in the browser because Deezer's preview audio sends `Access-Control-Allow-Origin: *`; nothing is stored for FR-WAVE-01, and FR-WAVE-02's analysis is the Worker's (v3) ([0022](decisions/0022-preview-waveform-is-decoded-in-the-browser.md)) | Checked on 2026-10-14; no new table or job in M4; the preview URL expires after about 15 minutes, so only the track id is stored |
+| 2026-10-14 | Community credits are stored apart from MusicBrainz's, reviewed by an admin before anyone else sees them, and released as CC0 (FR-CREDIT-USER-01, FR-CREDIT-REVIEW-01 in v2; FR-CREDIT-VOTE-01 in v3) ([0021](decisions/0021-community-credits-data-model-and-licensing.md)) | Sparse credits are the spec's biggest data risk; MusicBrainz's core data is CC0, so a CC0 contribution has the same terms; mixing the tables would lose the licence boundary and expose MusicBrainz's idempotent upserts to user data |
+| 2026-10-14 | The preview waveform is decoded in the browser because Deezer's preview audio sends `Access-Control-Allow-Origin: *`; nothing is stored for FR-WAVE-01, and FR-WAVE-02's analysis is the Worker's (v3) ([0022](decisions/0022-preview-waveform-is-decoded-in-the-browser.md)) | Checked on 2026-10-14; no new table or job in M4; the preview URL expires after about 15 minutes, so only the track id is stored |
 | 2026-10-14 | **Stated, not changed:** every added recording and what it leads to is persisted and read before MusicBrainz is asked; search results nobody added are not stored (NFR-CACHE-01, section 10 "Persist, then reuse") | The developer asked for the rule to be explicit; it describes M2 and M3 as built, and notes that the 30-day refresh (NFR-REL-03) is not built yet |
+| 2026-10-14 | The 30-day refresh (NFR-REL-03) is a task in M4; people need an MBID to be credited; search results stay unpersisted; the proposed numbers (10 submissions a day, 160 peaks, trust at 5 approved credits with none rejected in 90 days, a vote gate of 100 active users in 30 days) and the reduced-motion rule for FR-WAVE-01 are approved ([0021](decisions/0021-community-credits-data-model-and-licensing.md), [0022](decisions/0022-preview-waveform-is-decoded-in-the-browser.md)) | The developer reviewed the proposals; the spec must not promise a refresh that does not exist |
 
 ## 16. Learning guides
 

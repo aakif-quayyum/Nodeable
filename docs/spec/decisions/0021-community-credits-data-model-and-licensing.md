@@ -1,8 +1,8 @@
 # 0021. Community credits live in their own table, are reviewed before anyone else sees them, and are released as CC0
 
-- **Status:** Proposed (written 2026-10-14; awaiting the developer's approval. Nothing is built. Phases: v2 for FR-CREDIT-USER-01 and FR-CREDIT-REVIEW-01, v3 for FR-CREDIT-VOTE-01.)
+- **Status:** Accepted (approved by the developer on 2026-10-14, with the answers under "Confirmed on approval". Nothing is built. Phases: v2 for FR-CREDIT-USER-01 and FR-CREDIT-REVIEW-01, v3 for FR-CREDIT-VOTE-01.)
 - **Date:** 2026-10-14
-- **Spec:** section 4 (proposals), section 5 (NFR-PRIV-02, NFR-SEC-05, NFR-LIC-01), section 8 (`user_credits`, `credit_review_events`), section 9 (community endpoints), section 10 (community credits), decisions 0006, 0015, FR-GRAPH-04, FR-AUTH-01, principle 5
+- **Spec:** section 4, section 5 (NFR-PRIV-02, NFR-SEC-05, NFR-LIC-01), section 8 (`user_credits`, `credit_review_events`), section 9 (community endpoints), section 10 (community credits), decisions 0006, 0015, FR-GRAPH-04, FR-AUTH-01, principle 5
 
 ## Context
 
@@ -24,9 +24,16 @@ Facts checked on 2026-10-14 (musicbrainz.org/doc/About/Data_License and musicbra
 5. **Review by an admin role.** `Submit for review` moves a credit to the queue. A person with the `admin` role (an ASP.NET Core Identity role, given to the developer's account by configuration) approves, or rejects with a reason. Every transition is one row of the append-only `credit_review_events` (who, when, what, why), so the history can be read and a decision can be explained.
 6. **CC0 on submission.** To submit, the person accepts that the credit is dedicated to the public domain under CC0, the same terms MusicBrainz's core data is under; the accepted terms' version and time are stored on the credit. A credit that stays `private` is not published and is not dedicated. Because the terms match, an approved credit can be given to MusicBrainz without a licence conflict, and Nodeable offers a link to the song's MusicBrainz page so that the person can make the edit themselves. Nodeable never writes to MusicBrainz and has no way to act as the person there.
 7. **The author is an account id and nothing else.** No name, no email and no avatar are stored on the credit or shown with it. The reviewer sees the account id and timestamps so that abuse can be spotted. Deleting an account deletes its `private` and `rejected` credits and withdraws its `submitted` ones; `approved` credits stay (CC0 cannot be taken back) with the author id removed.
-8. **A per-user daily submission limit** (proposal: 10 credits a day, a configuration value) and the usual size and character checks on `detail`. The queue is then bounded by the number of active users times the limit, which one reviewer can read.
+8. **A per-user daily submission limit** (10 credits a day, a configuration value) and the usual size and character checks on `detail`. The queue is then bounded by the number of active users times the limit, which one reviewer can read.
 9. **Visibility.** A person's own graph shows their `private`, `submitted` and `rejected` credits, and hubs and connector cards there count them (that is the point of adding them). A public graph (FR-SHARE-01), recommendations and path finding (FR-REC-01, FR-PATH-01) read `approved` credits only, plus MusicBrainz's.
-10. **Votes and trust levels are v3 (FR-CREDIT-VOTE-01)** and wait until there are enough active signed-in users to vote. A trust level is derived from the count of a person's approved credits (proposal: 5 or more skips the queue), never stored as a free-standing flag, and an auto-approved credit still gets its `credit_review_events` row.
+10. **Votes and trust levels are v3 (FR-CREDIT-VOTE-01)** and wait until there are enough active signed-in users to vote. A trust level is derived from the count of a person's approved credits (5 or more approved credits and none rejected in the last 90 days skips the queue), never stored as a free-standing flag, and an auto-approved credit still gets its `credit_review_events` row.
+
+## Confirmed on approval
+
+- A person must be a MusicBrainz artist (an MBID); free-text people stay an open question (section 15).
+- 10 submissions a day; a trust level of 5 approved credits with none rejected in 90 days; the vote gate of 100 signed-in users active in 30 days (may be revisited at the v2 retrospective).
+- Search results that nobody added stay unpersisted (decision 0019).
+- The legal reading of the privacy notice, the CC0 dedication and the account-deletion rules is still to be arranged by the developer.
 
 ## Alternatives considered
 

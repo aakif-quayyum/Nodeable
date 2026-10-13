@@ -1,8 +1,8 @@
 # 0022. The preview waveform is decoded in the browser, because Deezer's preview audio allows it
 
-- **Status:** Proposed (written 2026-10-14; awaiting the developer's approval. Nothing is built. FR-WAVE-01 is M4; FR-WAVE-02 is v3.)
+- **Status:** Accepted (approved by the developer on 2026-10-14, with the answers under "Confirmed on approval". Nothing is built. FR-WAVE-01 is M4; FR-WAVE-02 is v3.)
 - **Date:** 2026-10-14
-- **Spec:** section 4 (proposals), section 8 (`preview_analysis`, v3), section 9 (preview endpoint), section 10 (preview waveform, Deezer row), FR-PREVIEW-01, FR-WAVE-01, FR-WAVE-02, NFR-MOTION-01, NFR-A11Y-01
+- **Spec:** section 4, section 8 (`preview_analysis`, v3), section 9 (preview endpoint), section 10 (preview waveform, Deezer row), FR-PREVIEW-01, FR-WAVE-01, FR-WAVE-02, NFR-MOTION-01, NFR-A11Y-01
 
 ## Context
 
@@ -31,6 +31,12 @@ Other facts from the same response:
 3. **The waveform is optional.** If the fetch or the decode fails (CORS removed, the URL expired, a network error), the player plays as it would without a waveform: a progress bar and the time. It never blocks playback.
 4. **The check is repeated** at the start of M4 (the milestone-start review of held assumptions), because a CORS header is a setting and not a promise. If it has gone, the Worker path in the alternatives below is built instead of this one, and the spec's section 10 is updated.
 5. **FR-WAVE-02 (v3) is computed in the Worker and stored** (`preview_analysis`), as the developer specified: band-split peaks, tempo and (stretch) key are digital signal processing that should happen once per recording and be shared by every user. When a row exists, FR-WAVE-01 reads its peaks and does not decode; the browser decode stays as the fallback for a recording not analysed yet.
+
+## Confirmed on approval
+
+- 160 peaks for FR-WAVE-01.
+- With reduced motion the record does not spin, and the playhead and the time still move (they are the position, not decoration); FR-WAVE-02's waveform is static.
+- Deezer's terms for analysing previews and the choice of decoder and algorithms stay open, and are settled before FR-WAVE-02 starts (section 15).
 
 ## Alternatives considered
 
