@@ -84,6 +84,9 @@ export const OrbitSvg = styled('svg')(({ theme }) => ({
     '& .is-centre .spin, & .is-spinning .spin': { animation: `${spin} 4.5s linear infinite` },
     '& .ripple': { animation: `${ripple} 2.4s cubic-bezier(0.2, 0.8, 0.2, 1) infinite` },
     '& .arcs': { transition: 'opacity 400ms' },
+    // The constellation's focus mode: links and names fade rather than switch.
+    '& .cn-link': { transition: 'stroke-opacity 150ms' },
+    '& .cn-lbl': { transition: 'opacity 150ms' },
     '& .tw': { animation: `${twinkle} 3.4s ease-in-out infinite` },
   },
 }))

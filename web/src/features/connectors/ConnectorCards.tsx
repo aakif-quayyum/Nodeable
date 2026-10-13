@@ -115,9 +115,9 @@ function Card({
         borderRadius: '12px',
         border: `1px solid ${active ? theme.vars.palette.text.primary : theme.vars.palette.divider}`,
         backgroundColor: theme.vars.palette.background.paper,
-        transition: 'border-color 200ms, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1)',
         '&:hover': { borderColor: active ? theme.vars.palette.text.primary : theme.vars.palette.lineStrong },
         '@media (prefers-reduced-motion: no-preference)': {
+          transition: 'border-color 200ms, transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1)',
           animation: `${rise} 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both`,
           animationDelay: `${Math.min(index, 8) * 55}ms`,
           '&:hover': { transform: 'translateY(-2px)' },

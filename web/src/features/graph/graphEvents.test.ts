@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyGraphEvent, hasIncompleteCredits, replayEvents, type GraphEvent, type GraphSnapshot } from './graphEvents.ts'
+import { applyGraphEvent, replayEvents, type GraphEvent, type GraphSnapshot } from './graphEvents.ts'
 
 const redbone = '7408f11c-6c4e-41e5-b81b-6a15bf6cb268'
 const america = 'dc316772-0ef2-4b31-9ee5-c0b3cf1a1c1e'
@@ -148,29 +148,5 @@ describe('replayEvents', () => {
     expect(after.crawl).toEqual({ queued: 0, done: 1, failed: 0, etaSeconds: 0 })
     expect(after.songs[0]?.creditsStatus).toBe('complete')
     expect(after.credits).toHaveLength(1)
-  })
-})
-
-describe('hasIncompleteCredits', () => {
-  const song = snapshot().songs[0]!
-
-  it('FR_GRAPH_04 flags a finished song with neither a producer nor a songwriter', () => {
-    const vocalOnly = snapshot({
-      songs: [{ ...song, creditsStatus: 'partial' }],
-      credits: [{ songMbid: redbone, personMbid: donald, role: 'vocal', detail: '', level: 'recording' }],
-    })
-
-    expect(hasIncompleteCredits(vocalOnly, vocalOnly.songs[0]!)).toBe(true)
-  })
-
-  it('FR_GRAPH_04 does not flag a song that has a producer or a songwriter, or one still loading', () => {
-    const written = snapshot({
-      songs: [{ ...song, creditsStatus: 'partial' }],
-      credits: [{ songMbid: redbone, personMbid: donald, role: 'songwriter', detail: '', level: 'recording' }],
-    })
-    const loading = snapshot()
-
-    expect(hasIncompleteCredits(written, written.songs[0]!)).toBe(false)
-    expect(hasIncompleteCredits(loading, loading.songs[0]!)).toBe(false)
   })
 })

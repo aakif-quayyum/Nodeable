@@ -159,8 +159,8 @@ function Card({
         borderRadius: "12px",
         border: `1px solid ${active ? theme.vars.palette.text.primary : theme.vars.palette.divider}`,
         backgroundColor: theme.vars.palette.background.paper,
-        transition: "border-color 250ms",
         "@media (prefers-reduced-motion: no-preference)": {
+          transition: "border-color 250ms",
           animation: leaving
             ? `${leave} 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both`
             : `${rise} 500ms cubic-bezier(0.2, 0.8, 0.2, 1) both`,

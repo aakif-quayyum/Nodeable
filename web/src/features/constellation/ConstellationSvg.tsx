@@ -278,12 +278,12 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
             return (
               <line
                 key={link.id}
+                className="cn-link"
                 ref={(element) => register(`l:${link.id}`, element)}
                 style={{
                   stroke: `var(--role-${link.roles[0] ?? 'other'})`,
                   strokeWidth: 1.2,
                   strokeOpacity: dim ? 0.06 : 0.55,
-                  transition: 'stroke-opacity 150ms',
                 }}
               />
             )
@@ -319,9 +319,9 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
               <text
                 key={node.id}
                 ref={(element) => register(`t:${node.id}`, element)}
-                className={`lbl${node.kind === 'person' && !node.isHub ? ' sm' : ''}`}
+                className={`lbl cn-lbl${node.kind === 'person' && !node.isHub ? ' sm' : ''}`}
                 textAnchor="middle"
-                style={{ opacity: dim ? 0 : opacity, transition: 'opacity 150ms' }}
+                style={{ opacity: dim ? 0 : opacity }}
               >
                 {lines.map((line, index) => (
                   <tspan key={index} x={0} dy={index === 0 ? '1em' : '1.15em'}>
