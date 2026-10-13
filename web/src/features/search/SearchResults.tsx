@@ -9,6 +9,7 @@ import ListItem from '@mui/material/ListItem'
 import Typography from '@mui/material/Typography'
 import { useId, useState } from 'react'
 import type { components } from '../../api/schema'
+import { AlbumArt } from '../art/AlbumArt.tsx'
 import { GraphRequestError } from '../graph/graphApi.ts'
 import { useAddSong, useGraphSongIds } from '../graph/useGraphMutations.ts'
 import { SearchError, useRecordingSearch } from './useRecordingSearch.ts'
@@ -126,6 +127,15 @@ function ResultRow({ result, inGraph }: { result: Result; inGraph: boolean }) {
 
   return (
     <ListItem divider disableGutters sx={{ display: 'block', py: 1.5 }}>
+      <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'flex-start' }}>
+        <AlbumArt
+          seed={result.mbid}
+          size={52}
+          alt={`Cover of ${result.firstReleaseTitle ?? result.title}`}
+          releaseMbid={result.artReleaseMbid}
+          releaseGroupMbid={result.artReleaseGroupMbid}
+        />
+        <Box sx={{ minWidth: 0, flex: 1 }}>
       <Box sx={{ display: 'flex', gap: 1, alignItems: 'baseline', flexWrap: 'wrap' }}>
         <Typography component="span" sx={{ fontWeight: 600 }}>
           {result.title}
@@ -166,6 +176,8 @@ function ResultRow({ result, inGraph }: { result: Result; inGraph: boolean }) {
           {addErrorMessage(add.error)}
         </Alert>
       )}
+        </Box>
+      </Box>
 
       {count > 0 && (
         <Collapse in={expanded} unmountOnExit id={versionsId}>

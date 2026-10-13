@@ -14,7 +14,7 @@ import { pathToFileURL } from 'node:url'
 
 const MARKER = /LEARN:/
 // Group 1: guide, 2: short id, 3: explanation. A trailing "-->" closes a one-line XML comment.
-const ANCHOR = /LEARN:\s*(LG-\d{2})\s+([a-z0-9][a-z0-9-]*)\s*\|\s*(.*?)\s*(?:-->)?\s*$/
+const ANCHOR = /LEARN:\s*(LG-\d{2}[A-Z]?)\s+([a-z0-9][a-z0-9-]*)\s*\|\s*(.*?)\s*(?:-->)?\s*$/
 // Lines that are only a comment: skipped when looking for the code an anchor describes.
 const COMMENT_ONLY = /^\s*(\/\/|\/\*|\*|<!--|-->)/
 const MAX_BLOCK_LINES = 20
@@ -143,7 +143,7 @@ function parseArgs(argv) {
     else if (arg === '--ref') options.ref = argv[++i]
     else if (arg === '--repo') options.repo = argv[++i]
     else if (arg === '--format') options.format = argv[++i]
-    else if (/^LG-\d{2}$/.test(arg)) options.guide = arg
+    else if (/^LG-\d{2}[A-Z]?$/.test(arg)) options.guide = arg
     else throw new Error(`Unknown argument "${arg}". See the usage at the top of this file.`)
   }
   return options

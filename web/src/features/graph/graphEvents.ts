@@ -22,6 +22,9 @@ export type GraphEvent =
       songMbid: string
       people: GraphPerson[]
       credits: Omit<GraphCredit, 'songMbid'>[]
+      /** The song's cover as known when the event was sent (FR-ART-01); absent or null when no release is known yet. */
+      artReleaseMbid?: string | null
+      artReleaseGroupMbid?: string | null
     }
   | { type: 'SongStatusChanged'; seq: number; songMbid: string; creditsStatus: SongStatus }
   | { type: 'HubsUpdated'; seq: number; hubs: GraphHub[] }
@@ -70,8 +73,22 @@ export function applyGraphEvent(snapshot: GraphSnapshot, event: GraphEvent): Gra
       }
       const kept = snapshot.credits.filter((credit) => !incoming.has(creditKey(credit)))
 
+      // A song added before its releases were fetched has no cover ids; the event is how it learns them.
+      const learnsCover = event.artReleaseMbid != null || event.artReleaseGroupMbid != null
+
       return {
         ...snapshot,
+        songs: learnsCover
+          ? snapshot.songs.map((song) =>
+              song.mbid === event.songMbid
+                ? {
+                    ...song,
+                    artReleaseMbid: event.artReleaseMbid ?? song.artReleaseMbid,
+                    artReleaseGroupMbid: event.artReleaseGroupMbid ?? song.artReleaseGroupMbid,
+                  }
+                : song,
+            )
+          : snapshot.songs,
         people: newPeople.length === 0 ? snapshot.people : [...snapshot.people, ...newPeople],
         credits: [...kept, ...incoming.values()],
       }

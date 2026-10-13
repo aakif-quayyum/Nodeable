@@ -11,6 +11,7 @@ import TableHead from '@mui/material/TableHead'
 import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
 import { useId, useMemo, useState } from 'react'
+import { AlbumArt } from '../art/AlbumArt.tsx'
 import type { GraphCredit, GraphSnapshot, GraphSong } from './graphEvents.ts'
 import { RoleChip } from './RoleChip.tsx'
 
@@ -174,6 +175,15 @@ function SongRow({
   return (
     <TableRow>
       <TableCell component="th" scope="row" sx={{ verticalAlign: 'top' }}>
+        <Box sx={{ mb: 0.75 }}>
+          <AlbumArt
+            seed={song.mbid}
+            size={44}
+            alt={`Cover of ${song.title}`}
+            releaseMbid={song.artReleaseMbid}
+            releaseGroupMbid={song.artReleaseGroupMbid}
+          />
+        </Box>
         <Typography component="span" sx={{ fontWeight: 600 }}>
           {song.title}
         </Typography>

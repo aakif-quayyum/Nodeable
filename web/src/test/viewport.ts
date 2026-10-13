@@ -20,3 +20,17 @@ export function setViewportWidth(width: number): void {
     }
   }
 }
+
+/** Makes `prefers-reduced-motion: reduce` match (or not), for a test of NFR-MOTION-01. Reset after each test by setup.ts. */
+export function setReducedMotion(reduce: boolean): void {
+  window.matchMedia = (query: string): MediaQueryList => ({
+    matches: reduce && query.includes('prefers-reduced-motion'),
+    media: query,
+    onchange: null,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined,
+    addListener: () => undefined,
+    removeListener: () => undefined,
+    dispatchEvent: () => false,
+  })
+}

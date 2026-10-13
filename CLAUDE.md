@@ -34,7 +34,7 @@ At every key point in the code, add a comment in this exact format:
 // LEARN: LG-xx <short-id> | <one-line explanation of the concept>
 ```
 
-Use the guide ID for the current milestone (LG-01 for M1, LG-02 for M2, and so on). Aim for 8 to 15 anchors per milestone, on the code that teaches something: patterns, framework features, non-obvious decisions. Not on boilerplate.
+Use the guide ID for the current milestone (LG-01 for M1, LG-02 for M2, and so on; `LG-03R` for the M3 UI refresh, an ID may carry one capital letter for a revision). Aim for 8 to 15 anchors per milestone, on the code that teaches something: patterns, framework features, non-obvious decisions. Not on boilerplate.
 
 ## Definition of done for a milestone
 

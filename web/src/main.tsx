@@ -1,3 +1,7 @@
+// Self-hosted variable fonts (decision 0020): Archivo with its width axis for display type, and JetBrains Mono for
+// labels. Only the latin subset is downloaded unless a page uses other characters (unicode-range in the CSS).
+import '@fontsource-variable/archivo/wdth.css'
+import '@fontsource-variable/jetbrains-mono/wght.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './app/App.tsx'
