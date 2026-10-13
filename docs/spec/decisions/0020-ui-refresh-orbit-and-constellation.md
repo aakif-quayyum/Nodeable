@@ -131,3 +131,13 @@ Choices made inside these (open to change):
 - **One `LayoutController` holds the positions outside React** and both renderers subscribe to it, so SVG and canvas read the same layout and a settled graph that crosses the threshold keeps its places. Dragging is a `pin` and a `release` on the layout (a message to the worker above 500 nodes).
 - **The forces are the prototype's**, not M3's: M3's were tuned for squares and small discs, and the prototype's give records room and let a crew gather round its song.
 - **`d3-drag` is a direct dependency** (it was only a dependency of `d3-zoom`), with its types in the dev dependencies.
+
+## Changes after the pass (2026-10-14)
+
+Pull request 5 went over every animation and every view at phone width. What it changed, and why:
+
+- **A reduced-motion baseline in the theme**, so MUI's own animations are covered without wrapping each component, and a test that reads the stylesheet and fails on the app's own animation or transition declared outside `no-preference`. The first run found five of the app's rules (hover transitions of the cards and notes, the constellation's focus fades, the button's transition).
+- **Names in the liner notes are 24 px targets** (WCAG 2.2, 2.5.8): found at 390 px, where wrapped names sat 22 px apart.
+- **The app bar is sticky only from 900 px up**: on a phone it is up to four rows (brand, links, find, view toggle) and kept on screen it took about a third of the page.
+- **Every orbit node has a hit area of at least 24 px** (the developer asked for this rather than a stated exception): an invisible circle around the drawn disc, with the circles of one ring kept from overlapping by moving the nodes apart along the ring and, when a ring is too full, putting its least connected people into "+N more". The whole graph's songs are not thinned (FR-VIEW-04); a crowded ring there shares the circle, so its areas can be under 24 px, and the find box, cards, notes and Text view carry the same action.
+- **The M3 canvas page's model code is gone** (`deriveGraph` and three helpers): the constellation builds its graph from the workspace.

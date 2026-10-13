@@ -129,13 +129,3 @@ export function applyGraphEvent(snapshot: GraphSnapshot, event: GraphEvent): Gra
 export function replayEvents(snapshot: GraphSnapshot, events: readonly GraphEvent[]): GraphSnapshot {
   return [...events].sort((a, b) => a.seq - b.seq).reduce(applyGraphEvent, snapshot)
 }
-
-/** True when a song has neither a producer nor a songwriter credit (FR-GRAPH-04). A song still loading is not judged. */
-export function hasIncompleteCredits(snapshot: GraphSnapshot, song: GraphSong): boolean {
-  if (song.creditsStatus === 'loading') {
-    return false
-  }
-  return !snapshot.credits.some(
-    (credit) => credit.songMbid === song.mbid && (credit.role === 'producer' || credit.role === 'songwriter'),
-  )
-}

@@ -3,7 +3,7 @@ import { OrbitMotion, transitionMs } from './orbitMotion.ts'
 import type { OrbitLayout, OrbitNode } from './orbitLayout.ts'
 
 function node(id: string, depth: 0 | 1 | 2, parent: string | null, angle: number, radius: number, size = 20): OrbitNode {
-  return { id, kind: id.startsWith('s') ? 'song' : 'person', ref: id, depth, parent, angle, radius, size, label: id, lines: [id], place: depth === 2 ? 'radial' : 'below', moreCount: 0 }
+  return { id, kind: id.startsWith('s') ? 'song' : 'person', ref: id, depth, parent, angle, radius, size, hit: size, label: id, lines: [id], place: depth === 2 ? 'radial' : 'below', moreCount: 0 }
 }
 
 function layoutOf(nodes: OrbitNode[]): OrbitLayout {

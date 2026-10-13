@@ -49,6 +49,21 @@ export const theme = createTheme({
         body: { fontStretch: '100%' },
         // One focus ring for everything that can take focus, in the text colour so it is visible on every surface.
         ':focus-visible': { outline: '2px solid var(--mui-palette-text-primary)', outlineOffset: 2 },
+        // NFR-MOTION-01, the safety net: this app's own animations are written inside `prefers-reduced-motion:
+        // no-preference`, but MUI's components (button states, ripples, the autocomplete, dialogs) animate on their own.
+        // With the setting on every CSS animation and transition ends at once, in its end state. A progress bar is the
+        // exception: its movement is the information that something is loading, so it is left running.
+        '@media (prefers-reduced-motion: reduce)': {
+          '*:not([role="progressbar"], [role="progressbar"] *), *:not([role="progressbar"], [role="progressbar"] *)::before, *:not([role="progressbar"], [role="progressbar"] *)::after':
+            {
+              animationDuration: '0.01ms !important',
+              animationIterationCount: '1 !important',
+              animationDelay: '0ms !important',
+              transitionDuration: '0.01ms !important',
+              transitionDelay: '0ms !important',
+              scrollBehavior: 'auto !important',
+            },
+        },
       },
     },
     // Dark-mode MUI paints a lighter overlay (a gradient) on raised paper; the design is flat.
@@ -60,7 +75,10 @@ export const theme = createTheme({
     MuiButton: {
       defaultProps: { disableElevation: true },
       styleOverrides: {
-        root: { borderRadius: 10, transition: `transform ${motion.fast}ms ${motion.ease}, background-color ${motion.base}ms` },
+        root: {
+          borderRadius: 10,
+          '@media (prefers-reduced-motion: no-preference)': { transition: `background-color ${motion.base}ms ${motion.ease}` },
+        },
         outlined: ({ theme: t }) => ({
           borderColor: t.vars.palette.lineStrong,
           color: t.vars.palette.text.primary,
