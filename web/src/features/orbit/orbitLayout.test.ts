@@ -188,17 +188,49 @@ describe('orbit layout', () => {
       credits: people.map((_, index) => credit(index < 6 ? 'a' : 'b', `p${index}`, 'songwriter')),
     })
     const ws = build(snapshot)
-    const names = (layout: ReturnType<typeof layoutOrbit>) => layout.nodes.filter((node) => node.depth === 2).map((node) => node.label)
+    const lines = (layout: ReturnType<typeof layoutOrbit>) => layout.nodes.filter((node) => node.depth === 2).map((node) => node.lines)
+    const longest = (layout: ReturnType<typeof layoutOrbit>) => Math.max(0, ...lines(layout).flat().map((line) => line.length))
 
     const wide = layoutOrbit(ws, rootRef, { width: 1100, height: 760 })
     const narrow = layoutOrbit(ws, rootRef, { width: 320, height: 420 })
 
-    // Cut with an ellipsis to the room each node has, and left off where there is none; the full name is still the
-    // node's accessible name and its tooltip. A small stage gives less room than a large one.
-    expect(names(wide).every((name) => name === '' || (name.length <= 28 && name.endsWith('…')))).toBe(true)
-    expect(names(wide).some((name) => name !== '')).toBe(true)
-    expect(Math.max(...names(narrow).map((name) => name.length))).toBeLessThan(Math.max(...names(wide).map((name) => name.length)))
+    // A name is drawn in at most two lines, each cut at a word with an ellipsis only after wrapping has not been enough;
+    // the full name is still the node's accessible name and its tooltip. A small stage gives less room than a large one.
+    expect(lines(wide).every((entry) => entry.length <= 2)).toBe(true)
+    expect(lines(wide).some((entry) => entry.length > 0)).toBe(true)
+    expect(longest(narrow)).toBeLessThan(longest(wide))
     expect(wide.fontScale).toBeGreaterThanOrEqual(1)
     expect(narrow.fontScale).toBe(1)
+  })
+
+  it('FR_VIEW_01 puts a song’s people’s names on the outer side of their nodes, away from the role arcs, and a person’s songs’ names under them', () => {
+    const ws = build()
+    const people = layoutOrbit(ws, { type: 'song', id: 'song-redbone' }, stage).nodes.filter((node) => node.depth === 1)
+
+    for (const node of people) {
+      if (node.place === 'above') expect(Math.cos(node.angle)).toBeGreaterThan(0)
+      if (node.place === 'below') expect(Math.cos(node.angle)).toBeLessThanOrEqual(0)
+      if (node.place === 'start') expect(Math.sin(node.angle)).toBeGreaterThan(0.5)
+      if (node.place === 'end') expect(Math.sin(node.angle)).toBeLessThan(-0.5)
+    }
+    // At least one name is beside its node rather than under it, or the rule is not doing anything.
+    expect(people.some((node) => node.place !== 'below')).toBe(true)
+
+    const songs = layoutOrbit(ws, { type: 'person', id: 'person-riley' }, stage).nodes.filter((node) => node.depth === 1)
+    expect(songs.every((node) => node.place === 'below')).toBe(true)
+  })
+
+  it('FR_VIEW_01 draws a long song title in two lines under its record when there is room for the wrap and not for the title', () => {
+    const snapshot = snapshotOf({
+      songs: [song('a', 'A Very Long Title Indeed'), song('b', 'Another Quite Long Title')],
+      people: [person('x', 'X')],
+      credits: [credit('a', 'x', 'producer'), credit('b', 'x', 'producer')],
+    })
+
+    const layout = layoutOrbit(build(snapshot), rootRef, { width: 420, height: 560 })
+    const titles = layout.nodes.filter((node) => node.depth === 1).map((node) => node.lines)
+
+    expect(titles.some((lines) => lines.length === 2)).toBe(true)
+    expect(titles.flat().every((line) => !line.endsWith('…') || line.length >= 6)).toBe(true)
   })
 })

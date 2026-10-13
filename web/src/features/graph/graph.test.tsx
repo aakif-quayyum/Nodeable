@@ -365,6 +365,40 @@ describe('workspace: orbit, cards and notes', () => {
     expect(within(again).getByRole('button', { name: /Put Beautiful Things at the centre/ })).toBeInTheDocument()
   })
 
+  it('FR_VIEW_04 says how many songs share nothing with the centre, and goes back to the whole graph from there', async () => {
+    const user = userEvent.setup()
+    const tems = { mbid: 'c0000000-0000-4000-8000-000000000002', name: 'Tems' }
+    const apart = { ...america, mbid: 'b0000000-0000-4000-8000-000000000002', title: 'SaWaDiKa', artist: 'Tems' }
+    const base = twoSongs()
+    serveSnapshot(() =>
+      snapshot({
+        songs: [...base.songs, apart],
+        people: [...base.people, tems],
+        credits: [...base.credits, credit(apart.mbid, tems, 'songwriter')],
+      }),
+    )
+
+    renderAt(`/graph?focus=song:${redboneMbid}`, { graphConnection: () => new FakeGraphHub() })
+    await orbitNamed('Credits graph, centred on Redbone')
+
+    // Redbone, This Is America and their people are one part; SaWaDiKa is another.
+    const chip = await screen.findByRole('button', { name: '1 song not connected. Back to your whole graph' })
+    expect(chip).toHaveTextContent('1 song not connected·Your graph')
+
+    await user.click(chip)
+    await orbitNamed('Credits graph, centred on your graph')
+    expect(screen.queryByRole('button', { name: /Back to your whole graph/ })).not.toBeInTheDocument()
+  })
+
+  it('FR_VIEW_04 says when every song is connected to the centre', async () => {
+    serveSnapshot(() => twoSongs())
+
+    renderAt(`/graph?focus=person:${riley.mbid}`, { graphConnection: () => new FakeGraphHub() })
+    await orbitNamed('Credits graph, centred on Riley Mackin')
+
+    expect(await screen.findByRole('button', { name: 'All 2 songs connected. Back to your whole graph' })).toBeInTheDocument()
+  })
+
   it('FR_VIEW_01 centres on what the address names, and falls back to the whole graph when it names nothing that is there', async () => {
     serveSnapshot(() => twoSongs())
 

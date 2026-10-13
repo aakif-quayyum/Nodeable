@@ -10,7 +10,7 @@ import { useRoleFilters } from '../../stores/roleFilters.ts'
 import { ConnectorCards } from '../connectors/ConnectorCards.tsx'
 import { LinerNotes } from '../notes/LinerNotes.tsx'
 import { OrbitView } from '../orbit/OrbitView.tsx'
-import { Breadcrumbs, Caption, LegendChips, LiveChip } from '../orbit/StageOverlays.tsx'
+import { Breadcrumbs, Caption, ConnectionChip, LegendChips, LiveChip, StageChips } from '../orbit/StageOverlays.tsx'
 import { useCentre } from '../orbit/useCentre.ts'
 import { hidePerson, showEveryone, showPerson, useHiddenPeople } from './hiddenPeople.ts'
 import type { GraphSession } from './graphSession.ts'
@@ -144,7 +144,10 @@ export function GraphView({ session }: { session: GraphSession }) {
             }} />
             <Breadcrumbs workspace={workspace} crumbs={crumbs} onGo={goTo} />
             <Caption workspace={workspace} centre={centre} onHide={(mbid) => hidePerson(session.id, mbid)} />
-            <LiveChip text={status.text} pulsing={status.pulsing} />
+            <StageChips>
+              <LiveChip text={status.text} pulsing={status.pulsing} />
+              <ConnectionChip workspace={workspace} centre={centre} onGo={goTo} />
+            </StageChips>
             <LegendChips />
           </Box>
 

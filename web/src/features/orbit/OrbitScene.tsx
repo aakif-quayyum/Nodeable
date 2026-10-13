@@ -103,19 +103,35 @@ export function OrbitScene({ workspace, centre, layout, focusId, svgRef, onChoos
       const label = elements.current.get(`t:${node.id}`)
       if (label === undefined) continue
       label.setAttribute('opacity', node.opacity.toFixed(3))
-      if (node.depth === 2) {
-        // Second-ring labels are set along the radius and turned so they never read upside down.
-        const degrees = (node.cur.a * 180) / Math.PI
-        const right = ((node.cur.a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) < Math.PI
-        label.setAttribute('transform', `translate(${x.toFixed(2)},${y.toFixed(2)}) rotate(${(right ? degrees - 90 : degrees + 90).toFixed(2)})`)
-        label.setAttribute('x', String(right ? node.size + 6 : -(node.size + 6)))
-        label.setAttribute('y', '4')
-        label.setAttribute('text-anchor', right ? 'start' : 'end')
-      } else {
-        label.setAttribute('transform', `translate(${x.toFixed(2)},${y.toFixed(2)})`)
-        label.setAttribute('x', '0')
-        label.setAttribute('y', String(node.size + 15))
-        label.setAttribute('text-anchor', 'middle')
+      // Where the name sits against its node was decided by the layout (`data-place`); the line offsets are in the
+      // spans, so a frame only moves the one text element.
+      const at = `translate(${x.toFixed(2)},${y.toFixed(2)})`
+      switch (label.dataset.place) {
+        case 'radial': {
+          // Second-ring names are set along the radius and turned so they never read upside down.
+          const degrees = (node.cur.a * 180) / Math.PI
+          const right = ((node.cur.a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) < Math.PI
+          const along = right ? node.size + 6 : -(node.size + 6)
+          label.setAttribute('transform', `${at} rotate(${(right ? degrees - 90 : degrees + 90).toFixed(2)}) translate(${along.toFixed(2)},0)`)
+          label.setAttribute('text-anchor', right ? 'start' : 'end')
+          break
+        }
+        case 'start':
+          label.setAttribute('transform', `translate(${(x + node.size + 6).toFixed(2)},${y.toFixed(2)})`)
+          label.setAttribute('text-anchor', 'start')
+          break
+        case 'end':
+          label.setAttribute('transform', `translate(${(x - node.size - 6).toFixed(2)},${y.toFixed(2)})`)
+          label.setAttribute('text-anchor', 'end')
+          break
+        case 'above':
+          label.setAttribute('transform', `translate(${x.toFixed(2)},${(y - node.size - 8).toFixed(2)})`)
+          label.setAttribute('text-anchor', 'middle')
+          break
+        default:
+          label.setAttribute('transform', `translate(${x.toFixed(2)},${(y + node.size + 15).toFixed(2)})`)
+          label.setAttribute('text-anchor', 'middle')
+          break
       }
     }
 
@@ -244,18 +260,35 @@ export function OrbitScene({ workspace, centre, layout, focusId, svgRef, onChoos
 
       {/* The names are never smaller than 12 px; on a large stage they grow with the nodes (`fontScale`). */}
       <g aria-hidden="true" style={{ '--ls': layout.fontScale } as CSSProperties}>
-        {rendered.map((node) => (
-          <text
-            key={node.id}
-            ref={(element) => register(`t:${node.id}`, element)}
-            className={`lbl${node.depth === 2 ? ' sm' : ''}${related !== null && !related.has(node.id) ? ' dim' : ''}`}
-          >
-            {node.label}
-          </text>
-        ))}
+        {rendered.map((node) => {
+          // The node that is hovered or focused shows its whole name, on one line, whatever the room was for the rest.
+          const lines = node.id === focusId && node.kind !== 'more' ? [nodeName(workspace, node)] : node.lines
+          return (
+            <text
+              key={node.id}
+              ref={(element) => register(`t:${node.id}`, element)}
+              data-place={node.place}
+              className={`lbl${node.depth === 2 ? ' sm' : ''}${related !== null && !related.has(node.id) ? ' dim' : ''}`}
+            >
+              {lines.map((line, index) => (
+                <tspan key={index} x={0} dy={lineOffset(node.place, lines.length, index)}>
+                  {line}
+                </tspan>
+              ))}
+            </text>
+          )
+        })}
       </g>
     </>
   )
+}
+
+/** The `dy` of a name's line: the first one is lifted so that a block of lines is centred on, or ends above, its node. */
+function lineOffset(place: OrbitNode['place'], count: number, index: number): string {
+  if (index > 0) return '1.15em'
+  if (place === 'above') return `${(-(count - 1) * 1.15).toFixed(3)}em`
+  if (place === 'below') return '0'
+  return `${(0.35 - (count - 1) * 0.575).toFixed(3)}em`
 }
 
 function nodeName(workspace: Workspace, node: OrbitNode): string {

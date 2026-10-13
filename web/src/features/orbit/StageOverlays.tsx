@@ -8,7 +8,8 @@ import { creditRoles, creditRoleStyles } from '../../app/creditRoles.ts'
 import { useRoleFilters } from '../../stores/roleFilters.ts'
 import { AlbumArt } from '../art/AlbumArt.tsx'
 import type { Workspace, WorkspaceSong } from '../graph/workspaceModel.ts'
-import { nodeKey, type EmptyCentre as EmptyCentreReason, type NodeRef } from './orbitLayout.ts'
+import { songsNotConnected } from './connection.ts'
+import { nodeKey, rootRef, type EmptyCentre as EmptyCentreReason, type NodeRef } from './orbitLayout.ts'
 
 const swap = keyframes`from { opacity: 0; transform: translateY(8px); }`
 const blink = keyframes`50% { opacity: 0.25; }`
@@ -296,15 +297,9 @@ export function LiveChip({ text, pulsing }: { text: string | null; pulsing: bool
     <Box
       role="status"
       sx={(theme) => ({
-        position: 'absolute',
-        top: { xs: 'auto', md: 12 },
-        bottom: { xs: 52, md: 'auto' },
-        right: 12,
-        zIndex: 2,
         display: 'flex',
         alignItems: 'center',
         gap: 1,
-        maxWidth: 'calc(100% - 24px)',
         px: '11px',
         py: '6px',
         borderRadius: '8px',
@@ -328,6 +323,79 @@ export function LiveChip({ text, pulsing }: { text: string | null; pulsing: bool
         })}
       />
       {text}
+    </Box>
+  )
+}
+
+/**
+ * The chips in the stage's corner: the live chip (what is arriving) and, when a song or a person is the centre, where
+ * the rest of the graph is (FR-VIEW-04). They stack, top right on a desktop and above the legend on a phone.
+ */
+export function StageChips({ children }: { children: React.ReactNode }) {
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        top: { xs: 'auto', md: 12 },
+        bottom: { xs: 104, md: 'auto' },
+        right: 12,
+        zIndex: 2,
+        display: 'flex',
+        flexDirection: { xs: 'column-reverse', md: 'column' },
+        alignItems: 'flex-end',
+        gap: '6px',
+        maxWidth: 'calc(100% - 24px)',
+        pointerEvents: 'none',
+        '& > *': { pointerEvents: 'auto' },
+      }}
+    >
+      {children}
+    </Box>
+  )
+}
+
+/**
+ * "2 songs not connected · Your graph" (FR-VIEW-04): shown while a song or a person is the centre, so the rest of the
+ * graph is never out of sight. It says how many songs share no credit with this part of the graph, and is a button
+ * that goes back to the whole graph.
+ */
+export function ConnectionChip({ workspace, centre, onGo }: { workspace: Workspace; centre: NodeRef; onGo: (ref: NodeRef) => void }) {
+  if (centre.type === 'graph') return null
+  const total = workspace.songs.length
+  const apart = songsNotConnected(workspace, centre)
+  const text =
+    apart > 0
+      ? `${apart} ${apart === 1 ? 'song' : 'songs'} not connected`
+      : total > 1
+        ? `All ${total} songs connected`
+        : null
+
+  return (
+    <Box
+      component="button"
+      type="button"
+      onClick={() => onGo(rootRef)}
+      aria-label={text === null ? 'Back to your whole graph' : `${text}. Back to your whole graph`}
+      sx={(theme) => ({
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '7px',
+        px: '11px',
+        py: '6px',
+        borderRadius: '8px',
+        border: `1px solid ${apart > 0 ? theme.vars.palette.secondary.main : theme.vars.palette.lineStrong}`,
+        backgroundColor: theme.vars.palette.background.default,
+        color: theme.vars.palette.text.primary,
+        fontFamily: theme.typography.kicker.fontFamily,
+        fontSize: 12,
+        fontWeight: 600,
+        '&:hover': { borderColor: theme.vars.palette.text.primary },
+      })}
+    >
+      {text !== null && <span>{text}</span>}
+      {text !== null && <span aria-hidden="true">·</span>}
+      <span>Your graph</span>
     </Box>
   )
 }
