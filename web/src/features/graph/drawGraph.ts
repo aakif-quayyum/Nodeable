@@ -1,5 +1,6 @@
 import type { CreditRoleKey } from '../../app/creditRoles.ts'
 import { sleeveFor } from '../art/sleeveSpec.ts'
+import { declutter } from '../constellation/declutter.ts'
 import type { GraphLink, GraphNode } from './graphModel.ts'
 
 /** Past this many people the canvas stops labelling every node and keeps labels for hubs and the hovered node. */
@@ -170,7 +171,25 @@ export function drawGraph(ctx: CanvasRenderingContext2D, scene: Scene): boolean 
   ctx.font = `600 ${12 / transform.k}px system-ui, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
-  for (const node of labelledNodes(scene)) {
+  // Most important first (the hovered node, then songs, then the larger people); a name that would cover one already
+  // placed is left out, so what is drawn can be read.
+  const wanted = labelledNodes(scene).sort(
+    (a, b) =>
+      Number(b.id === scene.hoveredId) - Number(a.id === scene.hoveredId) ||
+      Number(b.kind === 'song') - Number(a.kind === 'song') ||
+      b.r - a.r,
+  )
+  const hidden = declutter(
+    wanted.map((node) => ({
+      id: node.id,
+      x: node.x ?? 0,
+      y: (node.y ?? 0) + node.r + 4 / transform.k,
+      width: ctx.measureText(nodeLabel(node)).width,
+      height: 14 / transform.k,
+    })),
+  )
+  for (const node of wanted) {
+    if (hidden.has(node.id) && node.id !== scene.hoveredId) continue
     ctx.globalAlpha = alphaOf(node.id) * stepBack(node.id)
     const at = (node.y ?? 0) + node.r + 4 / transform.k
     // The halo first, so a name stays readable over the links behind it.

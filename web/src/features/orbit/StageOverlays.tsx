@@ -111,10 +111,13 @@ export function Breadcrumbs({ workspace, crumbs, onGo }: { workspace: Workspace;
 export function Caption({
   workspace,
   centre,
+  constellation = false,
   onHide,
 }: {
   workspace: Workspace
   centre: NodeRef
+  /** The constellation's caption (the prototype's): what it is, and what to do with it. */
+  constellation?: boolean
   /** "Hide from view" for the person at the centre (FR-VIEW-03). */
   onHide: (personMbid: string) => void
 }) {
@@ -136,7 +139,7 @@ export function Caption({
         '@media (prefers-reduced-motion: no-preference)': { animation: `${swap} 450ms cubic-bezier(0.2, 0.8, 0.2, 1) both` },
       }}
     >
-      <Kicker>{overview ? 'The whole graph' : song !== undefined ? 'Now spinning' : 'Following'}</Kicker>
+      <Kicker>{constellation ? 'Constellation' : overview ? 'The whole graph' : song !== undefined ? 'Now spinning' : 'Following'}</Kicker>
       <Box
         component="p"
         sx={(theme) => ({
@@ -150,10 +153,16 @@ export function Caption({
           textWrap: 'balance',
         })}
       >
-        {overview ? 'Your graph' : (song?.title ?? person?.name ?? '')}
+        {constellation ? 'Your whole graph' : overview ? 'Your graph' : (song?.title ?? person?.name ?? '')}
       </Box>
 
-      {overview && (
+      {constellation && (
+        <Typography variant="body2" color="text.secondary" component="p" sx={{ m: 0, display: { xs: 'none', md: 'block' } }}>
+          Hover a node to light up its connections. Click one to explore it.
+        </Typography>
+      )}
+
+      {overview && !constellation && (
         // The strip above the stage has these numbers; on a phone the room is the orbit's.
         <Typography variant="body2" color="text.secondary" component="p" sx={{ m: 0, display: { xs: 'none', md: 'block' } }}>
           {workspace.songs.length} {workspace.songs.length === 1 ? 'song' : 'songs'} · {workspace.people.length}{' '}

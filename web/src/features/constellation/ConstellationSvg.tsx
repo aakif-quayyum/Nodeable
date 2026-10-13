@@ -9,6 +9,7 @@ import { PersonGlyph, personRadius, RecordGlyph, recordRadius } from '../orbit/N
 import { OrbitSvg } from '../orbit/orbitStyles.ts'
 import { fitName } from '../orbit/labelFit.ts'
 import { fitMargins, type Constellation } from './constellationModel.ts'
+import { declutter, type LabelBox } from './declutter.ts'
 import type { LayoutController } from './LayoutController.ts'
 
 // jsdom has no layout and no ResizeObserver; a test gets this size.
@@ -53,7 +54,11 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
   const graphRef = useRef(graph)
   const zoomRef = useRef<ZoomBehavior<SVGSVGElement, unknown> | null>(null)
   const moved = useRef(false)
+  /** The zoom, for sizing names; and what is lit, for deciding which names are wanted. */
+  const zoomK = useRef(1)
+  const litRef = useRef<{ focus: string | null; ids: ReadonlySet<string> | null }>({ focus: null, ids: null })
   const fitRef = useRef<() => void>(() => undefined)
+  const paintRef = useRef<() => void>(() => undefined)
 
   const reduced = useReducedMotion()
   const [stage, setStage] = useState(typeof ResizeObserver === 'undefined' ? fallbackStage : { width: 0, height: 0 })
@@ -78,6 +83,28 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
         .get(`t:${id}`)
         ?.setAttribute('transform', `translate(${position.x.toFixed(1)},${(position.y + node.r + 3).toFixed(1)})`)
     }
+    // Names are drawn at 12 px on the screen, so in the drawing's units a name is 12 / k tall and a character about
+    // 0.56 of that wide; the ones that would run over a more important name are left out until there is room.
+    const k = zoomK.current
+    const em = 12 / k
+    const { focus, ids } = litRef.current
+    const wanted = current.nodes
+      .filter((node) => (ids === null ? node.kind === 'song' || (node.isHub && k >= 0.5) : ids.has(node.id)))
+      .sort((a, b) => Number(b.id === focus) - Number(a.id === focus) || Number(b.kind === 'song') - Number(a.kind === 'song') || b.r - a.r)
+    const boxes: LabelBox[] = []
+    for (const node of wanted) {
+      const position = controller.positions.get(node.id)
+      const text = elements.current.get(`t:${node.id}`)
+      if (position === undefined || text === undefined) continue
+      const lines = Math.max(1, text.childElementCount)
+      const longest = Math.max(...Array.from(text.children, (line) => line.textContent?.length ?? 0))
+      boxes.push({ id: node.id, x: position.x, y: position.y + node.r + 3, width: longest * 0.56 * em, height: lines * 1.15 * em })
+    }
+    const hidden = declutter(boxes)
+    for (const node of current.nodes) {
+      elements.current.get(`t:${node.id}`)?.setAttribute('visibility', hidden.has(node.id) && node.id !== focus ? 'hidden' : 'visible')
+    }
+
     for (const link of current.links) {
       const from = controller.positions.get(link.source)
       const to = controller.positions.get(link.target)
@@ -89,6 +116,10 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
       line.setAttribute('y2', to.y.toFixed(1))
     }
   }, [controller])
+
+  useLayoutEffect(() => {
+    paintRef.current = paint
+  }, [paint])
 
   useLayoutEffect(() => {
     graphRef.current = graph
@@ -158,6 +189,8 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
         world.setAttribute('transform', event.transform.toString())
         // Names are drawn at 12 px on the screen whatever the zoom: the labels' size is divided by it (see `--ls`).
         svg.style.setProperty('--zk', event.transform.k.toFixed(3))
+        zoomK.current = event.transform.k
+        paintRef.current()
         if (event.sourceEvent !== null && event.sourceEvent !== undefined) moved.current = true
       })
     zoomRef.current = behaviour
@@ -225,6 +258,10 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
   }, [controller, nodeKey])
 
   const lit = focusId === null ? null : (graph.neighbours.get(focusId) ?? null)
+  useLayoutEffect(() => {
+    litRef.current = { focus: focusId, ids: lit }
+    paintRef.current()
+  }, [focusId, lit])
 
   const stageRect = useCallback(() => svgRef.current?.getBoundingClientRect(), [])
 

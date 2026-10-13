@@ -175,7 +175,7 @@ export function GraphView({ session }: { session: GraphSession }) {
                   <ConstellationView workspace={workspace} onCentre={goTo} />
                 </Suspense>
                 <StageHeading>
-                  <Caption workspace={workspace} centre={rootRef} onHide={(mbid) => hidePerson(session.id, mbid)} />
+                  <Caption workspace={workspace} centre={rootRef} constellation onHide={(mbid) => hidePerson(session.id, mbid)} />
                 </StageHeading>
               </>
             )}

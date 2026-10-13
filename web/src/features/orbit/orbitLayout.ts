@@ -418,6 +418,9 @@ export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): Or
     return gap * radius
   }
 
+  // Where each first-ring name sits is known from the angle alone, so every node can look at its neighbours' places.
+  for (const node of nodes) if (node.depth === 1) node.place = placeFirst(node.angle)
+
   nodes.forEach((node, index) => {
     const full = described[index]!.full
     if (node.depth === 0 || full === '') return
@@ -447,7 +450,16 @@ export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): Or
           if (Math.abs(oy - y) < 2 * lineHeight + 10) room = Math.min(room, Math.abs(ox - x) - 8)
         }
       }
-      node.lines = fitName(full, Math.min(30, Math.floor(room / charWidth)), true)
+      // Beside its node a name may take two lines only where the next name above or below it is far enough away.
+      let twoLines = true
+      if (node.place === 'start' || node.place === 'end') {
+        for (const other of nodes) {
+          if (other === node || other.depth !== 1 || other.place !== node.place) continue
+          const [, oy] = polarToXY(other.radius, other.angle)
+          if (Math.abs(oy - y) < 2 * lineHeight + 4) twoLines = false
+        }
+      }
+      node.lines = fitName(full, Math.min(30, Math.floor(room / charWidth)), twoLines)
     } else {
       node.lines = [full]
     }

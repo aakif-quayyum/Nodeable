@@ -80,6 +80,7 @@ function recordingContext() {
     arc: () => void (calls.arc += 1),
     fillText: (text: string) => void calls.text.push(text),
     strokeText: noop,
+    measureText: (text: string) => ({ width: text.length * 6 }),
     set globalAlpha(value: number) {
       calls.alphas.push(value)
     },
@@ -116,9 +117,19 @@ describe('labelledNodes', () => {
 })
 
 describe('drawGraph', () => {
+  it('FR_VIEW_02 leaves out a name that would be drawn over a more important one', () => {
+    const { context, calls } = recordingContext()
+    // The song and a person on the same spot: the song's name is placed first, so the person's is left out.
+    const nodes = [song('s', 0, 0), person('a', true, 0, 0)]
+
+    drawGraph(context, scene({ nodes }))
+
+    expect(calls.text).toEqual(['Song s'])
+  })
+
   it('FR_VIEW_02 steps back everything outside the focus and names the focused node’s neighbours', () => {
     const { context, calls } = recordingContext()
-    const nodes = [song('s'), person('a'), person('b')]
+    const nodes = [song('s', 0, 0), person('a', false, 200, 0), person('b', false, 400, 0)]
 
     drawGraph(context, scene({ nodes, hoveredId: 'person:a', focusIds: new Set(['person:a', 'song:s']) }))
 
