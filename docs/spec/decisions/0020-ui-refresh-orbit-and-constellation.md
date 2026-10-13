@@ -114,6 +114,8 @@ Choices made inside these (open to change):
 
 ## Changes after the overview was built (2026-10-13)
 
+**Approved by the developer on 2026-10-14**: the canvas threshold of 60 nodes, as measured. It was merged in pull request 4.
+
 The constellation, the toggle and "Find in your graph" were built in pull request 4. Two things differ from what this record planned, and two came from the developer's review of the workspace.
 
 | Planned or asked | Now | Why |
