@@ -1,0 +1,1272 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+<title>Nodeable Orbit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: record-sleeve grid. Hairline rules, flat colour blocks, condensed caps for punch; the stage takes the room, the liner-notes rail sits right, everything stacks on phones. */
+:root{
+  --bg:#101113; --panel:#16171A; --panel-2:#1E2024; --line:#2A2C31; --line-2:#3B3E45;
+  --fg:#F4F2EE; --muted:#9B9DA4; --ink:#101113; --vinyl:#0A0A0B; --ok:#4CD07D;
+  --display:"Archivo","Arial Narrow","Helvetica Neue",system-ui,sans-serif;
+  --body:"Archivo","Helvetica Neue","Segoe UI",system-ui,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --ease:cubic-bezier(.2,.8,.2,1);
+  color-scheme:dark;
+}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-stretch:100%;font-size:15px;line-height:1.45}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+button{font:inherit;color:inherit}
+button:focus-visible,[tabindex]:focus-visible,input:focus-visible,a:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.caps{font-family:var(--display);font-stretch:68%;font-weight:850;text-transform:uppercase;letter-spacing:-.01em}
+.kicker{font:500 10.5px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+
+/* shared bits */
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--display);font-stretch:68%;font-weight:900;font-size:24px;letter-spacing:.01em;text-transform:uppercase;background:none;border:0;padding:0;cursor:pointer}
+.brand-mark{width:22px;height:22px;border-radius:50%;background:var(--vinyl);box-shadow:inset 0 0 0 1px var(--line-2);position:relative}
+.brand-mark::after{content:"";position:absolute;inset:7px;border-radius:50%;background:#FFD23F}
+.btn{border:0;border-radius:10px;font-weight:700;font-size:14px;padding:11px 18px;cursor:pointer;white-space:nowrap;transition:transform .15s var(--ease),background .2s}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--fg);color:var(--ink)}
+.btn-primary:hover{background:#fff}
+.btn-line{background:none;border:1px solid var(--line-2);color:var(--fg);padding:9px 15px}
+.btn-line:hover{border-color:var(--fg)}
+.sleeve{display:block;border-radius:4px;overflow:hidden;flex:none}
+.sleeve svg{display:block;width:100%;height:100%}
+
+/* ---------- landing ---------- */
+.landing{box-sizing:border-box;padding-inline:24px;padding-block:18px 40px;max-width:1320px;margin:0 auto;display:flex;flex-direction:column}
+.l-top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.hero{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:32px;align-items:center;padding-block:36px 40px;border-bottom:1px solid var(--line)}
+.hero h1{font-family:var(--display);font-stretch:62%;font-weight:900;font-size:clamp(64px,10.5vw,150px);line-height:.84;letter-spacing:-.01em;text-transform:uppercase;margin:0 0 22px}
+.hero h1 .hl{display:inline-block;background:#FFD23F;color:var(--ink);padding:0 .08em;transform:rotate(-1.5deg)}
+.hero h1 .w{display:inline-block;animation:drop .7s var(--ease) both;animation-delay:calc(var(--i) * 90ms)}
+@keyframes drop{from{opacity:0;transform:translateY(.25em)}}
+.lede{font-size:clamp(16px,1.5vw,19px);color:#cfccc6;max-width:31em;margin:0 0 26px}
+.search{display:flex;flex-wrap:wrap;gap:0;background:var(--panel);border:1px solid var(--line-2);border-radius:14px;max-width:640px;overflow:hidden}
+.search:focus-within{border-color:var(--fg)}
+.search label{flex:1 1 170px;display:flex;flex-direction:column;padding:10px 14px;min-width:0}
+.search label span{font:500 10px var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.search input{background:none;border:0;color:var(--fg);font:600 18px var(--body);outline:none;padding:3px 0;min-width:0}
+.search input::placeholder{color:#5c5f66;font-weight:500}
+.search label+label{border-left:1px solid var(--line)}
+.search button[type="submit"]{background:var(--fg);color:var(--ink);border:0;font-weight:800;font-size:15px;padding:0 26px;min-height:58px;cursor:pointer;flex:0 0 auto;letter-spacing:.02em}
+.search button[type="submit"]:hover{background:#fff}
+.tries{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:14px}
+.tries button{background:none;border:1px solid var(--line-2);border-radius:999px;padding:5px 12px;cursor:pointer;font-size:13px;font-weight:600;transition:border-color .2s,background .2s}
+.tries button:hover{border-color:var(--fg);background:#ffffff08}
+.disc-wrap{position:relative;aspect-ratio:1;width:100%;max-width:520px;justify-self:center}
+.disc-wrap svg{width:100%;height:100%;display:block;overflow:visible}
+.rot{transform-box:view-box;transform-origin:0 0;animation:spin 80s linear infinite}
+.rot.r2{animation-duration:120s;animation-direction:reverse}
+.rot.r3{animation-duration:170s}
+.rot.rec{animation-duration:4.5s}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ringTxt{font:700 10.5px var(--mono);letter-spacing:.24em;text-transform:uppercase;fill:var(--fg)}
+.steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.step{padding:22px 22px 24px 0;display:flex;flex-direction:column;gap:8px}
+.step+.step{border-left:1px solid var(--line);padding-left:22px}
+.step .n{font-family:var(--display);font-stretch:62%;font-weight:900;font-size:56px;line-height:.9;color:var(--muted)}
+.step b{font-family:var(--display);font-stretch:75%;font-weight:800;font-size:22px;text-transform:uppercase;line-height:1.05}
+.step span{font-size:14.5px;color:var(--muted);max-width:30em}
+.l-foot{font-size:12.5px;color:var(--muted);margin:0;padding-top:16px;border-top:1px solid var(--line)}
+.l-foot a{color:var(--fg)}
+
+/* ---------- search results ---------- */
+.results{margin-top:20px;max-width:640px;display:flex;flex-direction:column}
+.results:empty{display:none}
+.res-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--line-2)}
+.res-head b{font-family:var(--display);font-stretch:70%;font-weight:850;font-size:22px;text-transform:uppercase}
+.res-head span{font:11px var(--mono);color:var(--muted);letter-spacing:.06em}
+.res{display:grid;grid-template-columns:52px minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);position:relative}
+.res::before{content:"";position:absolute;left:-12px;top:0;bottom:0;width:3px;background:var(--fg);transform:scaleY(0);transition:transform .25s var(--ease)}
+.res:hover::before{transform:scaleY(1)}
+.res .sleeve{width:52px;height:52px}
+.res .t{font-weight:700;font-size:16.5px;line-height:1.2;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.res .mt{font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.res .sub{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;margin-top:4px}
+.tag{font:700 9.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:2px 6px;border-radius:3px;background:var(--panel-2);color:var(--muted)}
+.tag.remix{background:#8B7BFF22;color:#B3A8FF}.tag.live{background:#FF6B4A22;color:#FF9C84}.tag.edit,.tag.bootleg,.tag.mixtape{background:#3EC6E022;color:#7FDCEC}.tag.compilation{background:#FFD23F22;color:#FFE07A}
+.match{display:inline-flex;align-items:center;gap:7px;font:11px var(--mono);color:var(--muted);font-variant-numeric:tabular-nums}
+.vu{display:inline-flex;gap:2px;align-items:flex-end;height:14px}
+.vu i{width:4px;background:#ffffff1a;transform-origin:bottom;animation:lvl .5s var(--ease) both;animation-delay:calc(var(--d) * 45ms + 120ms)}
+.vu i.on{background:var(--ok)}
+.vu i.on.hi{background:#FFD23F}
+@keyframes lvl{from{transform:scaleY(.05)}}
+.addb{border:1px solid var(--fg);background:none;color:var(--fg);border-radius:8px;padding:7px 13px;font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap;transition:background .2s,color .2s,transform .15s}
+.addb:hover{background:var(--fg);color:var(--ink)}
+.addb.done{background:var(--ok);border-color:var(--ok);color:var(--ink);animation:pop .4s var(--ease)}
+@keyframes pop{40%{transform:scale(1.12)}}
+.ingraph{font:700 11px var(--mono);color:var(--ok);letter-spacing:.06em;white-space:nowrap;background:none;border:0;cursor:pointer;padding:6px 0}
+.ingraph:hover{text-decoration:underline}
+.verb{background:none;border:0;color:var(--muted);font-size:12.5px;font-weight:600;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:8px}
+.verb:hover{color:var(--fg)}
+.verb .chev{display:inline-block;transition:transform .3s var(--ease)}
+.verb[aria-expanded="true"] .chev{transform:rotate(90deg)}
+.stack{display:inline-flex}
+.stack .sleeve{width:14px;height:14px;margin-left:-5px;box-shadow:0 0 0 1.5px var(--bg)}
+.stack .sleeve:first-child{margin-left:0}
+.vers{grid-column:1/-1;display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s var(--ease)}
+.vers.open{grid-template-rows:1fr}
+.vers>div{overflow:hidden;min-height:0}
+.ver{display:grid;grid-template-columns:20px auto auto minmax(0,1fr);gap:10px;align-items:center;font-size:13px;padding:5px 0 5px 66px;opacity:0;transform:translateX(-8px);transition:opacity .3s,transform .3s var(--ease)}
+.vers.open .ver{opacity:1;transform:none;transition-delay:calc(var(--i) * 50ms + 100ms)}
+.ver .sleeve{width:20px;height:20px}
+.ver .mt{color:var(--muted);font-size:12.5px}
+.nores{color:var(--muted);font-size:14px;margin:12px 0 0}
+.enter{animation:rise .5s var(--ease) both;animation-delay:calc(var(--i) * 55ms)}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}}
+
+/* ---------- sheet ---------- */
+.sheet{position:fixed;inset:0;z-index:20;background:#08090ACC;display:flex;justify-content:center;align-items:flex-start;padding-inline:16px;padding-block:calc(env(safe-area-inset-top,0px) + 6vh) 16px;overflow:auto;box-sizing:border-box;animation:fade .25s both}
+@keyframes fade{from{opacity:0}}
+.sheet-card{width:100%;max-width:700px;background:var(--bg);border:1px solid var(--line-2);border-radius:18px;padding:22px;box-sizing:border-box;animation:rise .35s var(--ease) both}
+.sheet-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}
+.sheet-head h2{margin:0;font-size:34px;line-height:.9}
+.sheet .search,.sheet .results{max-width:none}
+
+/* ---------- app ---------- */
+.app{height:100%;box-sizing:border-box;display:grid;grid-template-rows:auto auto minmax(0,1fr);gap:14px;padding-inline:20px;padding-block:12px 20px;max-width:1660px;margin:0 auto}
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.find{flex:1 1 220px;max-width:420px;min-width:0;display:flex;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:3px 3px 3px 14px}
+.find:focus-within{border-color:var(--fg)}
+.find input{flex:1;min-width:0;background:none;border:0;color:var(--fg);font:inherit;outline:none}
+.find input::placeholder{color:#6b6e75}
+.find button{border:0;background:var(--panel-2);border-radius:7px;padding:6px 12px;cursor:pointer;font-weight:600;font-size:13px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;padding:3px;background:var(--panel)}
+.seg button{border:0;background:none;color:var(--muted);font-weight:700;font-size:13px;padding:6px 13px;border-radius:7px;cursor:pointer;transition:background .2s,color .2s}
+.seg button[aria-pressed="true"]{background:var(--fg);color:var(--ink)}
+.top .add{margin-left:auto}
+
+.strip{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:10px 24px}
+.strip h1{margin:0;font-family:var(--display);font-stretch:66%;font-weight:900;font-size:clamp(26px,3.2vw,42px);line-height:.95;text-transform:uppercase;text-wrap:balance}
+.strip h1 em{font-style:normal;background:#FFD23F;color:var(--ink);padding:0 .1em}
+.stats{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.stat{padding:6px 14px;display:flex;flex-direction:column;align-items:flex-start;min-width:64px}
+.stat+.stat{border-left:1px solid var(--line)}
+.stat b{font-family:var(--display);font-stretch:66%;font-weight:900;font-size:24px;line-height:1;font-variant-numeric:tabular-nums}
+.stat span{font:10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+.main{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:16px;min-height:0}
+.stage{position:relative;min-height:0;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--panel)}
+.stage svg{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+.stage svg:active{cursor:grabbing}
+.crumbs{position:absolute;top:12px;left:12px;right:220px;z-index:2;display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.crumbs button{background:var(--bg);border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:12px;font-weight:600;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crumbs button[aria-current="true"]{color:var(--ink);background:var(--fg);border-color:var(--fg)}
+.crumbs .sep{color:var(--line-2);font-size:12px}
+.now{position:absolute;top:48px;left:14px;z-index:2;display:flex;flex-direction:column;gap:4px;max-width:min(340px,60%);pointer-events:none}
+.now strong{font-family:var(--display);font-stretch:64%;font-weight:900;font-size:clamp(30px,3.6vw,46px);line-height:.88;text-transform:uppercase;text-wrap:balance}
+.now .m{font-size:13px;color:var(--muted)}
+.now a{pointer-events:auto;color:var(--fg)}
+.now .k{color:#FFD23F}
+.swap{animation:swap .45s var(--ease) both}
+@keyframes swap{from{opacity:0;transform:translateY(8px)}}
+#live{position:absolute;top:12px;right:12px;z-index:2;display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line-2);border-radius:8px;padding:6px 11px;font:500 12px var(--mono);font-variant-numeric:tabular-nums}
+#live i{width:8px;height:8px;border-radius:50%;background:var(--ok);animation:blink 1s steps(2,end) infinite}
+@keyframes blink{50%{opacity:.25}}
+.legend{position:absolute;left:12px;right:12px;bottom:10px;z-index:2;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font:700 10px var(--mono);color:var(--muted);letter-spacing:.1em;text-transform:uppercase;pointer-events:none}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:9px;height:9px;border-radius:2px}
+.legend .hint{margin-left:auto;text-transform:none;letter-spacing:0;font:12px var(--body)}
+.tip{position:absolute;z-index:4;pointer-events:none;background:var(--bg);border:1px solid var(--line-2);border-radius:10px;padding:10px 12px;font-size:13px;max-width:250px;animation:fade .15s both}
+.tip b{font-family:var(--display);font-stretch:70%;font-weight:850;font-size:17px;text-transform:uppercase;display:block;line-height:1.05;margin-bottom:4px}
+.tip .r{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12.5px}
+.tip .r i{width:8px;height:8px;border-radius:2px;flex:none}
+
+/* SVG */
+.lnk{fill:none;stroke-width:1.6}
+.xlnk{fill:none;stroke:var(--fg);stroke-opacity:.22;stroke-width:1;stroke-dasharray:2 5}
+.guide{fill:none;stroke:#ffffff14;stroke-dasharray:1 6}
+.nd{cursor:pointer}
+.nd:focus{outline:none}
+.nd:focus-visible .hit{stroke:var(--fg);stroke-width:2.5}
+.lbl{font:600 12px var(--body);fill:var(--fg);paint-order:stroke;stroke:var(--panel);stroke-width:4px;stroke-linejoin:round;pointer-events:none}
+.lbl.sm{font-size:11px;font-weight:500;fill:#d4d2cd}
+.ini{font:700 8px var(--body);fill:var(--fg);pointer-events:none}
+.focusing .nd:not(.on),.focusing .lbl:not(.on),.focusing .lnk:not(.on),.focusing .xlnk:not(.on),.focusing .clnk:not(.on){opacity:.1}
+.lbl.hide{opacity:0}
+.focusing .lbl.hide.on{opacity:1}
+.spin{transform-box:fill-box;transform-origin:center}
+.is-center .spin{animation:spin 4.5s linear infinite}
+.ripple{fill:none;stroke-width:1.5;transform-box:fill-box;transform-origin:center;animation:ripple 2.4s var(--ease) infinite}
+@keyframes ripple{from{transform:scale(1);opacity:.9}to{transform:scale(1.9);opacity:0}}
+.roleArc{fill:none;stroke-width:3}
+.roleTxt{font:700 8.5px var(--mono);letter-spacing:.16em;text-transform:uppercase}
+.arcs{transition:opacity .4s}
+.star{fill:#F4F2EE}
+.tw{animation:tw 3.4s ease-in-out infinite}
+@keyframes tw{0%,100%{opacity:.1}50%{opacity:.7}}
+.clnk{stroke-width:1.2;stroke-opacity:.5}
+.empty{font:600 13px var(--body);fill:var(--muted)}
+
+/* panel */
+.panel{overflow:auto;min-height:0;display:flex;flex-direction:column;gap:20px;padding-right:2px;scrollbar-width:thin}
+.ph{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:8px;border-bottom:1px solid var(--line-2);margin-bottom:10px}
+.ph h2{margin:0;font-size:22px;line-height:1}
+.ph button{background:none;border:1px solid var(--line-2);border-radius:6px;color:var(--muted);font-size:12px;font-weight:600;padding:4px 9px;cursor:pointer}
+.ph button[aria-pressed="true"]{color:var(--ink);background:var(--fg);border-color:var(--fg)}
+.hubs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.hub{text-align:left;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;cursor:pointer;display:flex;flex-direction:column;gap:8px;min-width:0;transition:border-color .2s,transform .2s var(--ease)}
+.hub:hover{border-color:var(--line-2);transform:translateY(-2px)}
+.hub.is-on{border-color:var(--fg)}
+.hub-top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.av{width:40px;height:40px;border-radius:50%;padding:3px;box-sizing:border-box;flex:none}
+.av span{display:grid;place-items:center;width:100%;height:100%;border-radius:50%;background:var(--panel-2);font:800 13px var(--body)}
+.cnt{display:flex;align-items:baseline;gap:4px}
+.cnt b{font-family:var(--display);font-stretch:62%;font-weight:900;font-size:40px;line-height:.85;font-variant-numeric:tabular-nums}
+.cnt small{font:700 9.5px var(--mono);color:var(--muted);letter-spacing:.1em}
+.hub .nm{font-family:var(--display);font-stretch:72%;font-weight:850;font-size:18px;text-transform:uppercase;line-height:1}
+.bars{display:flex;gap:2px;height:4px}
+.bars i{flex:1;border-radius:1px}
+.covers{display:flex;gap:3px}
+.covers .sleeve{width:20px;height:20px}
+.muted{color:var(--muted);font-size:13.5px;margin:0}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;transition:border-color .25s}
+.card+.card{margin-top:8px}
+.card.is-on{border-color:var(--fg)}
+.card-head{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:center;padding:12px;width:100%;background:none;border:0;text-align:left;cursor:pointer}
+.card-head .sleeve{width:64px;height:64px}
+.ch{min-width:0;display:flex;flex-direction:column;gap:3px}
+.ch b{font-family:var(--display);font-stretch:70%;font-weight:900;font-size:24px;line-height:.95;text-transform:uppercase}
+.ch span{font-size:12.5px;color:var(--muted)}
+.status{align-self:flex-start;font:700 9.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;padding:3px 6px;border-radius:3px;margin-top:2px}
+.status.complete{background:var(--ok);color:var(--ink)}
+.status.partial{background:#FFD23F;color:var(--ink)}
+.status.none{background:#FF6B4A;color:var(--ink)}
+.status.live{background:#3EC6E0;color:var(--ink)}
+.credits{border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:4px 104px minmax(0,1fr);gap:0 10px;align-items:baseline;padding:7px 12px 7px 0}
+.row+.row{border-top:1px solid var(--line)}
+.row>i{align-self:stretch;border-radius:0 2px 2px 0}
+.role{font:700 9.5px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:2px}
+.names{font-size:14px;line-height:1.5;font-weight:500}
+.nb{background:none;border:0;padding:0;cursor:pointer;font-weight:600;border-bottom:1px solid #ffffff2e}
+.nb:hover{border-bottom-color:var(--fg)}
+.nb.new{animation:mark 1.6s var(--ease)}
+@keyframes mark{0%{background:#FFD23F;color:var(--ink)}100%{background:transparent}}
+.row.new{animation:rise .45s var(--ease) both}
+.det{color:var(--muted);font-weight:400}
+.x{font:700 9px var(--mono);color:var(--ink);background:var(--fg);border-radius:3px;padding:0 3px;margin-left:4px;vertical-align:2px}
+.nocred{padding:10px 12px 12px;color:var(--muted);font-size:13.5px;margin:0;border-top:1px solid var(--line)}
+.nocred a{color:var(--fg)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:700 10px var(--mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.foot{font-size:12px;color:var(--muted);margin:0;padding-bottom:4px}
+
+@media (max-width:900px){
+  html,body{height:auto}
+  .app{height:auto}
+  .hero{grid-template-columns:minmax(0,1fr);padding-top:20px}
+  .disc-wrap{order:-1;max-width:320px}
+  .steps{grid-template-columns:minmax(0,1fr)}
+  .step{padding:18px 0}
+  .step+.step{border-left:0;border-top:1px solid var(--line);padding-left:0}
+  .main{grid-template-columns:minmax(0,1fr)}
+  .stage{height:70svh;min-height:460px}
+  .panel{overflow:visible}
+  .top .add{margin-left:0}
+  .crumbs{right:12px}
+  #live{top:auto;bottom:38px;right:12px}
+  .legend .hint{display:none}
+}
+@media (max-width:560px){
+  .landing,.app{padding-inline:16px}
+  .search label+label{border-left:0;border-top:1px solid var(--line)}
+  .search label{flex-basis:100%}
+  .search button[type="submit"]{flex:1 1 100%}
+  .res{grid-template-columns:44px minmax(0,1fr)}
+  .res .sleeve{width:44px;height:44px}
+  .res .act{grid-column:2}
+  .ver{padding-left:58px;grid-template-columns:20px auto minmax(0,1fr)}
+  .ver .tag{display:none}
+  .hubs{grid-template-columns:minmax(0,1fr)}
+  .stats{width:100%}
+  .stat{flex:1}
+  .row{grid-template-columns:4px minmax(0,1fr)}
+  .row .names{grid-column:2}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation:none!important;transition:none!important}
+}
+</style>
+
+<div class="landing" id="landing">
+  <div class="l-top">
+    <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Nodeable</div>
+    <button class="btn btn-line" id="demo">Open the demo graph</button>
+  </div>
+  <section class="hero">
+    <div>
+      <h1 aria-label="Every song has a crew."><span class="w" style="--i:0">Every</span> <span class="w" style="--i:1">song</span><br><span class="w" style="--i:2">has a</span> <span class="w" style="--i:3"><span class="hl">crew.</span></span></h1>
+      <p class="lede">Add the songs you love. Nodeable finds the producers, writers and session players behind them, then shows you who connects them.</p>
+      <form class="search" id="lsearch" role="search">
+        <label for="lq"><span>Song title</span><input id="lq" placeholder="Redbone" autocomplete="off"></label>
+        <label for="la"><span>Artist (optional)</span><input id="la" placeholder="Childish Gambino" autocomplete="off"></label>
+        <button type="submit">Search</button>
+      </form>
+      <div class="tries"><span class="kicker">Try</span>
+        <button data-try="Redbone">Redbone</button>
+        <button data-try="Telegraph Ave">Telegraph Ave</button>
+        <button data-try="Me and Your Mama">Me and Your Mama</button>
+      </div>
+      <div class="results" id="lresults" aria-live="polite"></div>
+    </div>
+    <div class="disc-wrap" aria-hidden="true"><svg id="disc" viewBox="-300 -300 600 600"></svg></div>
+  </section>
+  <section class="steps" aria-label="How it works">
+    <div class="step"><span class="n">01</span><b>Add songs you love</b><span>Search by title. Remixes, live takes and compilations fold behind the original.</span></div>
+    <div class="step"><span class="n">02</span><b>Watch the crew appear</b><span>Producers, writers and players arrive one by one as their credits load.</span></div>
+    <div class="step"><span class="n">03</span><b>Follow the connectors</b><span>People behind several of your songs light up. Click one to see what else they made.</span></div>
+  </section>
+  <p class="l-foot">Credits come from <a href="https://musicbrainz.org/" target="_blank" rel="noopener">MusicBrainz</a>, the open music encyclopedia. This prototype searches a small sample of Childish Gambino songs; sleeves are placeholders for real cover art.</p>
+</div>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheet-title">
+  <div class="sheet-card">
+    <div class="sheet-head"><h2 class="caps" id="sheet-title">Add a song</h2><button class="btn btn-line" id="sheet-close">Close</button></div>
+    <form class="search" id="ssearch" role="search">
+      <label for="sq"><span>Song title</span><input id="sq" placeholder="This Is America" autocomplete="off"></label>
+      <label for="sa"><span>Artist (optional)</span><input id="sa" placeholder="Childish Gambino" autocomplete="off"></label>
+      <button type="submit">Search</button>
+    </form>
+    <div class="tries"><span class="kicker">Try</span>
+      <button data-stry="This Is America">This Is America</button>
+      <button data-stry="Me and Your Mama">Me and Your Mama</button>
+      <button data-stry="Feels Like Summer">Feels Like Summer</button>
+    </div>
+    <div class="results" id="sresults" aria-live="polite"></div>
+  </div>
+</div>
+
+<div class="app" id="app" hidden>
+  <header class="top">
+    <button class="brand" id="home" aria-label="Nodeable home"><span class="brand-mark" aria-hidden="true"></span>Nodeable</button>
+    <form class="find" id="find" role="search">
+      <label for="q" class="sr">Find a song or person in your graph</label>
+      <input id="q" placeholder="Find in your graph" autocomplete="off">
+      <button type="submit">Find</button>
+    </form>
+    <div class="seg" aria-label="View">
+      <button id="v-orbit" aria-pressed="true">Orbit</button>
+      <button id="v-const" aria-pressed="false">Constellation</button>
+    </div>
+    <button class="btn btn-primary add" id="add">+ Add a song</button>
+  </header>
+
+  <section class="strip" aria-live="polite">
+    <h1 id="headline"></h1>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <main class="main">
+    <div class="stage" id="stage">
+      <nav class="crumbs" id="crumbs" aria-label="Exploration path"></nav>
+      <div class="now" id="now"></div>
+      <div class="live" id="live" hidden></div>
+      <svg id="svg" role="img" aria-label="Interactive credits graph"></svg>
+      <div class="legend" id="legend"></div>
+      <div class="tip" id="tip" hidden></div>
+    </div>
+
+    <aside class="panel" aria-label="Credits">
+      <section>
+        <div class="ph"><h2 class="caps">Connectors</h2></div>
+        <div class="hubs" id="hubs"></div>
+      </section>
+      <section>
+        <div class="ph"><h2 class="caps">Liner notes</h2><button id="textview" aria-pressed="false">Text view</button></div>
+        <div id="notes"></div>
+      </section>
+      <p class="foot">Prototype. Credits come from your current Nodeable graph. Sleeves are placeholders for cover art from the Cover Art Archive.</p>
+    </aside>
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+(() => {
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const ROLES = [
+  {id:'producer',   label:'Produced by',   short:'Producer',    color:'#FFD23F'},
+  {id:'songwriter', label:'Written by',    short:'Songwriter',  color:'#FF6B4A'},
+  {id:'mixing',     label:'Mixed by',      short:'Mixing',      color:'#3EC6E0'},
+  {id:'engineering',label:'Engineered by', short:'Engineering', color:'#8B7BFF'},
+  {id:'instrument', label:'Played by',     short:'Instrument',  color:'#4CD07D'},
+  {id:'vocal',      label:'Vocals',        short:'Vocal',       color:'#FF7AC6'},
+  {id:'other',      label:'Also credited', short:'Other',       color:'#9B9DA4'}
+];
+const ROLE = {}; ROLES.forEach((r,i) => ROLE[r.id] = {...r, order:i});
+
+/* sleeve = [background, mark colour, pattern] : flat placeholders for real cover art */
+const SONGS = [
+  {id:'redbone',   title:'Redbone',           year:2016, album:'Awaken, My Love!', sleeve:['#E4572E','#101113','sun']},
+  {id:'tia',       title:'This Is America',   year:2018, album:'This Is America',  sleeve:['#F4F2EE','#101113','bars']},
+  {id:'fls',       title:'Feels Like Summer', year:2018, album:'Summer Pack',      sleeve:['#3EC6E0','#FFD23F','half']},
+  {id:'s3005',     title:'3005',              year:2013, album:'Because the Internet', sleeve:['#2A3BBF','#F4F2EE','grid']},
+  {id:'telegraph', title:'Telegraph Ave.',    year:2013, album:'Telegraph Ave.',   sleeve:['#5B2A86','#FF6B4A','stripe']},
+  {id:'mym',       title:'Me and Your Mama',  year:2016, album:'Awaken, My Love!', sleeve:['#C2362B','#FFD23F','ring']}
+];
+const SONG = {}; SONGS.forEach(s => SONG[s.id] = s);
+const ARTIST = 'Childish Gambino';
+
+const PEOPLE = {
+  glover:'Donald Glover', goransson:'Ludwig Göransson', mackin:'Riley Mackin', rivera:'Ruben Rivera',
+  collins:'William Earl Collins', cooper:'Gary “Mudbone” Cooper', blackparty:'Black Party',
+  hartz:'Chris Hartz', lwilliams:'Lynette Williams', suen:'Ray Suen', drayton:'Thomas Drayton',
+  juliusson:'Per Gunnar Juliusson', rae:'Zac Rae', armstrong:'John Armstrong', jones:'Jones and The Best Life Singers'
+};
+const RAW = {
+  redbone:[['glover','producer'],['goransson','producer'],['glover','songwriter'],['goransson','songwriter'],
+           ['collins','songwriter'],['cooper','songwriter'],['glover','vocal'],['glover','instrument','drums'],
+           ['glover','instrument','glockenspiel'],['goransson','instrument','banjo'],['glover','mixing'],
+           ['mackin','mixing'],['mackin','engineering'],['rivera','engineering'],['blackparty','other']],
+  tia:[['glover','songwriter'],['goransson','songwriter']],
+  fls:[['glover','songwriter'],['goransson','songwriter']],
+  s3005:[], telegraph:[],
+  mym:[['glover','songwriter'],['goransson','songwriter'],['glover','instrument','percussion'],['mackin','mixing'],
+       ['rivera','engineering'],['hartz','instrument'],['lwilliams','instrument'],['suen','instrument'],
+       ['drayton','instrument'],['juliusson','instrument'],['rae','instrument'],['armstrong','engineering'],['jones','vocal']]
+};
+const CREDITS = [];
+function loadCredits(song){ (RAW[song] || []).forEach(([person, role, detail], idx) => CREDITS.push({song, person, role, detail: detail || '', idx})); }
+Object.keys(RAW).forEach(loadCredits);
+
+const state = {screen:'landing', active:new Set(), streaming:null, revealed:0, view:'orbit', history:[], textView:false};
+const DEMO = ['redbone','tia','fls','s3005','telegraph'];
+const current = () => state.history[state.history.length - 1] || null;
+const keyOf = c => (c.type === 'song' ? 's:' : 'p:') + c.id;
+const artistOf = s => SONG[s].artist || ARTIST;
+const esc = s => String(s).replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+
+/* ---------- sleeves (flat, geometric) ---------- */
+function sleeveMark(p, fg){
+  switch (p){
+    case 'sun':    return `<circle cx="64" cy="38" r="22" fill="${fg}"/><rect x="0" y="78" width="100" height="22" fill="${fg}"/>`;
+    case 'bars':   return `<rect x="12" y="54" width="76" height="8" fill="${fg}"/><rect x="12" y="68" width="56" height="8" fill="${fg}"/><rect x="12" y="82" width="36" height="8" fill="${fg}"/>`;
+    case 'half':   return `<path d="M0,100 A50,50 0 0 1 100,100 Z" fill="${fg}"/>`;
+    case 'grid':   return [0,1,2].flatMap(r => [0,1,2].map(c => `<rect x="${16 + c*26}" y="${16 + r*26}" width="16" height="16" fill="${fg}"/>`)).join('');
+    case 'stripe': return `<polygon points="0,64 64,0 100,0 100,22 22,100 0,100" fill="${fg}"/>`;
+    case 'ring':   return `<circle cx="50" cy="50" r="27" fill="none" stroke="${fg}" stroke-width="13"/>`;
+    case 'dot':    return `<circle cx="74" cy="74" r="14" fill="${fg}"/>`;
+    default:       return `<rect x="0" y="0" width="50" height="100" fill="${fg}"/>`;
+  }
+}
+const sleeveHtml = (sl, cls = '') => `<span class="sleeve ${cls}"><svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" fill="${sl[0]}"/>${sleeveMark(sl[2], sl[1])}</svg></span>`;
+const PALETTE = [['#8B7BFF','#101113','dot'],['#4CD07D','#101113','half'],['#FF7AC6','#101113','bars'],['#F4F2EE','#E4572E','stripe'],['#2A2C31','#FFD23F','ring'],['#3EC6E0','#101113','grid']];
+
+/* ---------- derived data ---------- */
+let D;
+function derive(){
+  const vc = CREDITS.filter(c => state.active.has(c.song) && (c.song !== state.streaming || c.idx < state.revealed));
+  const bySong = new Map(), byPerson = new Map();
+  vc.forEach(c => {
+    if (!bySong.has(c.song)) bySong.set(c.song, []);
+    if (!byPerson.has(c.person)) byPerson.set(c.person, []);
+    bySong.get(c.song).push(c); byPerson.get(c.person).push(c);
+  });
+  D = {vc, bySong, byPerson};
+}
+const rolesOn = (p, s) => (D.bySong.get(s) || []).filter(c => c.person === p);
+const primary = (p, s) => { const r = rolesOn(p, s).map(c => ROLE[c.role]).sort((a,b) => a.order - b.order)[0]; return r ? r.id : 'other'; };
+const songIdx = id => SONGS.findIndex(s => s.id === id);
+function songPeople(s){
+  const list = D.bySong.get(s) || [];
+  const ids = [...new Set(list.map(c => c.person))];
+  return ids.sort((a,b) => ROLE[primary(a,s)].order - ROLE[primary(b,s)].order ||
+    list.findIndex(c => c.person === a) - list.findIndex(c => c.person === b));
+}
+const personSongs = p => [...new Set((D.byPerson.get(p) || []).map(c => c.song))].sort((a,b) => songIdx(a) - songIdx(b));
+const degree = p => personSongs(p).length;
+const roleSet = p => [...new Set((D.byPerson.get(p) || []).map(c => c.role))].sort((a,b) => ROLE[a].order - ROLE[b].order);
+function mainRole(p){
+  const counts = {};
+  (D.byPerson.get(p) || []).forEach(c => counts[c.role] = (counts[c.role] || 0) + 1);
+  return Object.keys(counts).sort((a,b) => counts[b] - counts[a] || ROLE[a].order - ROLE[b].order)[0] || 'other';
+}
+const activeSongs = () => SONGS.filter(s => state.active.has(s.id));
+function statusOf(s){
+  if (s === state.streaming) return 'live';
+  const l = D.bySong.get(s) || [];
+  if (!l.length) return 'none';
+  const r = new Set(l.map(c => c.role));
+  return r.has('producer') && r.has('songwriter') ? 'complete' : 'partial';
+}
+const STATUS_TEXT = {complete:'Credits complete', partial:'Some credits', none:'Credits incomplete', live:'Loading credits'};
+function initials(n){
+  const w = n.replace(/[“”"]/g,'').split(/\s+/).filter(x => /^[A-ZÀ-Þ]/.test(x));
+  return ((w[0] || n)[0] + (w.length > 1 ? w[w.length - 1][0] : '')).toUpperCase();
+}
+function ringCss(p){
+  const rs = roleSet(p); if (!rs.length) return 'var(--line)';
+  const step = 360 / rs.length, gap = rs.length > 1 ? 6 : 0;
+  return `conic-gradient(${rs.map((r,i) => `${ROLE[r].color} ${i*step}deg ${(i+1)*step - gap}deg, transparent ${(i+1)*step - gap}deg ${(i+1)*step}deg`).join(',')})`;
+}
+
+/* ---------- SVG scaffolding ---------- */
+const stage = document.getElementById('stage');
+const svg = d3.select('#svg');
+const defs = svg.append('defs');
+const pat = defs.append('pattern').attr('id','dots').attr('width',24).attr('height',24).attr('patternUnits','userSpaceOnUse');
+pat.append('circle').attr('cx',12).attr('cy',12).attr('r',.9).attr('fill','#ffffff16');
+const world = svg.append('g');
+world.append('rect').attr('x',-3000).attr('y',-3000).attr('width',6000).attr('height',6000).attr('fill','url(#dots)');
+const sky = world.append('g');
+const orbitG = world.append('g');
+const guidesL = orbitG.append('g');
+const arcsL = orbitG.append('g').attr('class','arcs');
+const xlinksL = orbitG.append('g');
+const linksL = orbitG.append('g');
+const nodesL = orbitG.append('g');
+const labelsL = orbitG.append('g');
+const emptyL = orbitG.append('g');
+const constG = world.append('g').style('display','none');
+
+(function stars(){
+  let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 140; i++){
+    const c = sky.append('circle').attr('class','star' + (i % 5 === 0 ? ' tw' : ''))
+      .attr('cx', (rnd() - .5) * 2000).attr('cy', (rnd() - .5) * 1400)
+      .attr('r', .4 + rnd() * 1).attr('opacity', .1 + rnd() * .4);
+    if (i % 5 === 0) c.style('animation-delay', (rnd() * 3).toFixed(2) + 's');
+  }
+})();
+
+let W = 800, H = 600;
+const zoom = d3.zoom().scaleExtent([.45, 3]).on('zoom', e => world.attr('transform', e.transform));
+svg.call(zoom).on('dblclick.zoom', null);
+function measure(){ const r = stage.getBoundingClientRect(); W = r.width; H = r.height; }
+function resetZoom(){ svg.call(zoom.transform, d3.zoomIdentity.translate(W/2, H/2 + (W < 560 ? 26 : 14))); }
+
+/* ---------- ORBIT ---------- */
+const ON = new Map();
+let timer = null, orbitState = null, K = 1;
+const lr = d3.linkRadial().angle(p => p.a).radius(p => p.r);
+const xy = p => [p.r * Math.sin(p.a), -p.r * Math.cos(p.a)];
+const lerpA = (a, b, t) => { const d = ((b - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI; return a + d * t; };
+
+function buildTree(c){
+  const rootId = keyOf(c);
+  const root = {id: rootId, type: c.type, ref: c.id, children: []};
+  const lvl1 = c.type === 'song' ? songPeople(c.id).map(p => ({type:'person', ref:p})) : personSongs(c.id).map(s => ({type:'song', ref:s}));
+  const seen = new Set([rootId]);
+  lvl1.forEach(n => seen.add(keyOf({type:n.type, id:n.ref})));
+  const extra = [];
+  root.children = lvl1.map(n => ({id: keyOf({type:n.type, id:n.ref}), type:n.type, ref:n.ref, children: []}));
+  root.children.forEach(node => {
+    const kids = node.type === 'person' ? personSongs(node.ref).map(s => ({type:'song', ref:s})) : songPeople(node.ref).map(p => ({type:'person', ref:p}));
+    kids.forEach(k => {
+      const id = keyOf({type:k.type, id:k.ref});
+      if (id === rootId) return;
+      if (seen.has(id)) { extra.push({s: node.id, t: id}); return; }
+      seen.add(id); node.children.push({id, type:k.type, ref:k.ref});
+    });
+  });
+  const depth2 = new Set(); root.children.forEach(n => n.children.forEach(k => depth2.add(k.id)));
+  return {root, extra: extra.filter(e => depth2.has(e.t))};
+}
+function nodeSize(n){
+  let s;
+  if (n.type === 'song') s = n.depth === 0 ? 52 : n.depth === 1 ? 24 : 17;
+  else { const d = degree(n.ref); s = n.depth === 0 ? 36 : n.depth === 1 ? Math.min(19, 9 + (d - 1) * 3) : Math.min(15, 7 + (d - 1) * 2.4); }
+  return s * (n.depth === 0 ? K : Math.max(.8, K));
+}
+const BASE = {song:22, person:12.6};
+
+function paint(n){
+  const g = d3.select(n.el); g.selectAll('*').remove();
+  g.classed('is-center', n.depth === 0);
+  if (n.type === 'song'){
+    const sl = SONG[n.ref].sleeve;
+    g.append('circle').attr('class','hit').attr('r',22).attr('fill','#0A0A0B').attr('stroke','#ffffff30');
+    const sp = g.append('g').attr('class','spin');
+    [20.4,18.3,16.2,14.1].forEach(r => sp.append('circle').attr('r',r).attr('fill','none').attr('stroke','#fff').attr('stroke-opacity',.08));
+    sp.append('circle').attr('r',10.6).attr('fill',sl[0]);
+    sp.append('circle').attr('cx',0).attr('cy',-6.4).attr('r',2.6).attr('fill',sl[1]);
+    g.append('circle').attr('r',1.6).attr('fill','#0A0A0B');
+    n.ini = null;
+  } else {
+    const p = n.ref, deg = degree(p), col = ROLE[mainRole(p)].color;
+    if (deg >= 2) g.append('circle').attr('class','ripple').attr('r',13).attr('stroke',col);
+    g.append('circle').attr('class','hit').attr('r',10).attr('fill','#24262B');
+    const rs = roleSet(p);
+    const pie = d3.pie().value(1).sort(null).padAngle(rs.length > 1 ? .16 : 0)(rs.length ? rs : ['other']);
+    const arc = d3.arc().innerRadius(10).outerRadius(12.8);
+    g.selectAll('path.seg').data(pie).join('path').attr('class','seg').attr('d',arc).attr('fill',d => ROLE[d.data].color);
+    n.ini = g.append('text').attr('class','ini').attr('text-anchor','middle').attr('dy','.36em').text(initials(PEOPLE[p])).node();
+  }
+  const name = n.type === 'song' ? SONG[n.ref].title : PEOPLE[n.ref];
+  n.el.setAttribute('tabindex', n.depth === 0 ? -1 : 0);
+  n.el.setAttribute('role','button');
+  n.el.setAttribute('aria-label', n.depth === 0 ? name + ', centre' : 'Put ' + name + ' at the centre');
+  n.lbl.textContent = n.depth === 0 ? '' : (name.length > 24 ? name.slice(0, 22) + '…' : name);
+  n.lbl.setAttribute('class', 'lbl' + (n.depth === 2 ? ' sm' : ''));
+}
+
+function relayout(animate){
+  measure();
+  const c = current();
+  if (!c || W < 10) return;
+  const {root, extra} = buildTree(c);
+  const h = d3.hierarchy(root);
+  const R = Math.max(120, Math.min(W, H) / 2 - (W < 560 ? 52 : 112));
+  K = Math.min(1, Math.max(.6, R / 210));
+  d3.tree().size([2 * Math.PI, 1]).separation((a, b) => (a.parent === b.parent ? 1 : 1.6) / Math.max(1, a.depth))(h);
+  const hasD2 = h.height >= 2;
+  const r1 = hasD2 ? R * .5 : R * .7;
+  const keep = new Set(), entering = [];
+  h.each(d => {
+    const id = d.data.id; keep.add(id);
+    let n = ON.get(id);
+    const pid = d.parent ? d.parent.data.id : null;
+    const tgt = {a: d.depth ? d.x : (n ? n.cur.a : 0), r: d.depth === 0 ? 0 : d.depth === 1 ? r1 : R};
+    if (!n){
+      const par = pid && ON.get(pid);
+      const start = par && !par.exiting ? {...par.cur} : {a: tgt.a, r: 0};
+      n = {id, type: d.data.type, ref: d.data.ref, cur: {...start}, size: 0, op: 0, entering: true};
+      n.el = nodesL.append('g').attr('class','nd').attr('data-id', id).node();
+      n.lbl = labelsL.append('text').attr('data-id', id).node();
+      ON.set(id, n); entering.push(n);
+    } else n.entering = false;
+    n.exiting = false;
+    n.from = {...n.cur}; n.tgt = tgt; n.depth = d.depth; n.parent = pid;
+    n.sizeFrom = n.size; n.delay = 0; n.sizeTo = nodeSize(n);
+    paint(n);
+  });
+  entering.sort((a,b) => a.depth - b.depth || a.tgt.a - b.tgt.a).forEach((n, k) => n.delay = (REDUCED || state.streaming) ? 0 : 80 + k * 32);
+  for (const n of ON.values()) if (!keep.has(n.id)){
+    n.exiting = true; n.from = {...n.cur}; n.tgt = {a: n.cur.a, r: n.cur.r * .55};
+    n.sizeFrom = n.size; n.sizeTo = 0; n.delay = 0; n.el.setAttribute('tabindex', -1);
+  }
+  const L = h.links().map(l => ({id: l.source.data.id + '>' + l.target.data.id, s: l.source.data.id, t: l.target.data.id}));
+  linksL.selectAll('path').data(L, d => d.id).join('path').attr('class','lnk').attr('stroke', d => linkColor(d.s, d.t)).attr('data-s', d => d.s).attr('data-t', d => d.t);
+  xlinksL.selectAll('path').data(extra, d => d.s + '>' + d.t).join('path').attr('class','xlnk').attr('data-s', d => d.s).attr('data-t', d => d.t);
+  guidesL.selectAll('circle').data(hasD2 ? [r1, R] : [r1]).join('circle').attr('class','guide').attr('r', d => d);
+  arcsL.style('opacity', 0); arcsL.selectAll('*').remove();
+  emptyL.selectAll('*').remove();
+  orbitState = {R, r1};
+  run(animate && !REDUCED ? 950 : 1);
+}
+function linkColor(a, b){
+  const s = a.startsWith('s:') ? a.slice(2) : b.slice(2);
+  const p = a.startsWith('p:') ? a.slice(2) : b.slice(2);
+  return ROLE[primary(p, s)].color;
+}
+function run(dur){
+  if (timer) timer.stop();
+  const ease = d3.easeCubicInOut, pop = d3.easeBackOut.overshoot(1.8);
+  timer = d3.timer(elapsed => {
+    let done = true;
+    for (const n of ON.values()){
+      const t = Math.min(1, Math.max(0, (elapsed - n.delay) / dur));
+      if (t < 1) done = false;
+      const e = ease(t);
+      n.cur.a = lerpA(n.from.a, n.tgt.a, e);
+      n.cur.r = n.from.r + (n.tgt.r - n.from.r) * e;
+      n.size = n.sizeFrom + (n.sizeTo - n.sizeFrom) * (n.entering ? pop(t) : e);
+      n.op = n.exiting ? 1 - e : n.entering ? Math.min(1, t * 2.5) : 1;
+    }
+    draw();
+    if (done){
+      timer.stop(); timer = null;
+      for (const [id, n] of ON) if (n.exiting){ n.el.remove(); n.lbl.remove(); ON.delete(id); }
+      draw(); drawArcs(); drawEmpty();
+    }
+  });
+}
+function draw(){
+  for (const n of ON.values()){
+    const [x, y] = xy(n.cur); n.x = x; n.y = y;
+    const sc = Math.max(.001, n.size / BASE[n.type]);
+    n.el.setAttribute('transform', `translate(${x.toFixed(2)},${y.toFixed(2)}) scale(${sc.toFixed(3)})`);
+    n.el.setAttribute('opacity', n.op.toFixed(3));
+    if (n.ini) n.ini.setAttribute('opacity', sc > 1.05 ? 1 : 0);
+    const Lb = n.lbl;
+    Lb.setAttribute('opacity', n.op.toFixed(3));
+    if (n.depth === 2){
+      const deg = n.cur.a * 180 / Math.PI;
+      const right = ((n.cur.a % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI) < Math.PI;
+      Lb.setAttribute('transform', `translate(${x.toFixed(2)},${y.toFixed(2)}) rotate(${(right ? deg - 90 : deg + 90).toFixed(2)})`);
+      Lb.setAttribute('x', right ? n.size + 6 : -(n.size + 6)); Lb.setAttribute('y', 4);
+      Lb.setAttribute('text-anchor', right ? 'start' : 'end');
+    } else {
+      Lb.setAttribute('transform', `translate(${x.toFixed(2)},${y.toFixed(2)})`);
+      Lb.setAttribute('x', 0); Lb.setAttribute('y', n.size + 15); Lb.setAttribute('text-anchor','middle');
+    }
+  }
+  linksL.selectAll('path').each(function(d){
+    const s = ON.get(d.s), t = ON.get(d.t); if (!s || !t) return;
+    this.setAttribute('d', lr({source: s.cur, target: t.cur}));
+    this.setAttribute('opacity', (Math.min(s.op, t.op) * .8).toFixed(3));
+  });
+  xlinksL.selectAll('path').each(function(d){
+    const s = ON.get(d.s), t = ON.get(d.t); if (!s || !t) return;
+    this.setAttribute('d', `M${s.x},${s.y} Q${(s.x + t.x) * .32},${(s.y + t.y) * .32} ${t.x},${t.y}`);
+    this.setAttribute('opacity', Math.min(s.op, t.op).toFixed(3));
+  });
+}
+function arcPath(r, a0, a1, flip){
+  const p0 = xy({r, a: a0}), p1 = xy({r, a: a1}), large = a1 - a0 > Math.PI ? 1 : 0;
+  return flip ? `M${p1[0]},${p1[1]} A${r},${r} 0 ${large} 0 ${p0[0]},${p0[1]}` : `M${p0[0]},${p0[1]} A${r},${r} 0 ${large} 1 ${p1[0]},${p1[1]}`;
+}
+function drawArcs(){
+  if (!orbitState || current().type !== 'song') return;
+  const centre = ON.get(keyOf(current()));
+  const ra = orbitState.r1 - 30;
+  if (!centre || ra < centre.size + 10) return;
+  const kids = [...ON.values()].filter(n => n.depth === 1 && !n.exiting).sort((a,b) => a.tgt.a - b.tgt.a);
+  if (!kids.length) return;
+  const groups = [];
+  kids.forEach(n => { const role = primary(n.ref, current().id); const g = groups[groups.length - 1];
+    if (g && g.role === role) g.max = n.tgt.a; else groups.push({role, min: n.tgt.a, max: n.tgt.a}); });
+  const TAU = Math.PI * 2;
+  groups.forEach((g, i) => {
+    const prev = groups[(i - 1 + groups.length) % groups.length], next = groups[(i + 1) % groups.length];
+    const leftLim = groups.length === 1 ? g.min - Math.PI : (i === 0 ? (prev.max - TAU + g.min) / 2 : (prev.max + g.min) / 2);
+    const rightLim = groups.length === 1 ? g.max + Math.PI : (i === groups.length - 1 ? (g.max + next.min + TAU) / 2 : (g.max + next.min) / 2);
+    const a0 = Math.max(g.min - .16, leftLim + .05), a1 = Math.min(g.max + .16, rightLim - .05);
+    if (a1 <= a0) return;
+    const color = ROLE[g.role].color;
+    arcsL.append('path').attr('class','roleArc').attr('stroke', color).attr('d', arcPath(ra, a0, a1, false));
+    const label = ROLE[g.role].short.toUpperCase();
+    if ((a1 - a0) * ra < label.length * 7.2 + 10) return;
+    const mid = ((((a0 + a1) / 2) % TAU) + TAU) % TAU;
+    const flip = mid > Math.PI / 2 && mid < Math.PI * 1.5;
+    const id = 'ra' + i + Math.round(a0 * 1000);
+    arcsL.append('path').attr('id', id).attr('fill','none').attr('d', arcPath(flip ? ra - 6 : ra - 12, a0, a1, flip));
+    arcsL.append('text').attr('class','roleTxt').attr('fill', color).append('textPath').attr('href', '#' + id).attr('startOffset','50%').attr('text-anchor','middle').text(label);
+  });
+  arcsL.style('opacity', 1);
+}
+function drawEmpty(){
+  const c = current();
+  if (c.type === 'song' && !(D.bySong.get(c.id) || []).length && state.streaming !== c.id)
+    emptyL.append('text').attr('class','empty').attr('text-anchor','middle').attr('y', 90).text('No credits on MusicBrainz yet');
+}
+
+/* hover + tooltip */
+const tip = document.getElementById('tip');
+function related(id){
+  const set = new Set([id]);
+  let n = ON.get(id);
+  while (n && n.parent){ set.add(n.parent); n = ON.get(n.parent); }
+  for (const m of ON.values()) if (m.parent === id) set.add(m.id);
+  xlinksL.selectAll('path').each(d => { if (d.s === id) set.add(d.t); if (d.t === id) set.add(d.s); });
+  return set;
+}
+function onPath(d, id){ let n = ON.get(id); while (n && n.parent){ if (d.t === n.id && d.s === n.parent) return true; n = ON.get(n.parent); } return false; }
+function focusOrbit(id){
+  if (!id){ svg.classed('focusing', false); return; }
+  const set = related(id);
+  svg.classed('focusing', true);
+  nodesL.selectAll('.nd').classed('on', function(){ return set.has(this.dataset.id); });
+  labelsL.selectAll('text').classed('on', function(){ return set.has(this.dataset.id); });
+  linksL.selectAll('path').classed('on', d => d.s === id || d.t === id || onPath(d, id));
+  xlinksL.selectAll('path').classed('on', d => d.s === id || d.t === id);
+}
+function showTip(type, ref, evt){
+  let html;
+  if (type === 'song'){
+    const s = SONG[ref], n = (D.bySong.get(ref) || []).length;
+    html = `<b>${esc(s.title)}</b><div class="r">${s.year} · ${esc(s.album)}</div><div class="r">${n ? n + ' credits' : 'No credits yet'}</div>`;
+  } else {
+    const c = current();
+    const rows = c.type === 'song' && rolesOn(ref, c.id).length
+      ? rolesOn(ref, c.id).map(x => `<div class="r"><i style="background:${ROLE[x.role].color}"></i>${ROLE[x.role].short}${x.detail ? ' · ' + esc(x.detail) : ''}</div>`).join('')
+      : roleSet(ref).map(r => `<div class="r"><i style="background:${ROLE[r].color}"></i>${ROLE[r].short}</div>`).join('');
+    html = `<b>${esc(PEOPLE[ref])}</b><div class="r">On ${degree(ref)} of your songs</div>${rows}`;
+  }
+  tip.innerHTML = html; tip.hidden = false; moveTip(evt);
+}
+function moveTip(evt){
+  const r = stage.getBoundingClientRect();
+  let x = evt.clientX - r.left + 14, y = evt.clientY - r.top + 14;
+  if (x + 250 > r.width) x -= 270;
+  if (y + 120 > r.height) y -= 130;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+const hideTip = () => { tip.hidden = true; };
+nodesL.on('mouseover', e => {
+  const g = e.target.closest('.nd'); if (!g) return;
+  const n = ON.get(g.dataset.id); if (!n || n.exiting) return;
+  focusOrbit(n.id); showTip(n.type, n.ref, e);
+}).on('mousemove', e => { if (!tip.hidden) moveTip(e); })
+  .on('mouseout', e => { if (!e.relatedTarget || !e.relatedTarget.closest || !e.relatedTarget.closest('.nd')){ focusOrbit(null); hideTip(); } })
+  .on('click', e => {
+    const g = e.target.closest('.nd'); if (!g) return;
+    const n = ON.get(g.dataset.id); if (!n || n.exiting || n.depth === 0) return;
+    focusOrbit(null); hideTip(); setCenter({type: n.type, id: n.ref}, true);
+  })
+  .on('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const g = e.target.closest('.nd'); if (!g) return;
+    const n = ON.get(g.dataset.id); if (!n || n.depth === 0) return;
+    e.preventDefault(); setCenter({type: n.type, id: n.ref}, true);
+  });
+
+/* ---------- CONSTELLATION ---------- */
+let sim = null; const CPOS = new Map();
+function buildConst(){
+  if (sim) sim.stop();
+  constG.selectAll('*').remove();
+  const nodes = [];
+  activeSongs().forEach(s => nodes.push({id:'s:' + s.id, type:'song', ref:s.id, rad:14}));
+  [...D.byPerson.keys()].forEach(p => nodes.push({id:'p:' + p, type:'person', ref:p, rad:3 + degree(p) * 2}));
+  nodes.forEach(n => { const o = CPOS.get(n.id); if (o){ n.x = o.x; n.y = o.y; } else { n.x = (Math.random() - .5) * 60; n.y = (Math.random() - .5) * 60; } });
+  const seen = new Set(), links = [];
+  D.vc.forEach(c => { const k = c.song + '|' + c.person; if (seen.has(k)) return; seen.add(k);
+    links.push({source:'s:' + c.song, target:'p:' + c.person, color: ROLE[primary(c.person, c.song)].color}); });
+  const nb = new Map(); nodes.forEach(n => nb.set(n.id, new Set([n.id])));
+  links.forEach(l => { nb.get(l.source).add(l.target); nb.get(l.target).add(l.source); });
+  const lk = constG.append('g').selectAll('line').data(links).join('line').attr('class','clnk').attr('stroke', d => d.color);
+  const nd = constG.append('g').selectAll('g').data(nodes, d => d.id).join('g').attr('class','nd').attr('tabindex', 0).attr('role','button')
+    .attr('aria-label', d => 'Explore ' + (d.type === 'song' ? SONG[d.ref].title : PEOPLE[d.ref]) + ' in orbit');
+  nd.each(function(d){
+    const g = d3.select(this);
+    if (d.type === 'song'){
+      const sl = SONG[d.ref].sleeve;
+      g.append('circle').attr('class','hit').attr('r', 14).attr('fill','#0A0A0B').attr('stroke','#ffffff40');
+      g.append('circle').attr('r', 6.8).attr('fill', sl[0]);
+      g.append('circle').attr('r', 1.4).attr('fill','#0A0A0B');
+    } else {
+      const col = ROLE[mainRole(d.ref)].color;
+      if (degree(d.ref) >= 2) g.append('circle').attr('class','ripple').attr('r', d.rad + 3).attr('stroke', col);
+      g.append('circle').attr('class','hit').attr('r', d.rad).attr('fill', col);
+    }
+  });
+  const lb = constG.append('g').selectAll('text').data(nodes, d => d.id).join('text')
+    .attr('class', d => 'lbl' + (d.type === 'person' && degree(d.ref) < 2 ? ' sm hide' : '')).attr('text-anchor','middle')
+    .text(d => d.type === 'song' ? SONG[d.ref].title : PEOPLE[d.ref]);
+  nd.on('mouseover', (e, d) => {
+    const set = nb.get(d.id);
+    svg.classed('focusing', true);
+    nd.classed('on', n => set.has(n.id)); lb.classed('on', n => set.has(n.id));
+    lk.classed('on', l => l.source.id === d.id || l.target.id === d.id);
+    showTip(d.type, d.ref, e);
+  }).on('mousemove', e => moveTip(e))
+    .on('mouseout', () => { svg.classed('focusing', false); hideTip(); })
+    .on('click', (e, d) => { if (e.defaultPrevented) return; hideTip(); svg.classed('focusing', false); setView('orbit', true); setCenter({type:d.type, id:d.ref}, true, true); })
+    .on('keydown', (e, d) => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); setView('orbit', true); setCenter({type:d.type, id:d.ref}, true, true); } });
+  nd.call(d3.drag()
+    .on('start', (e, d) => { if (!e.active) sim.alphaTarget(.25).restart(); d.fx = d.x; d.fy = d.y; })
+    .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+    .on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
+  const tick = () => {
+    lk.attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+    nd.attr('transform', d => `translate(${d.x},${d.y})`);
+    lb.attr('x', d => d.x).attr('y', d => d.y + (d.type === 'song' ? 30 : d.rad + 13));
+    nodes.forEach(n => CPOS.set(n.id, {x: n.x, y: n.y}));
+  };
+  sim = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(links).id(d => d.id).distance(l => 70 + (l.target.rad || 4) * 3).strength(.5))
+    .force('charge', d3.forceManyBody().strength(d => d.type === 'song' ? -620 : -150))
+    .force('collide', d3.forceCollide(d => (d.type === 'song' ? 40 : d.rad + 16)))
+    .force('x', d3.forceX(0).strength(.035)).force('y', d3.forceY(0).strength(.05))
+    .on('tick', tick);
+  if (REDUCED){ sim.stop(); for (let i = 0; i < 300; i++) sim.tick(); tick(); }
+}
+
+/* ---------- panel rendering with list animation ---------- */
+const seenCards = new Set(), seenNames = new Set(), seenHubs = new Set(), prevCounts = new Map();
+let prevStats = {};
+function flipCapture(root, sel){ const m = new Map(); root.querySelectorAll(sel).forEach(el => m.set(el.dataset.k, el.getBoundingClientRect())); return m; }
+function flipPlay(root, sel, before){
+  if (REDUCED) return;
+  root.querySelectorAll(sel).forEach(el => {
+    const b = before.get(el.dataset.k); if (!b) return;
+    const a = el.getBoundingClientRect(), dx = b.left - a.left, dy = b.top - a.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    el.animate([{transform:`translate(${dx}px,${dy}px)`},{transform:'none'}], {duration:480, easing:'cubic-bezier(.2,.8,.2,1)'});
+  });
+}
+function countUp(el, from, to){
+  if (REDUCED || from === to){ el.textContent = to; return; }
+  const t0 = performance.now(), dur = 650;
+  const step = now => { const t = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(from + (to - from) * e); if (t < 1) requestAnimationFrame(step); };
+  el.textContent = from; requestAnimationFrame(step);
+}
+function renderStrip(){
+  const songs = activeSongs().length, people = D.byPerson.size;
+  const hubs = [...D.byPerson.keys()].filter(p => degree(p) >= 2);
+  const max = Math.max(0, ...hubs.map(degree));
+  const top = hubs.filter(p => degree(p) === max).map(p => PEOPLE[p]);
+  document.getElementById('headline').innerHTML = top.length
+    ? `<em>${top.map(esc).join(' & ')}</em> ${top.length > 1 ? 'each connect' : 'connects'} ${max} of your ${songs} songs`
+    : `${songs} ${songs === 1 ? 'song' : 'songs'}, ${people} people behind ${songs === 1 ? 'it' : 'them'}`;
+  const vals = {songs, people, credits: D.vc.length, connectors: hubs.length};
+  const el = document.getElementById('stats');
+  el.innerHTML = Object.keys(vals).map(k => `<div class="stat"><b data-stat="${k}">${vals[k]}</b><span>${k}</span></div>`).join('');
+  el.querySelectorAll('[data-stat]').forEach(b => countUp(b, prevStats[b.dataset.stat] ?? 0, vals[b.dataset.stat]));
+  prevStats = vals;
+}
+function renderHubs(){
+  const el = document.getElementById('hubs');
+  const before = flipCapture(el, '.hub');
+  const hubs = [...D.byPerson.keys()].filter(p => degree(p) >= 2).sort((a,b) => degree(b) - degree(a) || PEOPLE[a].localeCompare(PEOPLE[b]));
+  if (!hubs.length){ el.innerHTML = '<p class="muted">Add a second song. People who worked on both will show up here.</p>'; return; }
+  const c = current();
+  let fresh = 0;
+  el.innerHTML = hubs.map(p => {
+    const isNew = !seenHubs.has(p); seenHubs.add(p);
+    return `<button class="hub${c.type === 'person' && c.id === p ? ' is-on' : ''}${isNew ? ' enter' : ''}" style="--i:${isNew ? fresh++ : 0}" data-k="${p}" data-person="${p}" aria-label="Explore ${esc(PEOPLE[p])}">
+      <div class="hub-top"><div class="av" style="background:${ringCss(p)}"><span>${initials(PEOPLE[p])}</span></div>
+        <div class="cnt"><b data-count="${p}">${degree(p)}</b><small>SONGS</small></div></div>
+      <div class="nm">${esc(PEOPLE[p])}</div>
+      <div class="bars" aria-label="${roleSet(p).map(r => ROLE[r].short).join(', ')}">${roleSet(p).map(r => `<i style="background:${ROLE[r].color}"></i>`).join('')}</div>
+      <div class="covers">${personSongs(p).map(s => sleeveHtml(SONG[s].sleeve)).join('')}</div>
+    </button>`;
+  }).join('');
+  el.querySelectorAll('[data-count]').forEach(b => { const p = b.dataset.count; countUp(b, prevCounts.get(p) ?? 0, degree(p)); prevCounts.set(p, degree(p)); });
+  flipPlay(el, '.hub', before);
+}
+function renderNotes(){
+  const el = document.getElementById('notes');
+  const c = current();
+  if (state.textView){
+    el.innerHTML = `<div class="tbl-wrap"><table><caption class="sr">All credits in your graph</caption>
+      <thead><tr><th scope="col">Song</th><th scope="col">Role</th><th scope="col">Person</th></tr></thead><tbody>${
+      D.vc.map(x => `<tr><td>${esc(SONG[x.song].title)}</td><td>${ROLE[x.role].short}${x.detail ? ' · ' + esc(x.detail) : ''}</td><td>${esc(PEOPLE[x.person])}</td></tr>`).join('')}</tbody></table></div>`;
+    return;
+  }
+  const before = flipCapture(el, '.card');
+  const order = activeSongs().map(s => s.id);
+  if (state.streaming) order.sort((a,b) => (b === state.streaming) - (a === state.streaming));
+  let freshCards = 0;
+  el.innerHTML = order.map(s => {
+    const S = SONG[s], st = statusOf(s), list = D.bySong.get(s) || [];
+    const cardKnown = seenCards.has(s);
+    const groups = ROLES.map(r => {
+      const items = [], seenP = new Map();
+      list.filter(x => x.role === r.id).forEach(x => {
+        if (seenP.has(x.person)){ if (x.detail) seenP.get(x.person).details.push(x.detail); return; }
+        const it = {p: x.person, details: x.detail ? [x.detail] : []}; seenP.set(x.person, it); items.push(it);
+      });
+      return {r, items};
+    }).filter(g => g.items.length);
+    const body = groups.length
+      ? `<div class="credits">${groups.map(g => {
+          const rowKey = s + '|row|' + g.r.id, rowNew = cardKnown && !seenNames.has(rowKey); seenNames.add(rowKey);
+          return `<div class="row${rowNew ? ' new' : ''}"><i style="background:${g.r.color}"></i><div class="role">${g.r.label}</div><div class="names">${
+            g.items.map(it => {
+              const k = s + '|' + it.p + '|' + g.r.id, isNew = cardKnown && !seenNames.has(k); seenNames.add(k);
+              return `<button class="nb${isNew ? ' new' : ''}" data-person="${it.p}">${esc(PEOPLE[it.p])}</button>${degree(it.p) >= 2 ? `<span class="x" aria-label="on ${degree(it.p)} of your songs">×${degree(it.p)}</span>` : ''}${it.details.length ? ` <span class="det">(${esc(it.details.join(', '))})</span>` : ''}`;
+            }).join(', ')}</div></div>`;
+        }).join('')}</div>`
+      : st === 'live' ? '<p class="nocred">Listening for credits…</p>'
+      : '<p class="nocred">No credits on MusicBrainz yet. <a href="https://musicbrainz.org/" target="_blank" rel="noopener">Help add them</a></p>';
+    const on = c.type === 'song' && c.id === s;
+    const enterCls = cardKnown ? '' : ' enter';
+    const html = `<article class="card${on ? ' is-on' : ''}${enterCls}" style="--i:${cardKnown ? 0 : freshCards++}" data-k="${s}" data-song="${s}">
+      <button class="card-head" data-song="${s}" aria-label="Spin ${esc(S.title)} at the centre">
+        ${sleeveHtml(S.sleeve)}
+        <span class="ch"><b>${esc(S.title)}</b><span>${esc(artistOf(s))} · ${S.year} · ${esc(S.album)}</span>
+        <span class="status ${st}">${STATUS_TEXT[st]}</span></span>
+      </button>${body}</article>`;
+    seenCards.add(s);
+    return html;
+  }).join('');
+  flipPlay(el, '.card', before);
+}
+function renderCrumbs(){
+  const el = document.getElementById('crumbs');
+  const hist = state.history, startIdx = Math.max(0, hist.length - 4), parts = [];
+  if (startIdx > 0) parts.push('<span class="sep">…</span>');
+  hist.slice(startIdx).forEach((h, k) => {
+    const i = startIdx + k, name = h.type === 'song' ? SONG[h.id].title : PEOPLE[h.id];
+    if (k > 0) parts.push('<span class="sep" aria-hidden="true">/</span>');
+    parts.push(`<button data-hist="${i}"${i === hist.length - 1 ? ' aria-current="true"' : ''}>${esc(name)}</button>`);
+  });
+  el.innerHTML = parts.join('');
+  el.hidden = state.view !== 'orbit';
+}
+let lastNow = '';
+function renderNow(){
+  const el = document.getElementById('now');
+  let html;
+  if (state.view !== 'orbit') html = '<span class="kicker k">Constellation</span><strong>Your whole graph</strong><span class="m">Hover a node to light up its connections. Click one to explore it.</span>';
+  else {
+    const c = current();
+    if (c.type === 'song'){
+      const S = SONG[c.id], n = songPeople(c.id).length, A = esc(artistOf(c.id));
+      const meta = n ? `${A} · ${S.year} · ${n} people credited`
+        : (state.streaming === c.id ? 'Loading credits…' : `${A} · ${S.year} · <a href="https://musicbrainz.org/" target="_blank" rel="noopener">credits incomplete</a>`);
+      html = `<span class="kicker k">Now spinning</span><strong>${esc(S.title)}</strong><span class="m">${meta}</span>`;
+    } else html = `<span class="kicker k">Following</span><strong>${esc(PEOPLE[c.id])}</strong><span class="m">On ${degree(c.id)} of your songs · ${roleSet(c.id).map(r => ROLE[r].short).join(', ')}</span>`;
+  }
+  const key = state.view + JSON.stringify(current());
+  el.innerHTML = html;
+  if (key !== lastNow){ el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); lastNow = key; }
+}
+function renderLegend(){
+  document.getElementById('legend').innerHTML = ROLES.map(r => `<span><i style="background:${r.color}"></i>${r.short}</span>`).join('')
+    + `<span class="hint">${state.view === 'orbit' ? 'Click anyone to put them at the centre · scroll to zoom' : 'Drag nodes · click to explore'}</span>`;
+}
+
+/* ---------- actions ---------- */
+function refresh(animate){
+  derive();
+  if (state.screen !== 'app' || !current()) return;
+  renderStrip(); renderHubs(); renderNotes(); renderCrumbs(); renderNow(); renderLegend();
+  if (state.view === 'orbit') relayout(animate); else buildConst();
+}
+function pushCenter(c){
+  const at = state.history.findIndex(h => h.type === c.type && h.id === c.id);
+  if (at >= 0) state.history = state.history.slice(0, at + 1); else state.history.push(c);
+}
+function setCenter(c, user, force){
+  const cur = current();
+  if (!force && cur && cur.type === c.type && cur.id === c.id) return;
+  pushCenter(c);
+  if (state.view !== 'orbit') setView('orbit', true);
+  refresh(true);
+  if (user && c.type === 'song' && matchMedia('(min-width: 901px)').matches){
+    const card = document.querySelector(`.card[data-song="${c.id}"]`);
+    if (card) card.scrollIntoView({block:'nearest', behavior: REDUCED ? 'auto' : 'smooth'});
+  }
+}
+function setView(v, silent){
+  if (state.view === v) return;
+  state.view = v;
+  document.getElementById('v-orbit').setAttribute('aria-pressed', v === 'orbit');
+  document.getElementById('v-const').setAttribute('aria-pressed', v === 'const');
+  svg.classed('focusing', false); hideTip();
+  if (v === 'orbit'){ if (sim) sim.stop(); constG.style('display','none'); orbitG.style('display', null); sky.attr('opacity', .5); }
+  else { if (timer){ timer.stop(); timer = null; } orbitG.style('display','none'); constG.style('display', null); sky.attr('opacity', 1); }
+  resetZoom();
+  if (!silent) refresh(true);
+}
+document.getElementById('v-orbit').onclick = () => setView('orbit');
+document.getElementById('v-const').onclick = () => setView('const');
+document.getElementById('crumbs').addEventListener('click', e => {
+  const b = e.target.closest('[data-hist]'); if (!b) return;
+  state.history = state.history.slice(0, +b.dataset.hist + 1); refresh(true);
+});
+document.querySelector('.panel').addEventListener('click', e => {
+  const p = e.target.closest('[data-person]'); if (p){ setCenter({type:'person', id:p.dataset.person}, true); return; }
+  const s = e.target.closest('.card-head'); if (s) setCenter({type:'song', id:s.dataset.song}, true);
+});
+document.getElementById('textview').onclick = e => { state.textView = !state.textView; e.currentTarget.setAttribute('aria-pressed', state.textView); renderNotes(); };
+const liveEl = document.getElementById('live');
+let liveTimer = null;
+function flash(msg){ liveEl.innerHTML = msg; liveEl.hidden = false; clearTimeout(liveTimer); liveTimer = setTimeout(() => { if (!state.streaming) liveEl.hidden = true; }, 2800); }
+document.getElementById('find').addEventListener('submit', e => {
+  e.preventDefault();
+  const q = document.getElementById('q').value.trim().toLowerCase(); if (!q) return;
+  const s = activeSongs().find(x => x.title.toLowerCase().includes(q));
+  const p = [...D.byPerson.keys()].find(x => PEOPLE[x].toLowerCase().includes(q));
+  const hit = s ? {type:'song', id:s.id} : p ? {type:'person', id:p} : null;
+  if (hit) setCenter(hit, true); else flash(`Nothing called “${esc(q)}” in your graph yet`);
+});
+
+/* live credit stream */
+let streamTimer = null;
+function finishStream(){
+  clearInterval(streamTimer); streamTimer = null;
+  const sid = state.streaming; if (!sid) return;
+  const total = RAW[sid].length;
+  state.revealed = total; state.streaming = null;
+  refresh(true);
+  liveEl.innerHTML = `<i></i>Credits loaded · ${total} new`; liveEl.hidden = false;
+  setTimeout(() => {
+    if (state.streaming) return;
+    if (state.active.size === 1){ liveEl.innerHTML = 'Add another song to see who connects them'; setTimeout(() => { if (!state.streaming) liveEl.hidden = true; }, 3600); }
+    else liveEl.hidden = true;
+  }, 2200);
+}
+function startStream(sid){
+  if (state.streaming) finishStream();
+  state.active.add(sid); pushCenter({type:'song', id:sid});
+  if (state.view !== 'orbit') setView('orbit', true);
+  const total = RAW[sid].length;
+  if (!total){ refresh(true); flash('Added. MusicBrainz has no credits for this one yet'); return; }
+  state.streaming = sid; state.revealed = 0;
+  refresh(true);
+  liveEl.hidden = false; liveEl.innerHTML = `<i></i>Live · loading credits 0/${total}`;
+  streamTimer = setInterval(() => {
+    state.revealed++;
+    liveEl.innerHTML = `<i></i>Live · loading credits ${state.revealed}/${total}`;
+    if (state.revealed >= total){ finishStream(); return; }
+    refresh(true);
+  }, REDUCED ? 120 : 420);
+}
+
+/* ---------- search (sample catalogue) ---------- */
+const CAT = [
+  {id:'redbone', title:'Redbone', album:'Awaken, My Love!', year:2016, song:'redbone', versions:[
+    ['Redbone','compilation','Promo Only: Modern Rock Radio, January 2017',2016],
+    ['Redbone','compilation','Annie Mac Presents 2017',2017],
+    ['redbone','live','Live at Coachella',2019],
+    ['Redbone','live','Live at the Forum',2021],
+    ['Redbone','live','Live at Camp Flog Gnaw 2025',2022]]},
+  {id:'redbone-radio', title:'Redbone (radio edit)', album:'Now 2017 Vol. 1', year:2017, kind:'edit'},
+  {id:'redbone-wbbl', title:'Redbone (WBBL remix)', album:'WBBL’s Filthy Old Bits', year:2026, kind:'remix'},
+  {id:'redbone-tsunxmi', title:'Redbone (Tsunxmi remix)', album:'Unreleased Works 2015-2017', year:2017, kind:'remix'},
+  {id:'redbone-nick', title:'Redbone (Nick Bike edit)', album:'Soul Brothers Remixed', year:2017, kind:'edit'},
+  {id:'telegraph', title:'Telegraph Ave.', album:'Telegraph Ave.', year:2013, song:'telegraph'},
+  {id:'tg-bearface', title:'Telegraph Ave (Bear//Face bootleg)', album:'Remixes', year:2013, kind:'bootleg'},
+  {id:'tg-taku', title:'Telegraph Ave. (Ta-ku remix)', album:'Telegraph Ave.', year:2013, kind:'remix'},
+  {id:'tg-oakland', title:'III. Telegraph Ave. (“Oakland” by Lloyd)', album:'Because the Internet', year:2013},
+  {id:'tg-lloyd', title:'Telegraph Ave (Oakland by Lloyd)', album:'Sex Escapades Vol. 6', year:2013, artist:'Childish Gambino feat. Lloyd', kind:'mixtape'},
+  {id:'mym', title:'Me and Your Mama', album:'Awaken, My Love!', year:2016, song:'mym'},
+  {id:'tia', title:'This Is America', album:'This Is America', year:2018, song:'tia'},
+  {id:'fls', title:'Feels Like Summer', album:'Summer Pack', year:2018, song:'fls'},
+  {id:'s3005', title:'3005', album:'Because the Internet', year:2013, song:'s3005'}
+];
+const CATI = {}; CAT.forEach(c => CATI[c.id] = c);
+const norm = s => s.toLowerCase().replace(/[“”"'’().,/]/g,' ').replace(/\s+/g,' ').trim();
+function score(q, t){
+  q = norm(q); t = norm(t); if (!q) return 0;
+  if (t === q) return 100;
+  if (t.startsWith(q)) return Math.max(80, 92 - (t.length - q.length));
+  if (t.includes(q)) return Math.max(70, 84 - (t.length - q.length) / 2);
+  const words = q.split(' '), hits = words.filter(w => t.includes(w)).length;
+  return hits ? Math.round(64 * hits / words.length) : 0;
+}
+function sleeveOf(c){
+  if (c.song) return SONG[c.song].sleeve;
+  let h = 0; for (const ch of c.id) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return PALETTE[h % PALETTE.length];
+}
+const songIdOf = c => c.song || c.id;
+function ensureSong(c){
+  const sid = songIdOf(c);
+  if (!SONG[sid]){ const s = {id:sid, title:c.title, year:c.year, album:c.album, sleeve:sleeveOf(c), artist:c.artist}; SONGS.push(s); SONG[sid] = s; RAW[sid] = []; }
+  return sid;
+}
+function vu(s){
+  const on = Math.round(s / 100 * 6);
+  return `<span class="vu" aria-hidden="true">${[5,7,9,11,13,15].map((h, i) => `<i class="${i < on ? 'on' : ''}${i >= 4 && i < on ? ' hi' : ''}" style="height:${h}px;--d:${i}"></i>`).join('')}</span>`;
+}
+function renderResults(el, q, a){
+  if (!q.trim()){ el.innerHTML = ''; return; }
+  const an = norm(a || '');
+  if (an && !['childish','gambino','glover','lloyd','donald'].some(w => an.includes(w))){
+    el.innerHTML = `<p class="nores enter" style="--i:0">This prototype only has a sample of Childish Gambino songs. Try Redbone or Telegraph Ave.</p>`; return;
+  }
+  const list = CAT.map(c => ({c, s: score(q, c.title)})).filter(x => x.s >= 50).sort((x, y) => y.s - x.s).slice(0, 6);
+  if (!list.length){ el.innerHTML = `<p class="nores enter" style="--i:0">Nothing called “${esc(q)}” in this sample. Try Redbone, Telegraph Ave or Me and Your Mama.</p>`; return; }
+  el.innerHTML = `<div class="res-head enter" style="--i:0"><b>Results for “${esc(q)}”</b><span>${list.length} ${list.length === 1 ? 'SONG' : 'SONGS'} · VERSIONS FOLDED</span></div>` +
+    list.map(({c, s}, i) => {
+      const inGraph = state.active.has(songIdOf(c)), vers = c.versions || [];
+      return `<div class="res enter" style="--i:${i + 1}">
+        ${sleeveHtml(sleeveOf(c))}
+        <div style="min-width:0">
+          <div class="t">${esc(c.title)}${c.kind ? `<span class="tag ${c.kind}">${c.kind}</span>` : ''}</div>
+          <div class="mt">${esc(c.artist || ARTIST)} · ${esc(c.album)} (${c.year})</div>
+          <div class="sub"><span class="match">${vu(s)}${Math.round(s)}%</span>
+            ${vers.length ? `<button class="verb" data-ver="${c.id}" aria-expanded="false"><span class="chev" aria-hidden="true">›</span><span class="stack">${vers.slice(0, 4).map((v, k) => sleeveHtml(PALETTE[(k + 1) % PALETTE.length])).join('')}</span>${vers.length} more versions</button>` : ''}
+          </div>
+        </div>
+        <div class="act">${inGraph ? `<button class="ingraph" data-show="${c.id}">✓ In your graph</button>` : `<button class="addb" data-add="${c.id}">Add to graph</button>`}</div>
+        ${vers.length ? `<div class="vers" data-vers="${c.id}"><div>${vers.map((v, k) => `<div class="ver" style="--i:${k}">${sleeveHtml(PALETTE[(k + 1) % PALETTE.length])}<span>${esc(v[0])}</span><span class="tag ${v[1]}">${v[1]}</span><span class="mt">${esc(v[2])} (${v[3]})</span></div>`).join('')}</div></div>` : ''}
+      </div>`;
+    }).join('');
+}
+function wireResults(el, getQuery, delayed){
+  el.addEventListener('click', e => {
+    const v = e.target.closest('[data-ver]');
+    if (v){ const box = el.querySelector(`[data-vers="${v.dataset.ver}"]`); const open = !box.classList.contains('open');
+      box.classList.toggle('open', open); v.setAttribute('aria-expanded', open); return; }
+    const add = e.target.closest('[data-add]'), show = e.target.closest('[data-show]');
+    const hit = add || show; if (!hit) return;
+    const c = CATI[hit.dataset.add || hit.dataset.show];
+    const sid = ensureSong(c);
+    const go = () => {
+      closeSheet();
+      if (state.screen !== 'app') showApp();
+      if (show){ pushCenter({type:'song', id:sid}); if (state.view !== 'orbit') setView('orbit', true); refresh(true); return; }
+      startStream(sid);
+      const [q, a] = getQuery(); renderResults(el, q, a);
+    };
+    if (add && !REDUCED){ add.classList.add('done'); add.textContent = '✓ Added'; add.disabled = true; setTimeout(go, delayed ? 520 : 420); }
+    else go();
+  });
+}
+
+/* ---------- screens ---------- */
+const landing = document.getElementById('landing'), app = document.getElementById('app'), sheet = document.getElementById('sheet');
+function showApp(){ state.screen = 'app'; landing.hidden = true; app.hidden = false; measure(); resetZoom(); }
+function showLanding(){
+  state.screen = 'landing'; app.hidden = true; landing.hidden = false;
+  document.getElementById('demo').textContent = state.active.size ? `Back to your graph · ${state.active.size} songs` : 'Open the demo graph';
+  window.scrollTo(0, 0);
+}
+document.getElementById('demo').onclick = () => {
+  if (!state.active.size){ DEMO.forEach(s => state.active.add(s)); state.history = [{type:'song', id:'redbone'}]; }
+  showApp(); refresh(true);
+};
+document.getElementById('home').onclick = showLanding;
+const lres = document.getElementById('lresults'), lq = document.getElementById('lq'), la = document.getElementById('la');
+document.getElementById('lsearch').addEventListener('submit', e => { e.preventDefault(); renderResults(lres, lq.value, la.value); });
+document.querySelector('.landing .tries').addEventListener('click', e => {
+  const b = e.target.closest('[data-try]'); if (!b) return;
+  lq.value = b.dataset.try; la.value = 'Childish Gambino'; renderResults(lres, lq.value, la.value);
+});
+wireResults(lres, () => [lq.value, la.value], false);
+const sres = document.getElementById('sresults'), sq = document.getElementById('sq'), sa = document.getElementById('sa');
+let lastFocus = null;
+function openSheet(){ lastFocus = document.activeElement; sheet.hidden = false; sq.focus(); if (sq.value) renderResults(sres, sq.value, sa.value); }
+function closeSheet(){ if (sheet.hidden) return; sheet.hidden = true; if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+document.getElementById('add').onclick = openSheet;
+document.getElementById('sheet-close').onclick = closeSheet;
+sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+document.getElementById('ssearch').addEventListener('submit', e => { e.preventDefault(); renderResults(sres, sq.value, sa.value); });
+sheet.querySelector('.tries').addEventListener('click', e => {
+  const b = e.target.closest('[data-stry]'); if (!b) return;
+  sq.value = b.dataset.stry; sa.value = 'Childish Gambino'; renderResults(sres, sq.value, sa.value);
+});
+wireResults(sres, () => [sq.value, sa.value], true);
+
+/* landing disc: flat record, crew orbiting */
+(function buildDisc(){
+  const s = d3.select('#disc');
+  const P = (r, a) => [r * Math.sin(a), -r * Math.cos(a)];
+  [292, 240, 186].forEach(r => s.append('circle').attr('r', r).attr('fill','none').attr('stroke','#ffffff14').attr('stroke-dasharray', r === 240 ? null : '1 6'));
+  const r3 = s.append('g').attr('class','rot r3');
+  d3.range(56).forEach(i => {
+    const [x, y] = P(272, i / 56 * Math.PI * 2);
+    r3.append('rect').attr('x', x - 2).attr('y', y - 2).attr('width', i % 7 ? 3 : 7).attr('height', i % 7 ? 3 : 7)
+      .attr('fill', i % 7 ? '#ffffff30' : ROLES[(i / 7) % ROLES.length | 0].color);
+  });
+  const r2 = s.append('g').attr('class','rot r2');
+  r2.append('path').attr('id','ringp').attr('fill','none').attr('d','M0,-218 A218,218 0 1,1 0,218 A218,218 0 1,1 0,-218');
+  r2.append('text').attr('class','ringTxt').append('textPath').attr('href','#ringp')
+    .text('Produced by Donald Glover · Ludwig Göransson  ✦  Written by William Earl Collins · Gary Cooper  ✦  Mixed by Riley Mackin  ✦  Engineered by Ruben Rivera  ✦  ');
+  const r1 = s.append('g').attr('class','rot');
+  const crew = [['DG','producer'],['LG','producer'],['RM','mixing'],['RR','engineering'],['WC','songwriter'],['GC','songwriter'],['BP','other'],['DG','vocal']];
+  crew.forEach(([ini, role], i) => {
+    const a = i / crew.length * Math.PI * 2 + .3, [x, y] = P(168, a), [x0, y0] = P(128, a);
+    r1.append('line').attr('x1', x0).attr('y1', y0).attr('x2', x).attr('y2', y).attr('stroke', ROLE[role].color).attr('stroke-width', 1.5);
+    r1.append('circle').attr('cx', x).attr('cy', y).attr('r', 15).attr('fill', ROLE[role].color);
+    r1.append('text').attr('x', x).attr('y', y).attr('dy','.36em').attr('text-anchor','middle').attr('class','ini').style('font-size','10px').attr('fill','#101113').text(ini);
+  });
+  const rec = s.append('g').attr('class','rot rec');
+  rec.append('circle').attr('r', 122).attr('fill','#0A0A0B').attr('stroke','#ffffff26');
+  d3.range(9).forEach(i => rec.append('circle').attr('r', 116 - i * 7.5).attr('fill','none').attr('stroke','#fff').attr('stroke-opacity', .06));
+  rec.append('circle').attr('r', 46).attr('fill', SONG.redbone.sleeve[0]);
+  rec.append('circle').attr('cx', 0).attr('cy', -26).attr('r', 10).attr('fill', '#101113');
+  rec.append('rect').attr('x', -30).attr('y', 14).attr('width', 60).attr('height', 6).attr('fill', '#101113');
+  rec.append('circle').attr('r', 4).attr('fill','#0A0A0B');
+})();
+
+/* ---------- boot ---------- */
+sky.attr('opacity', .5);
+derive();
+let rT;
+new ResizeObserver(() => {
+  clearTimeout(rT);
+  rT = setTimeout(() => { const w = W, h = H; measure(); if (Math.abs(w - W) < 2 && Math.abs(h - H) < 2) return; resetZoom(); if (state.view === 'orbit') relayout(false); }, 120);
+}).observe(stage);
+})();
+</script>
+
+</body></html>

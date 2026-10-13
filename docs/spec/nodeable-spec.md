@@ -117,14 +117,27 @@ Requirements are grouped by release phase. The MVP is the smallest version that 
 | FR-GRAPH-02 | Adding a song shows its node immediately and streams credit nodes as they resolve | US-01 |
 | FR-GRAPH-03 | Credits are resolved from recording, work and release relationships, deduplicated per person and role | US-01 |
 | FR-GRAPH-04 | Songs with no producer and no writer credit show a "credits incomplete" badge linking to MusicBrainz | US-01 |
-| FR-HUB-01 | Person nodes are sized by the number of graph songs they are credited on | US-02 |
-| FR-HUB-02 | A "Your hubs" panel lists people credited on 2 or more songs, sorted by count | US-02 |
+| FR-HUB-01 | A person is sized by the number of graph songs they are credited on (constellation), and a person on two or more songs is marked as a connector (orbit) | US-02 |
+| FR-HUB-02 | Connector cards list people credited on 2 or more songs, sorted by count (M3's "Your hubs" panel, redesigned in M3R) | US-02 |
 | FR-HUB-03 | Role filters toggle producer, songwriter, mixing, engineering, instrument and vocal credits | US-02 |
 | FR-PERSON-01 | Clicking a person opens a drawer with role summary, active years and credited recordings | US-03 |
 | FR-REC-01 | Recommendations rank recordings by the number of graph hubs credited on them, excluding songs already in the graph | US-03 |
 | FR-REC-02 | Each recommendation shows a plain-language reason | US-03 |
 | FR-PREVIEW-01 | Recordings play a 30-second preview when one is available from Deezer | US-03 |
 | FR-ABOUT-01 | An About page shows the architecture, a live crawl status panel from real telemetry, and links to the repository and spec | US-08 |
+
+### M3R UI refresh (approved 2026-10-13, decision 0020)
+
+The design is the prototype in `docs/design/nodeable-ui-prototype.html`. These requirements add to the MVP table; FR-SEARCH-01/02, FR-GRAPH-01..04 and FR-HUB-01..03 still apply to the new views.
+
+| ID | Requirement | Story |
+| --- | --- | --- |
+| FR-VIEW-01 | An orbit view centres one song or person: a radial tree of depth 2 with role arcs; choosing any node re-roots it, with breadcrumbs and animated polar transitions | US-01, US-02 |
+| FR-VIEW-02 | A constellation view shows the whole graph as a force layout with zoom and drag; choosing a node opens it in the orbit; an Orbit / Constellation toggle switches between them | US-02 |
+| FR-NOTES-01 | Liner notes list each song's credits grouped by role with its credits status, highlight credits as they arrive, and offer removing the song | US-01 |
+| FR-LAND-01 | A landing page explains the product and holds the search; it offers the person's existing graph | US-01 |
+| FR-GRAPH-05 | A song or person already in the graph can be found by name and becomes the orbit's centre | US-02 |
+| FR-ART-01 | Songs show their cover: Cover Art Archive by release, then by release group, then the Deezer album cover, then a generated sleeve; never through the MusicBrainz rate gate | US-01 |
 
 ### v2
 
@@ -172,7 +185,8 @@ The hardest non-functional constraint is the MusicBrainz limit of about one requ
 | NFR-SEC-03 | Security | OAuth tokens for Spotify are encrypted at rest and never sent to the browser |
 | NFR-SEC-04 | Security | Dependencies are scanned on every pull request |
 | NFR-A11Y-01 | Accessibility | WCAG 2.2 AA; the graph has a keyboard-navigable list view with the same data |
-| NFR-A11Y-02 | Accessibility | Colour is never the only carrier of meaning; role colours also use icons or patterns |
+| NFR-A11Y-02 | Accessibility | Colour is never the only carrier of meaning; role colours also use icons or patterns (the legend and filter chips carry an icon and the name; arcs and notes carry the role's name) |
+| NFR-MOTION-01 | Accessibility | List and graph animations (staggered rise, match bars, add pop, version expand, FLIP reorder, count-up, new-credit highlight, streaming bloom, polar transitions) respect `prefers-reduced-motion`, including a change made while the page is open; CSS animations change only `transform` and `opacity` |
 | NFR-OBS-01 | Observability | Every request and job is traced end to end, from browser click to external API call |
 | NFR-PRIV-01 | Privacy | No tracking cookies; analytics are first-party and anonymous |
 | NFR-COST-01 | Cost | The production stack runs for under USD 25 per month at portfolio traffic |
@@ -187,8 +201,9 @@ The stack keeps React, MUI and D3 at the centre and deliberately adds tools outs
 | --- | --- | --- |
 | React 19 + Vite | App shell, routing, components | Modern React patterns: Suspense, transitions |
 | TypeScript (**New**) | Typed components and API client | Static typing, generics, discriminated unions |
-| Material UI v9 | Layout, drawers, search, filters, theming | Design tokens, dark theme, accessible components |
-| D3 v7 | Force graph, zoom, timelines, maps | Force simulation, scales, canvas rendering |
+| Material UI v9 | Inputs, buttons, dialogs and sheets, restyled through the theme | Design tokens, dark theme, accessible components |
+| D3 v7 (modules) | Radial tree, force graph, zoom, drag, timelines, maps | Hierarchy and radial layout, polar transitions, force simulation, scales, canvas rendering |
+| `@fontsource-variable` | Archivo (width axis) and JetBrains Mono, self-hosted | Variable fonts, `font-display`, preloading, font budgets |
 | TanStack Query (**New**) | Server state, caching, background refetch | Separating server state from UI state |
 | Zustand (**New**) | Graph UI state: selection, filters | Lightweight state as an alternative to Redux |
 | SignalR JS client (**New**) | Live credit stream | WebSocket fallbacks and reconnection |
@@ -276,7 +291,7 @@ All music data is keyed by MusicBrainz IDs (MBIDs), and every credit is stored o
 | --- | --- | --- |
 | `recordings` | A specific performance of a song | `mbid` PK, `title`, `artist_credit`, `first_release_date`, `first_release_date_precision` (year, month, day), `length_ms`, `credits_status` (complete, partial, none), `fetched_at` |
 | `works` | The underlying composition | `mbid` PK, `title`, `fetched_at` |
-| `releases` | Albums and singles | `mbid` PK, `title`, `date`, `date_precision` (year, month, day), `fetched_at` |
+| `releases` | Albums and singles | `mbid` PK, `title`, `date`, `date_precision` (year, month, day), `status` (nullable), `release_group_mbid` (nullable), `release_group_type` (nullable), `release_group_secondary_types` (text array, empty by default), `fetched_at` |
 | `recording_works` | Recording to work links | (`recording_mbid`, `work_mbid`) PK |
 | `recording_releases` | Recording to release links | (`recording_mbid`, `release_mbid`) PK |
 | `people` | Artists, producers, engineers, musicians | `mbid` PK, `name`, `sort_name`, `type`, `disambiguation`, `fetched_at` |
@@ -306,6 +321,7 @@ User accounts use the standard ASP.NET Core Identity tables. The `traceparent` c
 - `graph_songs`: the primary key (`graph_id`, `recording_mbid`) serves "the songs of a graph"; the foreign key to `recordings` gives an index on `recording_mbid`, which serves "the graphs that hold this recording", asked after every job.
 - `crawl_jobs`: unique on (`kind`, `target_mbid`) where `status` is pending or running, so the same fetch is never queued twice; partial index on (`priority` desc, `run_after`) where `status = 'pending'`.
 - `recordings.title`: trigram index (`pg_trgm`) for fast local search before falling back to MusicBrainz.
+- `releases` (M3R): the four new columns are what FR-ART-01 needs to choose a cover the way FR-SEARCH-02 chooses the original: the earliest official release whose group is neither live nor a compilation, and its group as the fallback. They are filled from the `release-group` object MusicBrainz returns when the recording lookup asks for `release-groups` (section 10); rows fetched earlier have them null until the recording is fetched again (NFR-REL-03), and a null group simply skips that step of the chain.
 
 ### Key queries
 
@@ -387,8 +403,11 @@ GET /api/v1/search/recordings?q=Redbone&artist=Childish%20Gambino
       "creditsStatus": null,
       "versions": [
         { "mbid": "ac5977af-...", "title": "Redbone", "artist": "Childish Gambino", "firstReleaseTitle": "Promo Only: Modern Rock Radio, January 2017",
-          "year": 2016, "score": 100, "kind": "compilation", "note": null, "creditsStatus": null }
-      ]
+          "year": 2016, "score": 100, "kind": "compilation", "note": null, "creditsStatus": null,
+          "artReleaseMbid": "e493730c-...", "artReleaseGroupMbid": "a208e5e5-..." }
+      ],
+      "kind": null,
+      "artReleaseMbid": "2017e952-...", "artReleaseGroupMbid": "fd817615-..."
     }
   ]
 }
@@ -397,6 +416,7 @@ GET /api/v1/search/recordings?q=Redbone&artist=Childish%20Gambino
 - `q` is the title (2 to 200 characters); `artist` is optional (up to 200). Results are at most 10, best match first.
 - `source` is `cache` when the local cache filled the page by itself, and `musicBrainz` otherwise. It also says what `score` means: MusicBrainz's own 0 to 100 score, or the cache's trigram similarity times 100.
 - `year` is `null` when the first release date is unknown, never `0`. `creditsStatus` is `null` when the recording has never been fetched, and otherwise the stored status; the add-song flow serves a recording with a status other than `none` from the cache.
+- `kind` (M3R) on a result says what a separate recording of the song is: `remix`, `edit`, `bootleg`, `mixtape`, or `null` for the original. It is derived in this order, and the first rule that decides wins: (1) the secondary types of the recording's release groups (`Remix` gives `remix`, `Mixtape/Street` gives `mixtape`); (2) the recording's disambiguation comment ("radio edit", "Tsunxmi remix", "bootleg"); (3) the decoration of the title ("(... remix)", "(... edit)", "(... bootleg)"), the way `DuplicateCollapser` already reads "(Live ...)". The title rule is the fallback and is tested with real titles. `artReleaseMbid` and `artReleaseGroupMbid` are the release and release group the cover is loaded for (FR-ART-01); either may be `null`, and graph songs carry the same two fields.
 - `versions` holds the duplicates folded behind the result, earliest first, each with a `kind` (`live`, `remaster`, `compilation`, `other`) and MusicBrainz's disambiguation comment as `note`. How duplicates are decided is in section 10.
 - Errors are Problem Details with these `type` values: `/errors/invalid-search` (400), `/errors/rate-limited` (429, for more than 60 searches a minute from one address, or when the shared MusicBrainz gate has no slot within the wait cap; `Retry-After` says when to try again), `/errors/upstream-unavailable` (503, MusicBrainz busy or too slow) and `/errors/upstream-error` (502, MusicBrainz rejected the query).
 
@@ -474,6 +494,7 @@ MusicBrainz is the primary source for all credit data; Discogs fills gaps, Deeze
 | MusicBrainz | Search, recordings, works, releases, people, credits | None; descriptive User-Agent required | About 1 request per second per IP; excess returns 503 | Primary source ([rate limiting](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting)) |
 | Discogs | Credit enrichment when MusicBrainz has none (v2) | Personal access token | 60 per minute authenticated, 25 unauthenticated | Release `extraartists` carries roles ([API docs](https://www.discogs.com/developers)) |
 | Deezer | 30-second previews | None | Public API; preview URLs expire | Match by ISRC first, then title and artist |
+| Cover Art Archive | Album art (FR-ART-01, M3R) | None | Public images; fair use | Loaded by the browser from `coverartarchive.org`, which redirects to `archive.org` and on to a data node; not an API call and never through the MusicBrainz gate |
 | Spotify | Optional playlist export (v2) | OAuth with PKCE | Development Mode only | See constraints below |
 
 ### MusicBrainz fetch plan per song
@@ -514,6 +535,19 @@ Each step is a separate `crawl_jobs` row, so a failure retries only that step. T
 - **Duplicates.** Two recordings are the same song when they have the same title and artist once case, accents, apostrophes and punctuation are ignored, and a live or remaster decoration ("(Live at Wembley)", "- 2011 Remaster") is removed. Remixes, edits, acoustic and instrumental versions are different recordings (different people made them) and keep their own row.
 - **The original.** The row that stays is the recording with an official release that is neither a live album nor a compilation, earliest first; promotions and bootlegs never win. A recording whose releases are unknown (a cache row) is not marked down. The folded recordings keep their reason: live, remaster, compilation or other.
 - **First release.** The title and year shown are those of the official release with the earliest date.
+
+### Album art (FR-ART-01, M3R)
+
+The browser loads the cover itself, with an `<img>`; the Api and the Worker make no request for it. The chain, stopping at the first image that loads:
+
+1. `https://coverartarchive.org/release/{releaseMbid}/front-250` (and `front-500` for sizes above 125 CSS pixels, through `srcset`), the release the Api chose as the song's cover (section 8).
+2. `https://coverartarchive.org/release-group/{releaseGroupMbid}/front-250` (and `front-500`).
+3. The Deezer album cover (`cover_medium` / `cover_big`, on `cdn-images.dzcdn.net`). The URL comes from the Deezer lookup that FR-PREVIEW-01 adds in M4, so this step is wired in M3R and has data from M4.
+4. A generated flat **sleeve**: an inline SVG whose background, mark colour and pattern (one of a small set of geometric marks) are chosen by hashing the recording's MBID, so a song always has the same sleeve. It is also what shows while an image loads and when every step has failed.
+
+Rules: images are fixed-size and `loading="lazy"` (no layout shift), have `alt` text ("Cover of {album}" for a loaded image, empty for the decorative sleeve), carry `referrerpolicy="no-referrer"` and no credentials, and a failed image (a `404` from the Cover Art Archive means no art) moves to the next step without an error shown. Verified on 2026-10-13: the Cover Art Archive answers a missing front image with `404`, and redirects found images by `307` to `archive.org` and then `302` to a data node such as `dn721801.ca.archive.org`; the Deezer image host is `cdn-images.dzcdn.net`. All of them send `Access-Control-Allow-Origin: *`, which the canvas renderer needs to draw a cover (the constellation above its threshold).
+
+Privacy: each image request tells the image host the person's IP address and that Nodeable's page asked for it (without a referrer). That does not breach NFR-PRIV-01 (no cookies, no analytics sent to third parties) but it is stated here; an image proxy through the Api is the remedy if it ever matters, and is not built.
 
 ### Role mapping
 
@@ -593,79 +627,121 @@ A read-only slice of the crawler dashboard is exposed on the About page through 
 
 ## 12. Frontend
 
-The frontend is a Vite single-page app in TypeScript, organised by feature, with MUI for every piece of chrome and D3 reserved for the visualisations. D3 owns the maths (forces, scales, zoom); React owns the DOM everywhere except inside the graph canvas.
+The frontend is a Vite single-page app in TypeScript, organised by feature. MUI supplies inputs, buttons, dialogs and sheets and takes its look from the theme tokens; D3 supplies the maths (hierarchy and radial layout, forces, scales, zoom, drag, easing); React owns the DOM everywhere, including the SVG views, and the one canvas. The visual and interaction reference is `docs/design/nodeable-ui-prototype.html` (decision 0020); its data is fake and none of its code is ported.
+
+> **Status:** this section describes the M3R UI refresh, which is **approved** (decision 0020) and being built, pull request by pull request. Until each part lands, the M3 interface (a force canvas, a left panel of hubs and role filters, a details panel and the tables) is what runs; where this section and the code differ, the code is M3's.
 
 ### Folder structure
 
 ```text
 web/
   src/
-    app/            routes, providers, theme, query client
+    app/            routes, providers, theme and design tokens, query client
     api/            generated OpenAPI types, fetch client, SignalR connection
     features/
-      search/       search box, results list, duplicate collapse
-      graph/        GraphCanvas, GraphListView, legend, role filters
-      hubs/         Your hubs panel
-      person/       person drawer, credited recordings
-      recs/         recommendations list, preview player
+      landing/      hero, record-disc illustration, steps
+      search/       search form, results list, versions disclosure, search sheet
+      graph/        graph model, live graph hook, event reducer, Text view (tables), role legend and filters
+      orbit/        OrbitView: radial layout, polar transitions, role arcs, breadcrumbs, tooltip, focus
+      constellation/ ConstellationView: SVG force view and, above the node threshold, the canvas renderer
+      connectors/   connector cards (FLIP reorder, count-up)
+      notes/        liner notes (credits of each song grouped by role)
+      art/          Sleeve (generated), AlbumArt (the fallback chain)
+      person/       person drawer (M4)
+      recs/         recommendations list, preview player (M4)
       about/        architecture, live crawl status
-    stores/         Zustand stores (selection, filters, layout)
+    motion/         useReducedMotion, FLIP, count-up
+    stores/         Zustand stores (view and trail, role filters)
     telemetry/      OpenTelemetry web setup
     test/           test utilities and MSW handlers
   scripts/          build-time scripts (first-load bundle budget check)
 ```
 
-Routes in M1: `/` (home; search and graph from M3), `/about` (a lazy route) and a not-found page for every other address. `/g/:slug` for shared graphs arrives with v2.
+Routes after M3R: `/` is the landing page, `/graph` is the workspace (orbit or constellation), `/about` is a lazy route and every other address is the not-found page. The workspace's state is in the address, as the search always has been: `/graph?view=orbit|constellation&focus=song:<mbid>|person:<mbid>`, so a view can be reloaded and shared by copying the address (a share link to a public graph is v2's `/g/:slug`). The search stays in `q` and `artist`, on the landing page and in the sheet. `/graph` with no graph in the browser redirects to `/`.
 
 ### State
 
-- **Server state** (graphs, people, recommendations) lives in TanStack Query. SignalR events update the query cache directly with `setQueryData`, so components never subscribe to the socket themselves.
-- **UI state** (selected node, active role filters, hover, layout settings) lives in small Zustand stores.
-- **The current search** lives in the address (`/?q=Redbone&artist=Childish+Gambino`), so it can be shared and repeated with the back button; the results are server state, keyed by the title and artist.
-- **Anonymous graphs** store their `id` and `anonToken` in `localStorage`, wrapped in try/catch. A graph the server answers `401` or `404` for is forgotten, so the person starts a new one instead of seeing errors.
-- **The live graph** is one query per graph (`['graph', id]`). The page connects, joins the graph's group, and only then loads the snapshot; events that arrive before the snapshot are kept and replayed on top of it, those at or below its `seq` are dropped, and a reconnect joins again and reloads (section 9). Adding or removing a song puts the change into the cache at once and then reads the snapshot again. The SignalR client is a lazy chunk, loaded only when a graph exists.
+- **Server state** (the graph snapshot, people, recommendations) lives in TanStack Query. SignalR events update the cache with `setQueryData` through the reducer (`applyGraphEvent`), so components never subscribe to the socket themselves. Everything animated on screen reads from that cache; an animation is a function of the data, never a second copy of it.
+- **UI state** lives in small Zustand stores: the orbit's trail (the centres visited, the last of which is the centre) and the active view, and the role filters.
+- **The current search** lives in the address; the results are server state keyed by title and artist.
+- **Anonymous graphs** store their `id` and `anonToken` in `localStorage`, wrapped in try/catch. A graph the server answers `401` or `404` for is forgotten.
+- **The live graph** is one query per graph. The page connects, joins the graph's group and only then loads the snapshot; events that arrive before it are kept and replayed on top of it, those at or below its `seq` are dropped, and a reconnect joins again and reloads (section 9).
 
 ### Networking
 
-- The browser only makes **same-origin** requests: `/api` for the Api and `/otlp` for telemetry. Vite's dev server proxies both in development and Caddy does in production, so there is no CORS configuration (decision 0004).
+- The browser makes **same-origin** requests for the Api (`/api`, `/hubs`) and telemetry (`/otlp`); Vite's dev server proxies them in development and Caddy does in production, so there is no CORS configuration (decision 0004).
+- The one exception is **album art**: `<img>` elements load cover images straight from the Cover Art Archive and the Deezer image CDN (section 10). They carry no cookies, no credentials and no `Referer`.
 - The API client is `openapi-fetch`, typed by the generated `paths`, and looks `fetch` up on each call so that tracing installed after first paint still applies.
 
-### MUI theming
+### Theming and design tokens
 
-- A custom dark-first "studio" theme with a light variant, built from design tokens in `theme.ts`.
-- One colour per credit role, each paired with an icon so colour is never the only signal: Producer (tune), Songwriter (edit), Mixing (equalizer), Engineering (settings), Instrument (piano), Vocal (mic). The icon set is `@mui/icons-material`, which has no guitar or mixer-sliders glyph. Role colours are defined per colour scheme and tested for at least 3:1 contrast against both background colours (WCAG 1.4.11); text is tested for at least 4.5:1.
-- The backend's `other` role (unmapped MusicBrainz relationship types) is shown in a neutral grey with a generic icon, labelled from its `detail` ("Arranger"), has its own filter chip that is on by default, and counts towards hubs like any other credit. M3 implements it; the grey is covered by the same contrast test (decision 0010).
-- Pages that are not needed for the first render are lazy routes, with a loading bar while their code downloads; the app bar has a skip link and labelled landmarks (NFR-A11Y-01).
-- Layout: an app bar with search, a full-bleed graph canvas, a collapsible left panel for hubs and filters, and a right drawer for person details. On phones the panels become bottom sheets.
-- As built in M3: the search results are a block of limited height above the graph, so the graph stays in view while songs are added. The graph workspace is a collapsible left panel ("Your hubs" as a bar chart and the role chips, which are also the colour legend), the canvas, and, when a node is selected, a right panel with its details from the graph's own data. On a window narrower than 900 px the left panel is a bottom sheet opened by a "Hubs and roles" button and the details are a bottom sheet too. Role filters apply to the canvas, the hubs and the tables; hubs are derived again from the credits that are on. The canvas follows the colour scheme (dark or light).
+- The theme is dark first, flat (no gradients, no shadows beyond a focus ring) and built from tokens in `theme.ts`. The prototype's values are the starting point: surfaces `#101113` / `#16171A` / `#1E2024`, hairlines `#2A2C31`, text `#F4F2EE` and muted `#9B9DA4`, one accent yellow `#FFD23F`, and an "ok" green `#4CD07D`. Radii are 4, 10, 12, 16 and 18 px. A **stronger border token** (3:1 against the surface) is used for the outline of inputs and buttons, because the prototype's hairline is not enough for a control's boundary (WCAG 1.4.11).
+- **Type:** display and headings are **Archivo** (variable, `wdth` axis, set condensed and in capitals), body is Archivo at normal width, and labels, counts and kickers are **JetBrains Mono**. Both are self-hosted from `@fontsource-variable/archivo` and `@fontsource-variable/jetbrains-mono`, only the latin subsets are loaded (about 90 KB and 40 KB of woff2), `font-display: swap`, and only the display font is preloaded. No third-party font request is made.
+- **Role colours** (one per role, with its icon): producer `#FFD23F` (tune), songwriter `#FF6B4A` (edit), mixing `#3EC6E0` (equalizer), engineering `#8B7BFF` (settings), instrument `#4CD07D` (piano), vocal `#FF7AC6` (mic), and `other` `#9B9DA4` (more) labelled from its `detail` (decision 0010). Each has a dark and a light value and is tested for at least 3:1 against both surface colours; text is tested for at least 4.5:1. **Colour is never the only signal (NFR-A11Y-02):** the legend chip carries the icon and the name, the role arcs and liner-notes rows carry the name in text, and a node's accessible label lists its roles in words. The prototype's colour-only legend is replaced.
+- The legend chips are also the **role filters** (FR-HUB-03): `aria-pressed`, with the off state outlined and struck through. Filters apply to the orbit, the constellation, the connector cards, the liner notes and the Text view; connectors are worked out again from the credits that remain. The "credits incomplete" badge is still judged from every credit.
+- MUI components are restyled through the theme (`components` overrides), not with one-off `sx` on each use. A light scheme is derived from the same tokens and covered by the same contrast tests; the toggle stays.
+- Pages that are not needed for the first render are lazy routes with a loading bar; the app bar has a skip link and labelled landmarks (NFR-A11Y-01).
 
-### D3 visualisations
+### Views and layout
+
+**Landing page (FR-LAND-01).** A hero ("Every song has a crew.") with the search form (title, optional artist) and a few "try" chips, a slowly turning record-and-crew illustration (an inline SVG with CSS rotation, not D3, so it stays in the first-load chunk), three steps, and a footer that credits MusicBrainz. When a graph exists the page offers "Back to your graph · n songs". Search results appear under the form.
+
+**Header.** Brand, "Find in your graph" (FR-GRAPH-05: a song or person already in the graph, which becomes the orbit's centre), the Orbit / Constellation toggle (`aria-pressed`), and "+ Add a song", which opens the search sheet.
+
+**Strip.** A headline that names the most connecting people ("Donald Glover & Ludwig Göransson each connect 4 of your 6 songs") and four counts (songs, people, credits, connectors) that count up when they change.
+
+**Search sheet (FR-SEARCH-01, FR-SEARCH-02).** An MUI dialog (focus trapped and returned, Escape closes). Each result row: the sleeve (section 10), the title with a tag for what kind of recording it is, artist and first release, a "match" meter and its percentage as text, and a disclosure "n more versions" that expands the folded live, remaster and compilation takes. "Add to graph" becomes "In your graph" and, once added, moves the orbit to that song. Results and version rows rise in with a stagger.
+
+**OrbitView (FR-VIEW-01, FR-HUB-01).** SVG. The centre is one song or one person.
+
+- For a song, the first ring is its people, ordered and grouped by their main role on it, with **role arcs** drawn inside the ring and the role's name set along each arc. For a person, the first ring is their songs. The second ring is the other side again: the people on those songs, or the other songs those people are on. A node reachable from two parents is drawn once, with a dashed cross-link.
+- Layout is `d3-hierarchy`'s `tree().size([2π, 1])` with a separation that widens siblings of different parents; links are `linkRadial`; radii are the first ring at half of the radius (seven tenths when there is no second ring) and the second at the full radius. The second ring shows at most 60 nodes; the rest are one "+N more" node that opens the Text view for that centre.
+- Songs are records (the sleeve art on the label, spinning while the song's status is `loading`); people are discs with their initials, ringed by one segment per role they have, sized by how many of the graph's songs they are on, and a connector (two or more songs) has a ripple. Labels for the second ring are set along the radius.
+- **Re-rooting (FR-VIEW-01).** Clicking, or pressing Enter or Space on, any node makes it the centre. The trail of centres is shown as breadcrumbs (the last four, with an ellipsis), and a breadcrumb returns to that centre. Nodes then **move**: each node's angle goes the short way round and its radius moves linearly, over about 950 ms with a cubic ease; entering nodes start at their parent; leaving nodes fold inward and fade. All of it runs from one `d3-timer` that writes SVG `transform` and `d` attributes once a frame.
+- **Focus mode.** Hovering or focusing a node dims everything except its path and neighbours, and a tooltip lists the person's roles on the centre song (with detail such as an instrument) or the song's year, album and number of credits. The tooltip appears on keyboard focus too.
+- **Streaming bloom (FR-GRAPH-02).** When `CreditsResolved` events apply, the new people enter one after another (a 32 ms stagger) from their song, and the liner-notes row they belong to highlights; a song still `loading` shows a live indicator and "Listening for credits". With reduced motion they simply appear.
+- **Accessibility.** The SVG has `role="group"` and a name (not `img`, which would hide the nodes from assistive technology); every node is a button with a label such as "Put Donald Glover at the centre; credited as producer, songwriter and vocal on 4 songs"; the centre is not in the tab order.
+
+**ConstellationView (FR-VIEW-02, FR-HUB-01).** The whole graph as a force layout with `d3-force`, pan and zoom with `d3-zoom` (0.45 to 3 times), and node dragging with `d3-drag`. Songs are records, people are discs sized by song count; labels show for songs and connectors, and for any other node while it is hovered. Hovering lights a node's neighbours; clicking switches to the orbit centred on that node. Below the node threshold it is SVG with focusable nodes, like the orbit. **Above the threshold (250 nodes to start with; the measurement is part of the first pull request that builds it, decision 0020) it is drawn on a canvas** with the M3 code: `GraphLayout`, in a Web Worker above 500 nodes (NFR-PERF-03), the quadtree hit test, and the same draw function re-styled to the tokens. Above the threshold the nodes are not individually focusable; the connector cards, the liner notes, the find box and the Text view reach everything, and the orbit is SVG.
+
+**Right column.**
+
+- **Connector cards (FR-HUB-02).** One card for each person credited on two or more songs, most songs first, then by name: an avatar with a ring of role segments, the song count (counting up when it changes), the name in capitals, a bar of role colours with the roles in `aria-label`, and the small sleeves of their songs. A new connector rises in; when counts change the cards **FLIP** to their new order. Clicking a card puts that person at the centre of the orbit.
+- **Liner notes (FR-NOTES-01, FR-GRAPH-04).** One card for each song in the order added, the streaming song first while it loads: sleeve, title, "artist · year · album", a status chip (`complete`, `partial`, `none`, `loading`, decision 0015), and, when it has neither a producer nor a songwriter, the "credits incomplete" badge with the link to MusicBrainz. Below it, one row per role: a colour bar, the role's name ("Produced by", "Written by", "Mixed by", "Engineered by", "Played by", "Vocals", "Also credited"), and the names, each a button that centres that person, with `×n` for connectors and the detail in brackets. A name that has just arrived is highlighted for 1.6 s. Each card has "Remove from graph" (FR-GRAPH-01). Clicking the card's head puts the song at the centre.
+- **Text view (NFR-A11Y-01).** A toggle in the liner-notes header swaps the cards for M3's tables (songs with their credits, and people with song counts and hub marks), which carry exactly the data the orbit and constellation draw, with the same filters. It is also where "+N more" leads.
+
+**Phones (below 900 px).** The workspace stacks: the stage is 70% of the viewport height, the connector cards and liner notes follow in one column, the legend chips and the Text view are in a sheet, and the search sheet is full width. The breadcrumbs take the full width above the stage.
+
+### Motion (NFR-MOTION-01)
+
+The animations are: the staggered rise of lists, the "match" meter's bars, the add button's pop, the versions disclosure, the FLIP reorder of connector cards, the count-up of counts, the highlight of a new credit, the streaming bloom, the orbit's polar transitions and the constellation's settling. Rules:
+
+- Each respects `prefers-reduced-motion`, and follows a change of the setting made while the page is open (`useReducedMotion` listens to the media query). With it set, an animation is replaced by its end state: counts jump, lists appear, the constellation is laid out to rest before it is first drawn, and the record illustration and the live indicator are still.
+- CSS animations and transitions on elements change only `transform` and `opacity` (so the versions disclosure reveals its container at once and rises its rows). The SVG views are the exception that is stated: one `d3-timer` loop writes `transform` and path attributes per frame, which repaints SVG and does not lay out the page.
+- The orbit's loop runs only while something moves; a graph at rest costs no frames (as the M3 canvas does).
+- An animation never carries the only copy of a fact: counts are text, new credits are also in the live status line, and status is a word.
+
+### D3 modules
+
+Only what is used is imported, in the lazy chunk of the workspace: `d3-hierarchy` (tree), `d3-shape` (`linkRadial`, `arc`, `pie`), `d3-force`, `d3-zoom`, `d3-drag`, `d3-selection`, `d3-scale`, `d3-ease`, `d3-timer`, `d3-quadtree`. The landing page imports none of them.
 
 | Component | D3 modules | Behaviour |
 | --- | --- | --- |
-| `GraphCanvas` | `d3-force`, `d3-zoom`, `d3-scale`, `d3-quadtree` | Force-directed graph drawn on `<canvas>` for performance; songs as squares, people as circles sized by song count; quadtree hit-testing for hover and click |
-| `GraphListView` | none | Accessible version of the same data as two real tables: songs (with status, credits and a remove button) and people (with song counts and a hub mark); keyboard navigable (NFR-A11Y-01) |
-| `HubBar` | `d3-scale` | Small bar chart of top hubs in the panel |
+| `OrbitView` | `d3-hierarchy`, `d3-shape`, `d3-ease`, `d3-timer`, `d3-zoom` | Radial tree, role arcs, polar transitions, re-rooting |
+| `ConstellationView` | `d3-force`, `d3-zoom`, `d3-drag`, `d3-quadtree` (canvas) | Whole-graph overview; SVG, and canvas above the threshold |
+| `Text view` | none | Accessible tables of the same data (NFR-A11Y-01) |
+| `ConnectorCards` | `d3-scale` (counts) | Cards, FLIP reorder, count-up |
 | `CareerTimeline` (v3) | `d3-scale`, `d3-axis`, `d3-time` | Credits per year for a person |
 | `StudioMap` (v3) | `d3-geo` | Recording locations on a world map |
 | `FamilyTree` (v3) | `d3-hierarchy` | Covers, samples and remixes |
 
-Graph rules:
-
-- New nodes enter near their connected song and fade in over 300 ms, so streaming feels alive rather than jumpy.
-- The simulation reheats gently on additions (`alpha` 0.3) and stops when it settles, saving battery.
-- Above 300 people, labels show only for hubs and the hovered node.
-- The layout runs in a Web Worker when the graph exceeds 500 nodes (NFR-PERF-03). Positions come back as a transferred `Float32Array` of x, y pairs and the node ids are sent once per update; a generation number drops ticks of a graph that has since changed. The same `GraphLayout` class runs in the page for smaller graphs.
-- Hit testing uses a quadtree rebuilt when positions change; a click selects the node (Zustand `selection` store) and a panel shows its details from the snapshot only. The canvas has an accessible name and the tables carry the same data; songs are squares and people circles, so shape is a second signal besides colour (NFR-A11Y-02).
-- A graph that has not been moved by the person is fitted to the view when the layout comes to rest, with room for labels; "Reset view" does the same on request. Wheel and pinch zoom over the canvas, as above.
-
 ### Performance budgets
 
-- JavaScript under 250 KB gzipped on first load; D3 visualisations for v3 load lazily. "First load" means the scripts `index.html` loads or preloads. Lazy route chunks and the OpenTelemetry web SDK, which loads after first paint, are reported separately and do not count (decision 0002). CI enforces the 250 KB limit on first-load scripts and prints the full table on each run.
-- Measured at the end of M1 (gzip, as reported by the CI script): first load about 150 KB, About route about 10 KB, OpenTelemetry SDK about 23 KB.
-- Measured in M3 (pull request 3, gzip): first load about 185 KB; the graph view about 8 KB and the SignalR client about 14 KB, both lazy. With the canvas (pull request 4) the graph view chunk is about 36 KB with the D3 modules, the layout worker is a separate 6 KB chunk, and first load is unchanged at 184.8 KB.
-- Measured in M3 (pull request 4) on the development machine, in the browser, for the largest graph the app allows (50 songs and 550 people, 600 nodes and 660 links): one simulation step 2.4 ms, one canvas frame 0.4 ms, building the hit-test quadtree 0.2 ms and one lookup about 1 microsecond. With the layout in the worker, the first positions arrive after 67 ms, the layout rests after about 7 s (the worker's timer ticks at about 40 steps a second), and the page's thread was never late by more than 2 ms. A phone was not measured: NFR-PERF-03's 30 fps target on a mid-range phone is still to be checked on a device.
-- Lighthouse performance score at least 90 on the home page, checked in CI (the `lighthouse` job: `@lhci/cli` 0.15.1 against the production build, three runs, mobile profile, `web/lighthouserc.json`). First measurement, on the development machine: performance 97, accessibility 100, best practices 100, SEO 100, with a largest contentful paint of 2.1 s on the simulated slow 4G of the mobile profile (NFR-PERF-04 asks for under 2.5 s). On GitHub's runner the first three runs scored 85, 97 and 97 (median 97, which is what the assertion reads), so a single run can dip below 90 and the job needs the median of three, not one run. The check runs the page a first-time visitor sees, without a graph; a page with a graph needs the Api and is outside it.
+- JavaScript under 250 KB gzipped on first load; D3 visualisations load lazily. "First load" means the scripts `index.html` loads or preloads. Lazy route chunks and the OpenTelemetry web SDK, which loads after first paint, are reported separately and do not count (decision 0002). CI enforces the 250 KB limit on first-load scripts and prints the full table on each run.
+- Fonts are not JavaScript, but they are on the landing page's critical path: no more than about 130 KB of woff2 for the two latin subsets, the display font preloaded, `font-display: swap`, and Lighthouse stays at 90 or better.
+- Lighthouse performance score at least 90 on the home page, checked in CI (the `lighthouse` job: `@lhci/cli` 0.15.1 against the production build, three runs, mobile profile, `web/lighthouserc.json`). The page is the landing page from the first refresh pull request.
+- Measured in M3, kept as the baseline: first load about 185 KB gzipped; the graph view chunk about 42 KB with D3 and the SignalR client 14 KB, both lazy; for 600 nodes a simulation step took 2.4 ms and a canvas frame 0.4 ms, and with the layout in the worker the page's thread was never late by more than 2 ms. On GitHub's runner the Lighthouse runs scored 85, 97 and 97 (median 97) with a largest contentful paint of 2.1 s on the mobile profile (NFR-PERF-04 asks for under 2.5 s). A phone's frame rate (NFR-PERF-03's 30 fps) was not measured and still is not.
+- To be measured in M3R and recorded here: the first-load size with the new theme and fonts; the orbit's frame time at its largest (a centre with 50 neighbours and 60 second-ring nodes); and the largest constellation that stays within NFR-PERF-03 as SVG, which sets the threshold.
 
 ## 13. Testing, CI/CD and deployment
 
@@ -744,6 +820,7 @@ Implemented in M1 (`.github/workflows/ci.yml`, four parallel jobs): **backend** 
 - **Local:** `dotnet run --project src/Nodeable.AppHost` starts PostgreSQL, Redis, Api, Worker, the Vite dev server and the Aspire dashboard together. Docker must be running. The dashboard is at `http://localhost:15180`; Aspire assigns the web app's port on every run and shows it in the dashboard. Running `npm run dev` on its own serves the web app on port 5173 and proxies `/api` to the Api's launch-profile port 5029. PostgreSQL keeps its data in a named Docker volume (`nodeable-postgres-data`) with its generated password remembered in the AppHost's user secrets, so graphs and crawled data survive a restart; `node tools/dev/reset-local-db.mjs --yes` resets it (decision 0011).
 - **Production:** one small VPS provisioned by Terraform, running Docker Compose with Caddy for HTTPS, Api, Worker, Web (static files served by Caddy), PostgreSQL, Redis and the OpenTelemetry Collector.
 - **Releases:** images tagged by commit SHA; deploys pull new images and restart with health checks; EF Core migrations run as a separate one-off step before the Api starts.
+- **Content-Security-Policy:** the app sets none today (neither the Api, Vite nor any file in the repository). When Caddy is configured in M4, a policy is added and its `img-src` must allow the album art hosts: `'self' data: https://coverartarchive.org https://archive.org https://*.archive.org https://cdn-images.dzcdn.net` (the data nodes are `dn<digits>.<country>.archive.org`, so a wildcard is needed; each hop of a redirect is checked). `font-src 'self'` is enough because the fonts are self-hosted, and `connect-src` needs the same origin, including its `wss:` address for the hub.
 - **Backups:** nightly `pg_dump` to object storage, keeping 14 days; a restore drill runs monthly.
 - **Secrets:** GitHub Actions secrets for CI, an environment file with restricted permissions on the server.
 
@@ -795,6 +872,17 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [x] Lighthouse performance check in CI, 90 or better on the home page (spec section 12)
 - [x] Persistent local database: data volume and remembered password, with a documented reset (decision 0011)
 
+### M3R UI refresh (approved 2026-10-13, 1 to 2 weeks)
+
+Design: `docs/design/nodeable-ui-prototype.html`, decision 0020. Pull requests in this order, each naming its requirement IDs and merged on green. Tag `v0.3.1` when the last is done.
+
+- [ ] Theme and tokens, self-hosted fonts, role colour and icon map, `Sleeve` and `AlbumArt` with the fallback chain, and the `releases` migration with the `release-groups` include (FR-ART-01, NFR-A11Y-02)
+- [ ] Landing page and search sheet with results and version-expand animation, and `kind` on results derived from MusicBrainz data first (FR-LAND-01, FR-SEARCH-01, FR-SEARCH-02, NFR-MOTION-01)
+- [ ] OrbitView with re-rooting, breadcrumbs, role arcs, tooltip, focus mode and the streaming bloom from SignalR events; the `/graph` route and its address state; "Find in your graph"; the one Playwright flow (search, add, orbit), run in CI (FR-VIEW-01, FR-GRAPH-02, FR-GRAPH-05, FR-HUB-01, FR-HUB-03)
+- [ ] ConstellationView and the toggle; connector cards with FLIP reorder and count-up; liner notes with new-credit highlight, the credits status and the credits incomplete badge, and removing a song (FR-VIEW-02, FR-HUB-02, FR-NOTES-01, FR-GRAPH-04, FR-GRAPH-01)
+- [ ] Remove the M3 force canvas, the left panel and the old details panel; the Text view covers everything; the phone layout; reduced-motion pass (NFR-A11Y-01, NFR-MOTION-01)
+- [ ] LEARN anchors (10 to 15), the learning guide LG-03R, spec updates, tag `v0.3.1` (spec section 16)
+
 ### M4 Discovery and launch (2 weeks)
 
 - [ ] Person drawer with credited recordings (FR-PERSON-01)
@@ -803,7 +891,7 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [ ] About page with architecture and live crawl status (FR-ABOUT-01)
 - [ ] Grafana dashboards and SLO alerts (section 11)
 - [ ] Terraform VPS, Caddy, Docker Compose deploy; seed the demo cache
-- [ ] Playwright suite green; k6 confirms NFR-PERF-01 and 02
+- [ ] Playwright suite green (extending the one flow added in M3R); k6 confirms NFR-PERF-01 and 02
 
 ### v2 and v3
 
@@ -873,6 +961,7 @@ Raised while building M1 and decided on 2026-10-11 (each has a decision record, 
 | 2026-10-12 | MusicBrainz requests go through a Redis token bucket placed inside the retry, replacing the default resilience handler ([0016](decisions/0016-musicbrainz-request-pipeline.md)) | A retry is a new request and must wait for its own slot; N Workers must share one budget |
 | 2026-10-12 | The crawl queue is a PostgreSQL table claimed with SKIP LOCKED, with guarded updates and stale-job recovery ([0017](decisions/0017-crawl-queue-on-postgresql.md)) | Reliability without a broker at one request per second; inspectable with SQL |
 | 2026-10-12 | The Api asks MusicBrainz for searches itself, through the shared Redis gate with a 2 second wait cap and one retry; every other fetch stays in the Worker ([0018](decisions/0018-search-calls-musicbrainz-from-the-api.md)) | A search has to answer in the same request; the gate is already shared, so the limit still holds across processes |
+| 2026-10-13 | UI refresh: orbit and constellation replace the force canvas; album art from the Cover Art Archive with fallbacks; motion rules ([0020](decisions/0020-ui-refresh-orbit-and-constellation.md)) | The M3 canvas is unreadable at 50 songs; the developer designed a replacement as a prototype (approved 2026-10-13) |
 | 2026-10-12 | A song is added by MBID only; the Api confirms an unknown recording with MusicBrainz and a hub join carries the token as an argument ([0019](decisions/0019-add-by-mbid-and-hub-token-argument.md)) | The shared cache must not accept client-supplied titles; a WebSocket cannot send a header and a URL token reaches logs |
 
 ## 16. Learning guides
@@ -916,7 +1005,7 @@ Key places in the code carry a comment in a fixed format, so guides are built fr
 // LEARN: LG-03 signalr-cache | SignalR events write straight into the TanStack Query cache
 ```
 
-The script `tools/learning/collect-anchors` scans the repository for `LEARN:` comments and outputs the code map table (section 3) with file paths, line numbers and permalinks pinned to the release commit, so links never go stale.
+A guide id is `LG-` and two digits, with an optional capital letter for a revision of a milestone (`LG-03R`, the M3 UI refresh; the tools accept the letter from M3R's first pull request). The script `tools/learning/collect-anchors` scans the repository for `LEARN:` comments and outputs the code map table (section 3) with file paths, line numbers and permalinks pinned to the release commit, so links never go stale.
 
 ### How the PDF is produced
 
@@ -932,6 +1021,7 @@ The script `tools/learning/collect-anchors` scans the repository for `LEARN:` co
 | LG-01 Foundations | M1 | Aspire AppHost and service defaults, EF Core entities and migrations, Vite + TypeScript + MUI theme setup, generating API types from OpenAPI, OpenTelemetry wiring across browser and server |
 | LG-02 Ingestion | M2 | Typed `HttpClient`, resilience pipelines, Redis token bucket with Lua, durable queue with `FOR UPDATE SKIP LOCKED`, trace context across background jobs, relationship-to-role mapping |
 | LG-03 Graph UI | M3 | SignalR hubs, groups and the Redis backplane, sequence-numbered events and join-then-load, TanStack Query cache updates, Zustand stores, D3 force simulation on a canvas and in a Web Worker, quadtree hit testing, pg_trgm search, accessible tables |
+| LG-03R UI refresh | M3R | Radial tree layout with `d3-hierarchy` and `linkRadial`, polar interpolation, FLIP reordering, reduced motion, an image fallback chain, SignalR events through the query cache into animation, SVG versus canvas above a threshold |
 | LG-04 Discovery and launch | M4 | Recommendation SQL and scoring, Deezer integration, Grafana dashboards and SLO alerts, Terraform and Caddy deployment, Playwright and k6 |
 | LG-05 Accounts and saves | v2 | ASP.NET Core Identity, Google sign-in, migrating anonymous data to accounts |
 | LG-06 Six degrees | v2 | Bidirectional breadth-first search in C#, adjacency lists, recursive CTEs |
