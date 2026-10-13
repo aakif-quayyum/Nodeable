@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.SignalR;
+using Nodeable.Domain.Art;
 using Nodeable.Infrastructure.Telemetry;
 using StackExchange.Redis;
 
@@ -15,7 +16,8 @@ public interface IGraphEvents
     /// <summary>The number of the last message sent for the graph; 0 when none was.</summary>
     Task<long> CurrentSeqAsync(Guid graphId, CancellationToken cancellationToken = default);
 
-    Task CreditsResolvedAsync(Guid graphId, Guid songMbid, IReadOnlyList<PersonItem> people, IReadOnlyList<CreditItem> credits, CancellationToken cancellationToken = default);
+    Task CreditsResolvedAsync(
+        Guid graphId, Guid songMbid, IReadOnlyList<PersonItem> people, IReadOnlyList<CreditItem> credits, CoverChoice? cover = null, CancellationToken cancellationToken = default);
 
     /// <summary>Sends the new status of a song, unless this graph was already told that status. True when it was sent.</summary>
     Task<bool> SongStatusChangedAsync(Guid graphId, Guid songMbid, SongStatus status, CancellationToken cancellationToken = default);
@@ -48,8 +50,9 @@ public sealed class GraphEventPublisher(IHubContext<GraphHub, IGraphClient> hub,
     }
 
     public Task CreditsResolvedAsync(
-        Guid graphId, Guid songMbid, IReadOnlyList<PersonItem> people, IReadOnlyList<CreditItem> credits, CancellationToken cancellationToken = default) =>
-        BroadcastAsync(graphId, "CreditsResolved", songMbid, (group, seq) => group.CreditsResolved(new CreditsResolvedMessage(seq, songMbid, people, credits)));
+        Guid graphId, Guid songMbid, IReadOnlyList<PersonItem> people, IReadOnlyList<CreditItem> credits, CoverChoice? cover = null, CancellationToken cancellationToken = default) =>
+        BroadcastAsync(graphId, "CreditsResolved", songMbid, (group, seq) => group.CreditsResolved(
+            new CreditsResolvedMessage(seq, songMbid, people, credits, cover?.ReleaseMbid, cover?.ReleaseGroupMbid)));
 
     public async Task<bool> SongStatusChangedAsync(
         Guid graphId, Guid songMbid, SongStatus status, CancellationToken cancellationToken = default)

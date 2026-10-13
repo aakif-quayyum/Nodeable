@@ -44,7 +44,7 @@ public sealed class GraphHubTests(ApiFactory factory) : IClassFixture<ApiFactory
             _redbone,
             [new PersonItem(_donald, "Donald Glover")],
             [new CreditItem(_donald, CreditRole.Producer, string.Empty, CreditLevel.Recording)],
-            Ct);
+            cancellationToken: Ct);
         await events.SongStatusChangedAsync(graph.Id, _redbone, SongStatus.Complete, Ct);
         await events.HubsUpdatedAsync(graph.Id, [new HubItem(_donald, 2, [CreditRole.Producer])], Ct);
 

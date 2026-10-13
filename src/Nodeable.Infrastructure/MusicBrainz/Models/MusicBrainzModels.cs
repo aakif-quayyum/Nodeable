@@ -37,10 +37,14 @@ public sealed record ReleaseRef(
     [property: JsonPropertyName("status")] string? Status = null,
     [property: JsonPropertyName("release-group")] ReleaseGroupRef? ReleaseGroup = null);
 
-/// <summary>The release group a release belongs to; its secondary types say whether it is a live album or a compilation.</summary>
+/// <summary>
+/// The release group a release belongs to; its secondary types say whether it is a live album or a compilation, and
+/// its ID is the second place a cover is looked up (FR-ART-01).
+/// </summary>
 public sealed record ReleaseGroupRef(
     [property: JsonPropertyName("primary-type")] string? PrimaryType = null,
-    [property: JsonPropertyName("secondary-types")] IReadOnlyList<string>? SecondaryTypes = null);
+    [property: JsonPropertyName("secondary-types")] IReadOnlyList<string>? SecondaryTypes = null,
+    [property: JsonPropertyName("id")] Guid? Id = null);
 
 /// <summary>
 /// A link from the entity being looked up to an artist (a credit such as producer) or to a work. <see cref="Type"/> is

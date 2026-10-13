@@ -48,6 +48,17 @@ describe('applyGraphEvent', () => {
     ])
   })
 
+  it('FR_ART_01 learns the cover ids of a song from the credits event, and keeps them when a later event has none', () => {
+    const release = '60b98e3b-a038-40b8-b17a-c0b1606c41a8'
+    const group = 'e1adb327-2619-427c-acec-d8bb3efb5dca'
+
+    const learned = applyGraphEvent(snapshot(), creditsResolved(11, { artReleaseMbid: release, artReleaseGroupMbid: group }))
+    const later = applyGraphEvent(learned, creditsResolved(12))
+
+    expect(learned.songs[0]).toMatchObject({ artReleaseMbid: release, artReleaseGroupMbid: group })
+    expect(later.songs[0]).toMatchObject({ artReleaseMbid: release, artReleaseGroupMbid: group })
+  })
+
   it('FR_GRAPH_03 gives the same graph when the same event is applied twice', () => {
     const once = applyGraphEvent(snapshot(), creditsResolved(11))
     const twice = applyGraphEvent(once, creditsResolved(11))

@@ -433,7 +433,8 @@ X-Graph-Token: <token>
   "id": "7c1e...", "name": "Late night",
   "seq": 17,
   "songs": [{ "mbid": "7408...", "title": "Redbone", "artist": "Childish Gambino", "year": 2016,
-              "creditsStatus": "complete", "addedAt": "2026-10-12T09:09:45Z" }],
+              "creditsStatus": "complete", "addedAt": "2026-10-12T09:09:45Z",
+              "artReleaseMbid": "2017e952-...", "artReleaseGroupMbid": "fd817615-..." }],
   "people": [{ "mbid": "1ba0...", "name": "Donald Glover" }],
   "credits": [{ "songMbid": "7408...", "personMbid": "1ba0...", "role": "songwriter", "detail": "", "level": "recording" }],
   "hubs": [{ "personMbid": "1ba0...", "songs": 2, "roles": ["songwriter", "vocal"] }],
@@ -471,7 +472,7 @@ Clients join a group per graph with `JoinGraph(graphId, token)` and leave it wit
 
 | Event | Payload | When |
 | --- | --- | --- |
-| `CreditsResolved` | `{ songMbid, people: [{ mbid, name }], credits: [{ personMbid, role, detail, level }] }` | A recording, work or release fetch finishes |
+| `CreditsResolved` | `{ songMbid, people: [{ mbid, name }], credits: [{ personMbid, role, detail, level }], artReleaseMbid, artReleaseGroupMbid }` | A recording, work or release fetch finishes; the two cover ids are the song's cover as known now (`null` while no release is known), so a song added before its releases were fetched learns them (FR-ART-01) |
 | `SongStatusChanged` | `{ songMbid, creditsStatus }` | A song becomes complete, partial or none |
 | `HubsUpdated` | `{ hubs: [{ personMbid, songs, roles }] }` | Hub counts change, debounced to once per second |
 | `CrawlProgress` | `{ queued, done, failed, etaSeconds }` | Every completed job for this graph |
@@ -741,6 +742,7 @@ Only what is used is imported, in the lazy chunk of the workspace: `d3-hierarchy
 - Fonts are not JavaScript, but they are on the landing page's critical path: no more than about 130 KB of woff2 for the two latin subsets, the display font preloaded, `font-display: swap`, and Lighthouse stays at 90 or better.
 - Lighthouse performance score at least 90 on the home page, checked in CI (the `lighthouse` job: `@lhci/cli` 0.15.1 against the production build, three runs, mobile profile, `web/lighthouserc.json`). The page is the landing page from the first refresh pull request.
 - Measured in M3, kept as the baseline: first load about 185 KB gzipped; the graph view chunk about 42 KB with D3 and the SignalR client 14 KB, both lazy; for 600 nodes a simulation step took 2.4 ms and a canvas frame 0.4 ms, and with the layout in the worker the page's thread was never late by more than 2 ms. On GitHub's runner the Lighthouse runs scored 85, 97 and 97 (median 97) with a largest contentful paint of 2.1 s on the mobile profile (NFR-PERF-04 asks for under 2.5 s). A phone's frame rate (NFR-PERF-03's 30 fps) was not measured and still is not.
+- Measured in M3R pull request 1 (the M3 home page with the new theme and fonts, local, mobile profile, three runs): first-load JavaScript 185.7 KB gzipped (up 0.9 KB); the two latin font files are 90 KB and 40 KB of woff2, and only the display font is on the first paint's path. Lighthouse performance 0.94 (runs of 0.90, 0.94 and 0.94), but the **largest contentful paint rose from 2.1 s to 2.6 s** (NFR-PERF-04 asks for under 2.5 s) and first contentful paint from 2.0 s to 2.5 s: the 90 KB width-axis font costs about half a second on the simulated slow 4G, and preloading it made no difference to the simulation. The landing page (the next pull request) is where this is brought back under 2.5 s; the options are `font-display: optional` for the display face, a metric-matched fallback (`size-adjust`) so the swap does not move the layout, and a smaller subset.
 - To be measured in M3R and recorded here: the first-load size with the new theme and fonts; the orbit's frame time at its largest (a centre with 50 neighbours and 60 second-ring nodes); and the largest constellation that stays within NFR-PERF-03 as SVG, which sets the threshold.
 
 ## 13. Testing, CI/CD and deployment
@@ -876,7 +878,7 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 
 Design: `docs/design/nodeable-ui-prototype.html`, decision 0020. Pull requests in this order, each naming its requirement IDs and merged on green. Tag `v0.3.1` when the last is done.
 
-- [ ] Theme and tokens, self-hosted fonts, role colour and icon map, `Sleeve` and `AlbumArt` with the fallback chain, and the `releases` migration with the `release-groups` include (FR-ART-01, NFR-A11Y-02)
+- [x] Theme and tokens, self-hosted fonts, role colour and icon map, `Sleeve` and `AlbumArt` with the fallback chain, and the `releases` migration with the `release-groups` include (FR-ART-01, NFR-A11Y-02)
 - [ ] Landing page and search sheet with results and version-expand animation, and `kind` on results derived from MusicBrainz data first (FR-LAND-01, FR-SEARCH-01, FR-SEARCH-02, NFR-MOTION-01)
 - [ ] OrbitView with re-rooting, breadcrumbs, role arcs, tooltip, focus mode and the streaming bloom from SignalR events; the `/graph` route and its address state; "Find in your graph"; the one Playwright flow (search, add, orbit), run in CI (FR-VIEW-01, FR-GRAPH-02, FR-GRAPH-05, FR-HUB-01, FR-HUB-03)
 - [ ] ConstellationView and the toggle; connector cards with FLIP reorder and count-up; liner notes with new-credit highlight, the credits status and the credits incomplete badge, and removing a song (FR-VIEW-02, FR-HUB-02, FR-NOTES-01, FR-GRAPH-04, FR-GRAPH-01)

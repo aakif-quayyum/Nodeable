@@ -23,7 +23,7 @@ internal static class SearchCandidateMapper
         string.IsNullOrWhiteSpace(hit.Disambiguation) ? null : hit.Disambiguation);
 
     /// <param name="similarity">Trigram similarity of the title to the query, 0 to 1.</param>
-    /// <param name="releases">The releases the cache holds for this recording. They carry no status or type, so none is marked down.</param>
+    /// <param name="releases">The releases the cache holds for this recording. Rows stored before M3R carry no status or group types, and a release with none is not marked down.</param>
     public static SearchCandidate FromRecording(Recording recording, double similarity, IEnumerable<Release> releases) => new(
         recording.Mbid,
         recording.Title,
@@ -35,7 +35,12 @@ internal static class SearchCandidateMapper
         releases
             .Select(r => new CandidateRelease(
                 r.Title,
-                r.Date is { } d && r.DatePrecision is { } p ? new PartialDate(d, p) : null))
+                r.Date is { } d && r.DatePrecision is { } p ? new PartialDate(d, p) : null,
+                IsUnofficial: r.Status is { } status && !status.Equals("Official", StringComparison.OrdinalIgnoreCase),
+                IsLive: r.ReleaseGroupSecondaryTypes.Contains("Live", StringComparer.OrdinalIgnoreCase),
+                IsCompilation: r.ReleaseGroupSecondaryTypes.Any(IsCompilationType),
+                Mbid: r.Mbid,
+                ReleaseGroupMbid: r.ReleaseGroupMbid))
             .ToList());
 
     // "Beyoncé feat. Jay-Z" arrives as two names with their join phrases: "Beyoncé" + " feat. " and "Jay-Z".
@@ -59,9 +64,13 @@ internal static class SearchCandidateMapper
             // A missing status is not a mark against the release; only an explicit non-Official one is.
             IsUnofficial: release.Status is { } status && !status.Equals("Official", StringComparison.OrdinalIgnoreCase),
             IsLive: secondaryTypes.Contains("Live", StringComparer.OrdinalIgnoreCase),
-            IsCompilation: secondaryTypes.Any(type => type.Equals("Compilation", StringComparison.OrdinalIgnoreCase)
-                || type.Equals("DJ-mix", StringComparison.OrdinalIgnoreCase)));
+            IsCompilation: secondaryTypes.Any(IsCompilationType),
+            Mbid: release.Id,
+            ReleaseGroupMbid: release.ReleaseGroup?.Id);
     }
+
+    private static bool IsCompilationType(string type) =>
+        type.Equals("Compilation", StringComparison.OrdinalIgnoreCase) || type.Equals("DJ-mix", StringComparison.OrdinalIgnoreCase);
 
     private static PartialDate? ParseDate(string? text) =>
         PartialDate.TryParse(text, out var date) ? date : null;

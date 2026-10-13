@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using Nodeable.Domain.Art;
 using Nodeable.Domain.Enums;
 using Nodeable.Infrastructure.MusicBrainz;
 using Nodeable.Infrastructure.Persistence;
@@ -88,8 +89,40 @@ public sealed class GraphReadModel(NodeableDbContext db, IOptions<MusicBrainzOpt
             ORDER BY gs.added_at, r.mbid
             """).ToListAsync(cancellationToken);
 
-        return rows.Select(row => new GraphSongItem(
-            row.Mbid, row.Title, row.Artist, row.FirstReleaseDate?.Year, ToSongStatus(row.Status, row.Loading), row.AddedAt)).ToList();
+        var covers = await GetCoversAsync(rows.Select(row => row.Mbid).ToList(), cancellationToken);
+
+        return rows.Select(row =>
+        {
+            var cover = covers.GetValueOrDefault(row.Mbid, CoverChoice.None);
+            return new GraphSongItem(
+                row.Mbid, row.Title, row.Artist, row.FirstReleaseDate?.Year, ToSongStatus(row.Status, row.Loading), row.AddedAt,
+                cover.ReleaseMbid, cover.ReleaseGroupMbid);
+        }).ToList();
+    }
+
+    /// <summary>
+    /// The release and release group each recording's cover is loaded for (FR-ART-01), chosen from the releases the
+    /// cache holds. A recording with no release rows has no entry.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<Guid, CoverChoice>> GetCoversAsync(
+        IReadOnlyCollection<Guid> recordingMbids, CancellationToken cancellationToken)
+    {
+        if (recordingMbids.Count == 0)
+        {
+            return new Dictionary<Guid, CoverChoice>();
+        }
+
+        var ids = recordingMbids.ToArray();
+        var rows = await (
+            from link in db.RecordingReleases.AsNoTracking()
+            where ids.Contains(link.RecordingMbid)
+            join release in db.Releases.AsNoTracking() on link.ReleaseMbid equals release.Mbid
+            select new { link.RecordingMbid, Release = release })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .GroupBy(row => row.RecordingMbid)
+            .ToDictionary(group => group.Key, group => CoverSelector.Choose(group.Select(row => CoverCandidates.From(row.Release))));
     }
 
     /// <summary>

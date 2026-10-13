@@ -12,23 +12,28 @@ export const creditRoles = ['producer', 'songwriter', 'mixing', 'engineering', '
 export type CreditRoleKey = (typeof creditRoles)[number]
 
 export interface CreditRoleStyle {
+  /** The short name: "Producer". Used on chips, legends and in tooltips. */
   label: string
+  /** The phrase a liner note uses for the row: "Produced by". */
+  phrase: string
   /** Every role pairs its colour with an icon, so colour is never the only signal (NFR-A11Y-02). */
   Icon: SvgIconComponent
-  /** One colour per colour scheme: bright on the dark background, deeper on the light one. */
+  /** One colour per colour scheme: bright on the dark surfaces, deeper on the light ones. Each is tested for 3:1. */
   colors: { dark: string; light: string }
 }
 
+// The dark values are the design prototype's (docs/design); the light values are the same hues, deepened until they
+// reach 3:1 against both light surfaces (the contrast test in theme.test.ts decides).
 export const creditRoleStyles: Record<CreditRoleKey, CreditRoleStyle> = {
-  producer: { label: 'Producer', Icon: Tune, colors: { dark: '#f5a524', light: '#8f5400' } },
-  songwriter: { label: 'Songwriter', Icon: Edit, colors: { dark: '#ff6b9a', light: '#b8174f' } },
-  mixing: { label: 'Mixing', Icon: Equalizer, colors: { dark: '#4cc9f0', light: '#006a8e' } },
-  engineering: { label: 'Engineering', Icon: Settings, colors: { dark: '#9b8cff', light: '#5a43d6' } },
+  producer: { label: 'Producer', phrase: 'Produced by', Icon: Tune, colors: { dark: '#FFD23F', light: '#8A6A00' } },
+  songwriter: { label: 'Songwriter', phrase: 'Written by', Icon: Edit, colors: { dark: '#FF6B4A', light: '#C2362B' } },
+  mixing: { label: 'Mixing', phrase: 'Mixed by', Icon: Equalizer, colors: { dark: '#3EC6E0', light: '#007A94' } },
+  engineering: { label: 'Engineering', phrase: 'Engineered by', Icon: Settings, colors: { dark: '#8B7BFF', light: '#5B43D6' } },
   // @mui/icons-material has no guitar icon, so instruments use the piano.
-  instrument: { label: 'Instrument', Icon: Piano, colors: { dark: '#6ee7a0', light: '#1d7a46' } },
-  vocal: { label: 'Vocal', Icon: Mic, colors: { dark: '#ff8a5b', light: '#b8420f' } },
+  instrument: { label: 'Instrument', phrase: 'Played by', Icon: Piano, colors: { dark: '#4CD07D', light: '#1E8E4A' } },
+  vocal: { label: 'Vocal', phrase: 'Vocals', Icon: Mic, colors: { dark: '#FF7AC6', light: '#C2398F' } },
   // Unmapped MusicBrainz relationship types (decision 0010): a neutral grey, and the label comes from the credit's detail.
-  other: { label: 'Other', Icon: MoreHoriz, colors: { dark: '#9aa5b4', light: '#5c6672' } },
+  other: { label: 'Other', phrase: 'Also credited', Icon: MoreHoriz, colors: { dark: '#9B9DA4', light: '#6C707A' } },
 }
 
 /**

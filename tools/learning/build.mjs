@@ -29,7 +29,7 @@ import { collectAnchors, renderMarkdown, repoFromRemote, repoRoot } from './coll
 export const CODE_MAP_START = '<!-- code-map:start -->'
 export const CODE_MAP_END = '<!-- code-map:end -->'
 
-const GUIDE_FILE = /^LG-\d{2}-.+\.md$/
+const GUIDE_FILE = /^LG-\d{2}[A-Z]?-.+\.md$/
 const FRONT_MATTER = /^---\r?\n([\s\S]*?)\r?\n---/
 
 /** Replaces `key: "..."` inside the leading front matter block, or appends it when the key is missing. */
@@ -114,7 +114,7 @@ function parseArgs(argv) {
     else if (arg === '--ref') options.ref = argv[++i]
     else if (arg === '--tag') options.tag = argv[++i]
     else if (arg === '--input') options.input = argv[++i]
-    else if (/^LG-\d{2}$/.test(arg)) options.guide = arg
+    else if (/^LG-\d{2}[A-Z]?$/.test(arg)) options.guide = arg
     else throw new Error(`Unknown argument "${arg}". See the usage at the top of this file.`)
   }
   if (!options.all && !options.guide && !options.input) {
@@ -187,7 +187,7 @@ function main() {
 
   for (const guidePath of guides) {
     const name = basename(guidePath, '.md')
-    const guideId = /^LG-\d{2}/.exec(name)?.[0]
+    const guideId = /^LG-\d{2}[A-Z]?(?=-)/.exec(name)?.[0]
 
     // A template or ad-hoc input has no guide id: its code map is built from every guide's anchors.
     const selected = anchors

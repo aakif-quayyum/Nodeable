@@ -1,3 +1,4 @@
+using Nodeable.Domain.Art;
 using Nodeable.Domain.Dates;
 
 namespace Nodeable.Domain.Search;
@@ -26,6 +27,11 @@ public sealed record SearchCandidate(
         .ThenBy(r => r.Date?.Date ?? DateOnly.MaxValue)
         .Select(r => r.Title)
         .FirstOrDefault();
+
+    /// <summary>The release and release group a cover is loaded for (FR-ART-01), chosen like the original (FR-SEARCH-02).</summary>
+    public CoverChoice Cover => CoverSelector.Choose(Releases
+        .Where(r => r.Mbid is not null)
+        .Select(r => new CoverCandidate(r.Mbid!.Value, r.ReleaseGroupMbid, r.Date, r.IsUnofficial, r.IsLive, r.IsCompilation)));
 }
 
 /// <summary>
@@ -35,9 +41,13 @@ public sealed record SearchCandidate(
 /// <param name="IsUnofficial">The release is a promotion, bootleg or pseudo-release, not an official one.</param>
 /// <param name="IsLive">The release is a live album.</param>
 /// <param name="IsCompilation">The release is a compilation or a DJ-mix.</param>
+/// <param name="Mbid">The release's MusicBrainz ID, which is what a cover is looked up by (FR-ART-01); null when not known.</param>
+/// <param name="ReleaseGroupMbid">The ID of the release's group, the fallback for a cover; null when not known.</param>
 public sealed record CandidateRelease(
     string Title,
     PartialDate? Date,
     bool IsUnofficial = false,
     bool IsLive = false,
-    bool IsCompilation = false);
+    bool IsCompilation = false,
+    Guid? Mbid = null,
+    Guid? ReleaseGroupMbid = null);

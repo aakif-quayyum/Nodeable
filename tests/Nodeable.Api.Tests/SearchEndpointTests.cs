@@ -48,6 +48,10 @@ public sealed class SearchEndpointTests(ApiFactory factory) : IClassFixture<ApiF
         song.FirstReleaseTitle.Should().Be("Awaken, My Love!");
         song.Year.Should().Be(2016);
         song.Score.Should().Be(100);
+
+        // FR-ART-01: the cover is the original's earliest official studio release, and its group is the fallback.
+        song.ArtReleaseMbid.Should().Be(Guid.Parse("2017e952-42c9-41e0-9e39-69d5aa7b17a6"));
+        song.ArtReleaseGroupMbid.Should().Be(Guid.Parse("fd817615-3d43-4f07-9509-d0a46b2bc278"));
         song.CreditsStatus.Should().BeNull("the recording is not in the cache");
         song.Versions.Should().HaveCount(6);
         song.Versions.Select(v => v.Kind).Should().Contain([VersionKind.Live, VersionKind.Compilation]);

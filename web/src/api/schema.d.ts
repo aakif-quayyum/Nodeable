@@ -182,6 +182,10 @@ export interface components {
             creditsStatus: components["schemas"]["SongStatus"];
             /** Format: date-time */
             addedAt: string;
+            /** Format: uuid */
+            artReleaseMbid?: null | string;
+            /** Format: uuid */
+            artReleaseGroupMbid?: null | string;
         };
         HubItem: {
             /** Format: uuid */
@@ -219,6 +223,10 @@ export interface components {
             score: number;
             creditsStatus: null | components["schemas"]["CreditsStatus"];
             versions: components["schemas"]["SearchVersionItem"][];
+            /** Format: uuid */
+            artReleaseMbid?: null | string;
+            /** Format: uuid */
+            artReleaseGroupMbid?: null | string;
         };
         /** @enum {unknown} */
         SearchSource: "cache" | "musicBrainz";
@@ -235,6 +243,10 @@ export interface components {
             kind: components["schemas"]["VersionKind"];
             note: null | string;
             creditsStatus: null | components["schemas"]["CreditsStatus"];
+            /** Format: uuid */
+            artReleaseMbid?: null | string;
+            /** Format: uuid */
+            artReleaseGroupMbid?: null | string;
         };
         /** @enum {unknown} */
         SongStatus: "loading" | "none" | "partial" | "complete";

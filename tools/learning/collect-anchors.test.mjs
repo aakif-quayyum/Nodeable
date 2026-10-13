@@ -67,6 +67,28 @@ describe('parseAnchors', () => {
   })
 })
 
+describe('guide ids with a revision letter', () => {
+  it('reads LG-03R as its own guide, not as LG-03', () => {
+    const { anchors, problems } = parseAnchors(['// LEARN: LG-03R image-fallback-chain | tries each source in turn', 'const x = 1'].join('\n'), 'a.ts')
+
+    assert.equal(problems.length, 0)
+    assert.equal(anchors[0]?.guide, 'LG-03R')
+    assert.equal(anchors[0]?.id, 'image-fallback-chain')
+  })
+
+  it('still reads a plain two-digit id', () => {
+    const { anchors } = parseAnchors(['// LEARN: LG-03 join-then-load | x', 'let y'].join('\n'), 'a.ts')
+
+    assert.equal(anchors[0]?.guide, 'LG-03')
+  })
+
+  it('flags a lowercase revision letter as malformed', () => {
+    const { problems } = parseAnchors('// LEARN: LG-03r nope | x', 'a.ts')
+
+    assert.equal(problems.length, 1)
+  })
+})
+
 describe('findDuplicates', () => {
   it('flags the same guide and id used in two places, but not the same id in different guides', () => {
     const make = (guide, id, file) => ({ guide, id, file, line: 1, explanation: '', code: '', endLine: 1 })
