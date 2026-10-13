@@ -50,7 +50,7 @@ function twoSongs(): Snapshot {
 function open(snapshot: Snapshot = twoSongs()) {
   localStorage.setItem('nodeable.graph', JSON.stringify({ id: graphId, token }))
   server.use(http.get(`/api/v1/graphs/${graphId}`, () => HttpResponse.json(snapshot)))
-  return renderAt('/', { graphConnection: () => new FakeGraphHub() })
+  return renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
 }
 
 const person = (id: string, name: string, songs: number, roles: PersonNode['roles'] = ['producer']): PersonNode => ({

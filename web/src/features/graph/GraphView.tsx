@@ -98,7 +98,7 @@ export function GraphView({ session }: { session: GraphSession }) {
 
   return (
     <Box component="section" aria-labelledby="graph-heading" aria-busy={graph.isPending}>
-      <Typography variant="h2" id="graph-heading" sx={{ fontSize: '1.25rem', fontWeight: 600 }} gutterBottom>
+      <Typography variant="h1" id="graph-heading" sx={{ fontSize: '1.75rem' }} gutterBottom>
         Your graph
         {snapshot && songCount > 0 ? ` · ${songCount} ${songCount === 1 ? 'song' : 'songs'}` : ''}
       </Typography>

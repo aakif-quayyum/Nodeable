@@ -4,12 +4,17 @@ import Button from '@mui/material/Button'
 import LinearProgress from '@mui/material/LinearProgress'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
+import { lazy, Suspense } from 'react'
 import { Link, NavLink, Outlet, useNavigation } from 'react-router'
-import { SearchForm } from '../features/search/SearchForm.tsx'
+import { useAddSheet } from '../features/search/addSheet.ts'
 import { ThemeToggle } from './ThemeToggle.tsx'
+
+// The sheet is only needed once someone opens it, so its code (the dialog and the results list) waits until then.
+const SearchSheet = lazy(() => import('../features/search/SearchSheet.tsx').then((module) => ({ default: module.SearchSheet })))
 
 export function AppShell() {
   const navigation = useNavigation()
+  const { open, openSheet } = useAddSheet()
 
   return (
     <>
@@ -35,36 +40,39 @@ export function AppShell() {
 
       {/* AppBar renders a <header>, which screen readers announce as the banner landmark. */}
       <AppBar position="sticky">
-        {/* The toolbar wraps: on a phone the search drops to its own row under the title and links. */}
         <Toolbar sx={{ gap: 1, flexWrap: 'wrap', py: 1 }}>
           <Typography
-            variant="h6"
+            variant="display"
             component={Link}
             to="/"
-            sx={{ color: 'inherit', textDecoration: 'none', fontWeight: 700, mr: 2 }}
+            sx={{ color: 'inherit', textDecoration: 'none', fontSize: 26, mr: { xs: 'auto', sm: 2 } }}
           >
             Nodeable
           </Typography>
 
-          <Box component="nav" aria-label="Primary" sx={{ display: 'flex', gap: 1, flexGrow: { xs: 1, md: 0 } }}>
+          {/* On a phone the links take a row of their own: the rows then do not depend on how wide the text is, so the
+              page does not move when a web font replaces the system one (CLS). */}
+          <Box
+            component="nav"
+            aria-label="Primary"
+            sx={{ display: 'flex', gap: 0.5, flexGrow: { sm: 1 }, order: { xs: 3, sm: 0 }, flexBasis: { xs: '100%', sm: 'auto' } }}
+          >
             {/* NavLink adds aria-current="page" to the link for the current route. */}
             <Button color="inherit" component={NavLink} to="/" end>
               Home
+            </Button>
+            <Button color="inherit" component={NavLink} to="/graph">
+              Graph
             </Button>
             <Button color="inherit" component={NavLink} to="/about">
               About
             </Button>
           </Box>
 
-          {/* Wide screens: title, links, search (grows), theme. Phones: the search drops to its own row, so the theme
-              toggle moves up beside the links. Keyboard order stays title, links, search, theme. */}
-          <Box sx={{ flexBasis: { xs: '100%', md: 'auto' }, flexGrow: { md: 1 }, order: { xs: 3, md: 0 }, display: 'flex' }}>
-            <SearchForm />
-          </Box>
-
-          <Box sx={{ order: { xs: 2, md: 0 } }}>
-            <ThemeToggle />
-          </Box>
+          <Button variant="contained" onClick={openSheet} aria-haspopup="dialog">
+            + Add a song
+          </Button>
+          <ThemeToggle />
         </Toolbar>
 
         {/* Shown while a lazy route's code is downloading, so a click never feels dead (spec principle 3). */}
@@ -75,6 +83,12 @@ export function AppShell() {
       <Box component="main" id="main-content" tabIndex={-1} sx={{ p: { xs: 2, sm: 3 }, outline: 'none' }}>
         <Outlet />
       </Box>
+
+      {open && (
+        <Suspense fallback={null}>
+          <SearchSheet />
+        </Suspense>
+      )}
     </>
   )
 }

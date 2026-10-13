@@ -28,6 +28,12 @@ public sealed record SearchCandidate(
         .Select(r => r.Title)
         .FirstOrDefault();
 
+    /// <summary>
+    /// Whether this is a remix, an edit, a bootleg or a mixtape recording of the song, from MusicBrainz data first and
+    /// the title's decoration last; null for the song itself.
+    /// </summary>
+    public RecordingKind? Kind => RecordingKindClassifier.Classify(Title, Disambiguation, Releases);
+
     /// <summary>The release and release group a cover is loaded for (FR-ART-01), chosen like the original (FR-SEARCH-02).</summary>
     public CoverChoice Cover => CoverSelector.Choose(Releases
         .Where(r => r.Mbid is not null)
@@ -43,6 +49,8 @@ public sealed record SearchCandidate(
 /// <param name="IsCompilation">The release is a compilation or a DJ-mix.</param>
 /// <param name="Mbid">The release's MusicBrainz ID, which is what a cover is looked up by (FR-ART-01); null when not known.</param>
 /// <param name="ReleaseGroupMbid">The ID of the release's group, the fallback for a cover; null when not known.</param>
+/// <param name="IsRemix">The release's group is a remix album (a secondary type of Remix).</param>
+/// <param name="IsMixtape">The release's group is a mixtape (a secondary type of Mixtape/Street).</param>
 public sealed record CandidateRelease(
     string Title,
     PartialDate? Date,
@@ -50,4 +58,6 @@ public sealed record CandidateRelease(
     bool IsLive = false,
     bool IsCompilation = false,
     Guid? Mbid = null,
-    Guid? ReleaseGroupMbid = null);
+    Guid? ReleaseGroupMbid = null,
+    bool IsRemix = false,
+    bool IsMixtape = false);

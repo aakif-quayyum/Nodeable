@@ -244,12 +244,12 @@ describe('search', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('MusicBrainz is not answering right now.')
   })
 
-  it('NFR_A11Y_01 the search form is a labelled search landmark in the banner', async () => {
+  it('NFR_A11Y_01 the search form is a labelled search landmark in the main content', async () => {
     renderAt('/')
 
     const search = await screen.findByRole('search', { name: 'Search for a song' })
 
-    expect(within(screen.getByRole('banner')).getByRole('search', { name: 'Search for a song' })).toBe(search)
+    expect(within(screen.getByRole('main')).getByRole('search', { name: 'Search for a song' })).toBe(search)
   })
 
   it('FR_SEARCH_01 fills the boxes from the address and follows it when it changes', async () => {

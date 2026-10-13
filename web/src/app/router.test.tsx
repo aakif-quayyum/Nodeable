@@ -5,14 +5,14 @@ import { renderAt } from '../test/renderApp.tsx'
 
 describe('app shell and routes', () => {
   // Screen readers jump between landmarks, so every page needs a banner, navigation and main, with one h1 (NFR-A11Y-01).
-  it('NFR_A11Y_01 gives the home page banner, navigation and main landmarks and a single h1', async () => {
+  it('NFR_A11Y_01 gives the landing page banner, navigation and main landmarks and a single h1', async () => {
     renderAt('/')
 
     expect(await screen.findByRole('banner')).toBeInTheDocument()
     expect(screen.getByRole('navigation', { name: 'Primary' })).toBeInTheDocument()
     expect(screen.getByRole('main')).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
-    expect(screen.getByRole('heading', { level: 1, name: 'Nodeable' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Every song has a crew.' })).toBeInTheDocument()
   })
 
   it('NFR_A11Y_01 offers a skip link that targets the main landmark', async () => {
