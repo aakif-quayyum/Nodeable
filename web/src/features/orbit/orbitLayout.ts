@@ -32,6 +32,15 @@ export const focusParam = (ref: NodeRef) => `${ref.type}:${ref.id}`
 /** The second ring shows at most this many nodes; the rest are one "+N more" node (spec section 12). */
 export const maxSecondRing = 60
 
+/** How many nodes each ring keeps before the rest become one "+N more" node. */
+interface Caps {
+  first: number
+  second: number
+}
+
+/** The radius of a node's hit area at least: 12 px, a 24 px target. */
+const minHit = 12
+
 /** Above this many nodes on the first ring their names are left off (the tooltip and the accessible name still give them). */
 const maxLabelledFirstRing = 16
 
@@ -49,6 +58,12 @@ export interface OrbitNode {
   radius: number
   /** The drawn radius in pixels. */
   size: number
+  /**
+   * The radius, in pixels, of the area that takes a press or a hover: at least 12 (a 24 px target, WCAG 2.2 2.5.8) and
+   * never less than the drawn disc, and the areas of one ring do not overlap. Smaller only where a ring that cannot be
+   * thinned (the whole graph's songs) has no room for 24 px each.
+   */
+  hit: number
   /** The name as drawn, one line or two joined with a space; '' when there is no room for one. */
   label: string
   /** The lines the name is drawn in: one, or two when wrapping at a word beat cutting (spec section 12). */
@@ -216,9 +231,36 @@ function fitBox(extents: readonly Extent[], width: number, height: number): numb
  */
 // LEARN: LG-03R radial-tree | d3-hierarchy's tree() gives every node an x in [0, 2π] and a depth; reading x as an angle and depth as a radius turns a tree layout into an orbit, and because the layout is a pure function of the data and the stage size it is tested without a DOM
 export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): OrbitLayout {
+  // A ring that cannot hold its nodes' 24 px hit areas without overlap is asked to keep fewer (the rest are "+N more"),
+  // and the layout is made again; the caps only go down, so this ends.
+  let caps: Caps = { first: Number.POSITIVE_INFINITY, second: maxSecondRing }
+  for (let attempt = 0; ; attempt += 1) {
+    const built = buildOrbit(ws, centre, size, caps, attempt >= 5)
+    if (built.layout !== null) return built.layout
+    caps = built.overflow ?? caps
+  }
+}
+
+function buildOrbit(
+  ws: Workspace,
+  centre: NodeRef,
+  size: StageSize,
+  caps: Caps,
+  final: boolean,
+): { layout: OrbitLayout | null; overflow: Caps | null } {
   const rootKey = nodeKey(centre)
 
-  const ring1 = neighboursOf(ws, centre)
+  let ring1 = neighboursOf(ws, centre)
+  // The first ring of a song or a person can be thinned; the whole graph's songs are never hidden (FR-VIEW-04).
+  let moreFirst = 0
+  if (centre.type !== 'graph' && ring1.length > caps.first) {
+    const ranked = [...ring1].sort(
+      (a, b) => degreeOf(ws, b.type, b.id) - degreeOf(ws, a.type, a.id) || nameOf(ws, a.type, a.id).localeCompare(nameOf(ws, b.type, b.id)),
+    )
+    const keep = new Set(ranked.slice(0, Math.max(1, caps.first)).map(nodeKey))
+    moreFirst = ring1.length - keep.size
+    ring1 = ring1.filter((ref) => keep.has(nodeKey(ref)))
+  }
   const seen = new Set<string>([rootKey, ...ring1.map(nodeKey)])
   const crossRaw: { source: string; target: string }[] = []
   const rootChildren: TreeNode[] = ring1.map((ref) => ({ id: nodeKey(ref), kind: ref.type as 'song' | 'person', ref: ref.id, children: [] }))
@@ -238,17 +280,20 @@ export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): Or
 
   // The second ring is capped (spec section 12): connectors first, then by name, so the nodes kept are the useful ones.
   const secondRing = rootChildren.flatMap((parent) => parent.children)
-  if (secondRing.length > maxSecondRing) {
+  if (secondRing.length > caps.second) {
     const keep = new Set(
       [...secondRing]
         .sort((a, b) => degreeOf(ws, b.kind, b.ref) - degreeOf(ws, a.kind, a.ref) || nameOf(ws, a.kind, a.ref).localeCompare(nameOf(ws, b.kind, b.ref)))
-        .slice(0, maxSecondRing)
+        .slice(0, Math.max(1, caps.second))
         .map((node) => node.id),
     )
     for (const parent of rootChildren) parent.children = parent.children.filter((child) => keep.has(child.id))
     const last = [...rootChildren].reverse().find((parent) => parent.children.length > 0) ?? rootChildren.at(-1)
     last?.children.push({ id: 'more', kind: 'more', ref: '', children: [], moreCount: secondRing.length - keep.size })
   }
+
+  // What was thinned from the first ring is one more node on it, after the people that were kept.
+  if (moreFirst > 0) rootChildren.push({ id: 'more:first', kind: 'more', ref: '', children: [], moreCount: moreFirst })
 
   const shownSecond = new Set(rootChildren.flatMap((parent) => parent.children.map((child) => child.id)))
   const crossLinks = crossRaw
@@ -388,12 +433,44 @@ export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): Or
       angle: node.angle,
       radius: node.depth === 0 ? 0 : node.depth === 1 ? r1 : radius,
       size: discSize,
+      hit: discSize,
       label: '',
       lines: [],
       place: node.depth === 2 ? 'radial' : 'below',
       moreCount: node.data.moreCount ?? 0,
     }
   })
+
+  // ---- Hit areas (WCAG 2.2, 2.5.8) ----------------------------------------------------------------------------------
+  // Each node takes a press in a circle of at least 12 px radius (24 px across) and never less than its drawn disc. The
+  // circles of one ring may not overlap, so the nodes of a ring are moved apart along it; when they cannot all fit, the
+  // smallest nodes (fewest songs, then name) go into "+N more" and the layout is made again. A song's disc is not a
+  // person's: the whole graph's songs are never thinned, so on a crowded ring they share the circle.
+  const overflow: Caps = { ...caps }
+  let overflowed = false
+  for (const depth of [1, 2] as const) {
+    const ring = nodes.filter((node) => node.depth === depth)
+    if (ring.length === 0) continue
+    const ringRadius = depth === 1 ? r1 : radius
+    for (const node of ring) node.hit = Math.max(minHit, node.size)
+    if (spreadRing(ring, ringRadius)) continue
+
+    const thinnable = depth === 2 || centre.type !== 'graph'
+    if (thinnable && !final) {
+      const mean = ring.reduce((sum, node) => sum + node.hit, 0) / ring.length
+      const fits = Math.floor(Math.PI / Math.asin(Math.min(1, mean / ringRadius)))
+      const keepable = Math.max(1, fits - 1)
+      const now = depth === 1 ? first - (moreFirst > 0 ? 1 : 0) : ring.length - (ring.some((node) => node.kind === 'more') ? 1 : 0)
+      if (keepable < now) {
+        if (depth === 1) overflow.first = keepable
+        else overflow.second = keepable
+        overflowed = true
+        continue
+      }
+    }
+    shrinkHits(ring, ringRadius)
+  }
+  if (overflowed) return { layout: null, overflow }
 
   // Each name gets the room its own node has. A second-ring name runs outward along the radius to the stage's edge, so
   // on the sides it can be long and at the top and bottom it is short; a first-ring name is no wider than the room
@@ -495,18 +572,85 @@ export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): Or
   if (empty !== null) centreNode.size = 0.01
 
   return {
-    centre,
-    nodes,
-    links,
-    crossLinks,
-    guides: empty !== null ? [] : hasSecond ? [r1, radius] : [r1],
-    arcs: centre.type === 'song' && empty === null ? roleArcs(ws, centre.id, nodes, arcRadius, centreNode.size) : [],
-    radius,
-    origin,
-    scale,
-    fontScale,
-    key: `${rootKey}|${nodes.map((node) => node.id).join(',')}`,
-    empty,
+    layout: {
+      centre,
+      nodes,
+      links,
+      crossLinks,
+      guides: empty !== null ? [] : hasSecond ? [r1, radius] : [r1],
+      arcs: centre.type === 'song' && empty === null ? roleArcs(ws, centre.id, nodes, arcRadius, centreNode.size) : [],
+      radius,
+      origin,
+      scale,
+      fontScale,
+      key: `${rootKey}|${nodes.map((node) => node.id).join(',')}`,
+      empty,
+    },
+    overflow: null,
+  }
+}
+
+/**
+ * Moves the nodes of one ring apart along its circle until the circles of their hit areas, `hit` in radius, no longer
+ * overlap, keeping their order. Each pair needs the angle at which two such circles just touch on a ring of this radius
+ * (a chord of `hit + hit`); the nodes are pushed apart a pair at a time until every gap has it. False when the gaps
+ * cannot all be had at once, which is when the ring holds more than its circumference allows.
+ */
+function spreadRing(ring: OrbitNode[], radius: number): boolean {
+  const n = ring.length
+  if (n < 2) return true
+  const turn = Math.PI * 2
+  const order = ring.map((node) => ({ node, angle: ((node.angle % turn) + turn) % turn })).sort((a, b) => a.angle - b.angle)
+  const start = order.map((entry) => entry.angle)
+  const need = order.map((entry, index) => {
+    const next = order[(index + 1) % n]!
+    return 2 * Math.asin(Math.min(1, (entry.node.hit + next.node.hit) / (2 * radius)))
+  })
+  if (need.reduce((sum, value) => sum + value, 0) > turn - 1e-6) return false
+
+  const pos = [...start]
+  const gapAfter = (index: number) => (index === n - 1 ? pos[0]! + turn - pos[index]! : pos[index + 1]! - pos[index]!)
+  for (let pass = 0; pass < 300; pass += 1) {
+    let moved = false
+    for (let index = 0; index < n; index += 1) {
+      const deficit = need[index]! - gapAfter(index)
+      if (deficit <= 1e-9) continue
+      const next = (index + 1) % n
+      pos[index] = pos[index]! - deficit / 2
+      pos[next] = pos[next]! + deficit / 2
+      moved = true
+    }
+    if (!moved) break
+  }
+  // Close to full the pushing converges slowly; then the nodes are given exactly what they need plus an equal share of
+  // what is left over, in their order, which always holds.
+  let short = false
+  for (let index = 0; index < n; index += 1) if (need[index]! - gapAfter(index) > 1e-9) short = true
+  if (short) {
+    const slack = (turn - need.reduce((sum, value) => sum + value, 0)) / n
+    let at = start[0]!
+    for (let index = 0; index < n; index += 1) {
+      pos[index] = at
+      at += need[index]! + slack
+    }
+  }
+
+  order.forEach((entry, index) => {
+    entry.node.angle += pos[index]! - start[index]!
+  })
+  return true
+}
+
+/** The fallback for a ring that cannot be thinned: each hit area is no bigger than half the way to its nearest neighbour. */
+function shrinkHits(ring: OrbitNode[], radius: number): void {
+  for (const node of ring) {
+    let nearest = Number.POSITIVE_INFINITY
+    for (const other of ring) {
+      if (other === node) continue
+      const between = Math.abs((((other.angle - node.angle + Math.PI) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) - Math.PI)
+      nearest = Math.min(nearest, 2 * radius * Math.sin(Math.min(between, Math.PI) / 2))
+    }
+    node.hit = Math.min(node.hit, Math.max(4, nearest / 2))
   }
 }
 

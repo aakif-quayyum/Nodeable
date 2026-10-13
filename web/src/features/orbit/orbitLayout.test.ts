@@ -41,24 +41,103 @@ describe('orbit layout', () => {
   })
 
   it('FR_VIEW_01 shows at most 60 on the second ring and stands for the rest with one "+N more" node', () => {
+    // Three songs of 25 people each, and one person on all three: the orbit around that person has three songs on the
+    // first ring and 75 people on the second.
     const people = Array.from({ length: 75 }, (_, index) => person(`p${index}`, `Person ${String(index).padStart(2, '0')}`))
+    const songKeys = ['a', 'b', 'c']
     const snapshot = snapshotOf({
-      songs: [song('a', 'A'), ...people.map((_, index) => song(`s${index}`, `Song ${index}`))],
+      songs: songKeys.map((key) => song(key, key.toUpperCase())),
       people: [person('hub', 'The Hub'), ...people],
       credits: [
-        credit('a', 'hub', 'producer'),
-        ...people.map((_, index) => credit(`s${index}`, 'hub', 'songwriter')),
-        ...people.map((_, index) => credit(`s${index}`, `p${index}`, 'mixing')),
+        ...songKeys.map((key) => credit(key, 'hub', 'producer')),
+        ...people.map((_, index) => credit(songKeys[index % 3]!, `p${index}`, 'mixing')),
       ],
     })
 
-    const layout = layoutOrbit(build(snapshot), { type: 'person', id: 'person-hub' }, stage)
+    // A stage large enough for 61 hit areas on the second ring (each is 24 px across).
+    const layout = layoutOrbit(build(snapshot), { type: 'person', id: 'person-hub' }, { width: 1600, height: 1000 })
 
     const second = layout.nodes.filter((node) => node.depth === 2)
     expect(second).toHaveLength(maxSecondRing + 1)
     const more = second.find((node) => node.kind === 'more')!
     expect(more.label).toBe('+15 more')
     expect(more.moreCount).toBe(15)
+  })
+
+  describe('hit areas (NFR_A11Y_01, WCAG 2.2 2.5.8)', () => {
+    /** The pairs of nodes on one ring whose hit circles overlap, for the layout's own radii. */
+    function overlaps(layout: ReturnType<typeof layoutOrbit>) {
+      const found: string[] = []
+      for (const depth of [1, 2]) {
+        const ring = layout.nodes.filter((node) => node.depth === depth)
+        for (let i = 0; i < ring.length; i += 1) {
+          for (let j = i + 1; j < ring.length; j += 1) {
+            const [ax, ay] = polarToXY(ring[i]!.radius, ring[i]!.angle)
+            const [bx, by] = polarToXY(ring[j]!.radius, ring[j]!.angle)
+            if (Math.hypot(ax - bx, ay - by) < ring[i]!.hit + ring[j]!.hit - 1e-6) found.push(`${ring[i]!.id} ${ring[j]!.id}`)
+          }
+        }
+      }
+      return found
+    }
+
+    const manySongs = (songs: number, people: number) => {
+      const keys = Array.from({ length: songs }, (_, index) => `s${index}`)
+      return snapshotOf({
+        songs: keys.map((key) => song(key, `Song ${key}`)),
+        people: [person('hub', 'The Hub'), ...Array.from({ length: people }, (_, index) => person(`p${index}`, `Person ${String(index).padStart(2, '0')}`))],
+        credits: [
+          ...keys.map((key) => credit(key, 'hub', 'producer')),
+          ...Array.from({ length: people }, (_, index) => credit(keys[index % songs]!, `p${index}`, 'mixing')),
+        ],
+      })
+    }
+
+    it('NFR_A11Y_01 gives every node but the centre a hit area of at least 24 px across, and none overlap, at every centre', () => {
+      const ws = build()
+      for (const width of [900, 390]) {
+        for (const centre of [rootRef, { type: 'song', id: 'song-redbone' }, { type: 'person', id: 'person-donald' }] as const) {
+          const layout = layoutOrbit(ws, centre, { width, height: width === 390 ? 700 : 640 })
+
+          for (const node of layout.nodes.filter((entry) => entry.depth > 0)) {
+            expect(node.hit, `${node.id} at ${width}`).toBeGreaterThanOrEqual(12)
+            expect(node.hit).toBeGreaterThanOrEqual(node.size)
+          }
+          expect(overlaps(layout), `overlapping at ${width}`).toEqual([])
+        }
+      }
+    })
+
+    it('NFR_A11Y_01 puts the smallest people of a crowded first ring into "+N more" so that the rest keep 24 px', () => {
+      const layout = layoutOrbit(build(manySongs(76, 0)), { type: 'person', id: 'person-hub' }, { width: 390, height: 700 })
+
+      const first = layout.nodes.filter((node) => node.depth === 1)
+      const more = first.find((node) => node.kind === 'more')
+      expect(more).toBeDefined()
+      expect(first.length - 1 + more!.moreCount).toBe(76)
+      expect(first.length).toBeLessThan(76)
+      for (const node of first) expect(node.hit).toBeGreaterThanOrEqual(12)
+      expect(overlaps(layout)).toEqual([])
+    })
+
+    it('NFR_A11Y_01 thins the second ring to what its circumference holds, smallest names last', () => {
+      const layout = layoutOrbit(build(manySongs(3, 75)), { type: 'person', id: 'person-hub' }, { width: 390, height: 700 })
+
+      const second = layout.nodes.filter((node) => node.depth === 2)
+      expect(second.length).toBeLessThan(maxSecondRing + 1)
+      expect(second.some((node) => node.kind === 'more')).toBe(true)
+      for (const node of second) expect(node.hit).toBeGreaterThanOrEqual(12)
+      expect(overlaps(layout)).toEqual([])
+    })
+
+    it('FR_VIEW_04 never hides a song of the whole graph; a crowded ring shares the circle instead, with no overlap', () => {
+      const layout = layoutOrbit(build(manySongs(50, 0)), rootRef, { width: 390, height: 700 })
+
+      const songs = layout.nodes.filter((node) => node.depth === 1)
+      expect(songs).toHaveLength(50)
+      expect(songs.every((node) => node.kind === 'song')).toBe(true)
+      expect(overlaps(layout)).toEqual([])
+    })
   })
 
   it('NFR_MOTION_01 moves an angle the short way round the circle', () => {

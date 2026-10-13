@@ -378,6 +378,10 @@ const OrbitNodeShape = memo(function OrbitNodeShape(props: NodeShapeProps) {
       }}
       onBlur={onLeave}
     >
+      {/* The press area (WCAG 2.2, 2.5.8): at least 24 px across, and not overlapping the next node's; the drawn disc is
+          smaller. Drawn in the glyph's units, so the group's scale gives it its size on the stage. */}
+      {!isCentre && <circle className="hita" r={(baseRadius[node.kind] * node.hit) / Math.max(node.size, 1)} fill="transparent" />}
+
       {node.kind === 'song' && <RecordGlyph mbid={node.ref} artRelease={artRelease} artGroup={artGroup} />}
 
       {node.kind === 'graph' && (
