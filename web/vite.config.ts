@@ -27,6 +27,8 @@ export default defineConfig({
   },
   test: {
     environment: 'jsdom',
+    // The browser flow in e2e/ is Playwright's, not Vitest's.
+    include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['./src/test/setup.ts'],
     // A test that opens the graph waits for its lazy chunks to be transformed, which is slow when every file runs at once.
     testTimeout: 15000,

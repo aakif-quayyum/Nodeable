@@ -48,6 +48,7 @@ interface OrbitSceneProps extends SceneHandlers {
  * `opacity` and a link's `d` straight onto the elements once a frame, so a transition is not a hundred React renders a
  * second, and React never sets those attributes itself, so it never undoes them.
  */
+// LEARN: LG-03R react-structure-d3-motion | React decides which elements exist and what they look like; the motion engine writes transform and opacity onto those elements through refs, and React never sets those two attributes in JSX, so a re-render cannot undo a frame of the animation
 export function OrbitScene({ workspace, centre, stage, focusId, svgRef, onChoose, onHover, onLeave, onMove }: OrbitSceneProps) {
   const reduced = useReducedMotion()
   // The layout depends on which node is the centre, not on the object that names it (a new one on every render).

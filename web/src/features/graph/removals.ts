@@ -66,6 +66,7 @@ async function commit(mbid: string): Promise<void> {
  * Takes a song out of the views now and sends the removal when the undo window is over (FR-GRAPH-06). Until then the
  * server still has the song, so an undo is nothing to take back.
  */
+// LEARN: LG-03R deferred-removal | Undo is cheapest when nothing has happened yet: the song is hidden at once and the DELETE is sent only when its timer ends, so cancelling needs no request and the server never holds a state the person did not mean
 export function scheduleRemoval(song: PendingRemoval, send: () => Promise<void>): void {
   if (commits.has(song.mbid)) return
   commits.set(song.mbid, send)

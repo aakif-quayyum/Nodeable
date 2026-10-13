@@ -13,6 +13,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "e2e": "playwright test",
     "preview": "vite preview",
     "gen:api": "dotnet build ../src/Nodeable.Api && openapi-typescript ../src/Nodeable.Api/obj/openapi/Nodeable.Api.json -o src/api/schema.d.ts"
   },
@@ -48,6 +49,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.0",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.7",

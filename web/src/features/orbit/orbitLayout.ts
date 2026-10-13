@@ -88,6 +88,7 @@ export interface StageSize {
 }
 
 /** The angle moved the short way round, so a node that crosses the top does not swing across the whole circle. */
+// LEARN: LG-03R polar-interpolation | Interpolating an angle linearly can swing the long way round the circle; the difference is wrapped into [-π, π) first, so a node that crosses the top takes the short arc, which is what makes a re-root read as a turn instead of a scramble
 export function lerpAngle(from: number, to: number, t: number): number {
   const turn = Math.PI * 2
   const delta = ((((to - from + Math.PI) % turn) + turn) % turn) - Math.PI
@@ -134,6 +135,7 @@ function nameOf(ws: Workspace, kind: 'song' | 'person', ref: string): string {
  * as a radial tree. It is a pure function of the data and the stage's size, so it is tested without a DOM, and the
  * view animates between two layouts by moving each node from where it was to where it is now.
  */
+// LEARN: LG-03R radial-tree | d3-hierarchy's tree() gives every node an x in [0, 2π] and a depth; reading x as an angle and depth as a radius turns a tree layout into an orbit, and because the layout is a pure function of the data and the stage size it is tested without a DOM
 export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): OrbitLayout {
   const rootKey = nodeKey(centre)
   const kindOf = (ref: NodeRef) => ref.type

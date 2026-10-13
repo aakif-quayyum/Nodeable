@@ -39,6 +39,7 @@ const pop = easeBackOut.overshoot(1.8)
  * and is not in the new one *exits*, folding inward as it fades. A node that is in both moves from wherever it is
  * now, so a transition that is interrupted by another carries on smoothly from the middle.
  */
+// LEARN: LG-03R timer-driven-motion | A d3-timer calls one function per animation frame with the time elapsed; the motion is plain data (from, to, an easing of the elapsed fraction) advanced by that clock and written straight onto SVG attributes, so a transition costs no React renders and a graph at rest costs no frames
 export class OrbitMotion {
   private readonly nodes = new Map<string, MotionNode>()
   private clock: Timer | null = null

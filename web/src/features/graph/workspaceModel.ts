@@ -57,6 +57,7 @@ const roleOrder = (role: CreditRoleKey) => creditRoles.indexOf(role)
  * everything the orbit, the cards, the notes and the Text view ask of it worked out once. The same inputs always give
  * the same answer in the same order, so the views and the Text view cannot disagree (NFR-A11Y-01).
  */
+// LEARN: LG-03R one-workspace | The filters (roles, pending removals, hidden people) are applied once to build a single derived model that every view reads, so the orbit, the cards, the notes and the Text view cannot disagree and a new filter is one more input, not a change in four components
 export function buildWorkspace(snapshot: GraphSnapshot, options: WorkspaceOptions): Workspace {
   const liveSongs = snapshot.songs.filter((song) => !options.removed.has(song.mbid))
   const songIds = new Set(liveSongs.map((song) => song.mbid))

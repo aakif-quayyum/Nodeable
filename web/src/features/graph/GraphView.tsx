@@ -184,7 +184,14 @@ export function GraphView({ session }: { session: GraphSession }) {
         open={lastRemoved !== undefined}
         message={lastRemoved === undefined ? '' : `Removed “${lastRemoved.title}” from your graph`}
         action={
-          <Button color="secondary" size="small" onClick={() => lastRemoved !== undefined && undoRemoval(lastRemoved.mbid)}>
+          // The bar's own colours are an inverse surface, so the button takes its text colour (the accent yellow would not
+          // reach 3:1 on it) and is marked as a control by weight and underline.
+          <Button
+            color="inherit"
+            size="small"
+            onClick={() => lastRemoved !== undefined && undoRemoval(lastRemoved.mbid)}
+            sx={{ fontWeight: 800, textDecoration: 'underline' }}
+          >
             Undo
           </Button>
         }

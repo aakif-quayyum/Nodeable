@@ -262,7 +262,7 @@ export function LegendChips() {
         zIndex: 2,
         display: 'flex',
         flexWrap: 'wrap',
-        gap: '6px',
+        gap: { xs: '4px', md: '6px' },
         alignItems: 'center',
         listStyle: 'none',
         m: 0,
@@ -282,13 +282,13 @@ export function LegendChips() {
               sx={(theme) => ({
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '6px',
+                gap: { xs: '4px', md: '6px' },
                 cursor: 'pointer',
                 borderRadius: 999,
-                px: '9px',
+                px: { xs: '7px', md: '9px' },
                 py: '3px',
                 fontFamily: theme.typography.kicker.fontFamily,
-                fontSize: 10,
+                fontSize: { xs: 9, md: 10 },
                 fontWeight: 700,
                 letterSpacing: '0.1em',
                 textTransform: 'uppercase',
@@ -297,8 +297,8 @@ export function LegendChips() {
                 border: `1px solid ${on ? colors.dark : theme.vars.palette.divider}`,
                 opacity: on ? 1 : 0.65,
                 textDecoration: on ? 'none' : 'line-through',
-                '& svg': { width: 13, height: 13, color: colors.dark },
-                ...theme.applyStyles('light', { borderColor: on ? colors.light : undefined, '& svg': { width: 13, height: 13, color: colors.light } }),
+                '& svg': { width: 12, height: 12, color: colors.dark },
+                ...theme.applyStyles('light', { borderColor: on ? colors.light : undefined, '& svg': { width: 12, height: 12, color: colors.light } }),
               })}
             >
               <Icon aria-hidden="true" />
