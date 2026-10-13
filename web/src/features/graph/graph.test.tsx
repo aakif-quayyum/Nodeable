@@ -892,3 +892,18 @@ describe('workspace: motion', () => {
     expect(node.getAttribute('transform')).toMatch(/^translate\(0\.00,0\.00\) scale\(0\.001\)/)
   })
 })
+
+describe('workspace: touch targets', () => {
+  it('NFR_A11Y_01 gives a person’s name in the liner notes a target at least 24 px tall, so wrapped names are separate targets on a phone', async () => {
+    setReducedMotion(true)
+    rememberGraph()
+    serveSnapshot(() => twoSongs())
+
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
+    const notes = await screen.findByRole('region', { name: 'Liner notes' })
+    const card = within(notes).getByRole('article', { name: 'Redbone, liner notes' })
+
+    const name = within(card).getAllByRole('button', { name: 'Donald Glover' })[0]!
+    expect(getComputedStyle(name).minHeight).toBe('24px')
+  })
+})

@@ -305,6 +305,12 @@ function Card({
                             sx={(theme) => ({
                               position: "relative",
                               isolation: "isolate",
+                              // 24 px tall, so a name is a target of the minimum size (WCAG 2.2, 2.5.8) on a phone
+                              // where the names of a role wrap onto lines that sit one under the other.
+                              display: "inline-block",
+                              boxSizing: "border-box",
+                              minHeight: "24px",
+                              lineHeight: "22px",
                               p: 0,
                               cursor: "pointer",
                               background: "none",
