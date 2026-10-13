@@ -36,6 +36,7 @@ const riseSide = keyframes`from { opacity: 0; transform: translateX(-8px); }`
 const level = keyframes`from { transform: scaleY(0.05); }`
 const pop = keyframes`40% { transform: scale(1.12); }`
 
+// LEARN: LG-03R reduced-motion-css | Putting every animation inside `prefers-reduced-motion: no-preference` makes the still version the default and the motion the opt-in, and the browser re-evaluates the query itself, so a person who switches the setting while the page is open gets the end state at once with no JavaScript
 const motionOnly = (css: Record<string, unknown>) => ({ '@media (prefers-reduced-motion: no-preference)': css })
 
 function describe(item: { artist: string; firstReleaseTitle: string | null; year: number | null }) {
