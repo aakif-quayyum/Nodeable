@@ -14,7 +14,7 @@ One command starts PostgreSQL, Redis, the Api, the Worker, the web app and the A
 dotnet run --project src/Nodeable.AppHost
 ```
 
-- Open the dashboard at <http://localhost:15180>. The **web** row in its URLs column is the app: Aspire picks the port on every run.
+- Open the app at <http://localhost:5173> (the port is fixed in the AppHost, so a bookmark keeps working) and the dashboard at <http://localhost:15180>.
 - Reload the dashboard once if it first shows "0 resources".
 - The database persists in a Docker volume (`nodeable-postgres-data`), so graphs and crawled MusicBrainz data survive a restart. The Api applies new migrations on top of it.
 
