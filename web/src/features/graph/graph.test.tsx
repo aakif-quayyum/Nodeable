@@ -107,7 +107,8 @@ describe('graph list view', () => {
     expect(postedBody).toEqual({ recordingMbid: redboneMbid })
     expect(postedToken).toBe(token)
     expect(JSON.parse(localStorage.getItem('nodeable.graph') ?? 'null')).toEqual({ id: graphId, token })
-    expect(screen.getByRole('button', { name: 'Redbone is in your graph' })).toBeDisabled()
+    // Adding from the landing page opens the graph (FR-LAND-01): the person is now on /graph, with the song loading.
+    expect(screen.getByRole('heading', { level: 1, name: /Your graph/ })).toBeInTheDocument()
 
     act(() => {
       hub.emit('CreditsResolved', {
@@ -134,7 +135,7 @@ describe('graph list view', () => {
     rememberGraph()
     serveSnapshot(() => snapshot({ songs: [{ ...redbone, creditsStatus: 'complete' }] }), hub)
 
-    renderAt('/', { graphConnection: () => hub })
+    renderAt('/graph', { graphConnection: () => hub })
     await waitFor(() => expect(hub.calls).toContain(`JoinGraph(${graphId}, ${token})`))
     await new Promise((resolve) => setTimeout(resolve, 150))
     expect(hub.calls).not.toContain('GET snapshot')
@@ -161,7 +162,7 @@ describe('graph list view', () => {
       }),
     )
 
-    renderAt('/', { graphConnection: () => hub })
+    renderAt('/graph', { graphConnection: () => hub })
     await waitFor(() => expect(hub.calls).toContain('GET snapshot'))
 
     act(() => {
@@ -197,7 +198,7 @@ describe('graph list view', () => {
       }),
     )
 
-    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
 
     const people = await screen.findByRole('table', { name: 'People, most songs first' })
     const rows = within(people).getAllByRole('row').slice(1)
@@ -220,7 +221,7 @@ describe('graph list view', () => {
       }),
     )
 
-    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
 
     expect(await screen.findByText('Credits incomplete')).toBeInTheDocument()
     const link = screen.getByRole('link', { name: /Add credits on MusicBrainz for Redbone/ })
@@ -232,7 +233,7 @@ describe('graph list view', () => {
     rememberGraph()
     serveSnapshot(() => snapshot({ songs: [redbone] }))
 
-    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
 
     await screen.findByText('Fetching credits…')
     expect(screen.queryByText('Credits incomplete')).not.toBeInTheDocument()
@@ -250,7 +251,7 @@ describe('graph list view', () => {
       }),
     )
 
-    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
     await user.click(await screen.findByRole('button', { name: 'Remove Redbone by Childish Gambino from your graph' }))
 
     expect(await screen.findByText(/Your graph is empty/)).toBeInTheDocument()
@@ -274,7 +275,7 @@ describe('graph list view', () => {
     expect(await screen.findByText(/Your graph is full: it holds up to 50 songs/)).toBeInTheDocument()
   })
 
-  it('FR_GRAPH_01 marks a result that is already in the graph and does not offer to add it again', async () => {
+  it('FR_GRAPH_01 marks a result that is already in the graph, and opens the graph instead of adding it again', async () => {
     rememberGraph()
     serveSearch()
     serveSnapshot(() => snapshot({ songs: [{ ...redbone, creditsStatus: 'complete' }] }))
@@ -282,11 +283,16 @@ describe('graph list view', () => {
     renderAt('/?q=Redbone', { graphConnection: () => new FakeGraphHub() })
 
     const button = await screen.findByRole('button', { name: 'Redbone is in your graph' })
-    expect(button).toBeDisabled()
+    expect(button).toBeEnabled()
     expect(button).toHaveTextContent('In your graph')
+    expect(screen.queryByRole('button', { name: /^Add to graph: Redbone/ })).not.toBeInTheDocument()
+
+    // It takes the person to the graph instead of adding the song a second time.
+    await userEvent.click(button)
+    expect(await screen.findByRole('heading', { level: 1, name: /Your graph/ })).toBeInTheDocument()
   })
 
-  it('FR_GRAPH_01 forgets a graph the server no longer has and goes back to the introduction', async () => {
+  it('FR_GRAPH_01 forgets a graph the server no longer has and invites the person to add a song', async () => {
     rememberGraph()
     server.use(
       http.get(`/api/v1/graphs/${graphId}`, () =>
@@ -294,9 +300,9 @@ describe('graph list view', () => {
       ),
     )
 
-    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
 
-    expect(await screen.findByText(/Discover music through the people who made it/)).toBeInTheDocument()
+    expect(await screen.findByText(/Your graph is empty. Add a song/)).toBeInTheDocument()
     expect(localStorage.getItem('nodeable.graph')).toBeNull()
   })
 
@@ -305,7 +311,7 @@ describe('graph list view', () => {
     rememberGraph()
     serveSnapshot(() => snapshot({ songs: [redbone] }), hub)
 
-    renderAt('/', { graphConnection: () => hub })
+    renderAt('/graph', { graphConnection: () => hub })
     await screen.findByRole('table', { name: 'Songs and their credits' })
 
     act(() => hub.simulateReconnecting())
@@ -323,7 +329,7 @@ describe('graph list view', () => {
     rememberGraph()
     serveSnapshot(() => snapshot({ songs: [redbone] }))
 
-    renderAt('/', { graphConnection: () => hub })
+    renderAt('/graph', { graphConnection: () => hub })
 
     expect(await screen.findByRole('table', { name: 'Songs and their credits' })).toBeInTheDocument()
     expect(screen.getByText(/Live updates are off/)).toBeInTheDocument()
@@ -333,9 +339,9 @@ describe('graph list view', () => {
     rememberGraph()
     serveSnapshot(() => snapshot({ songs: [redbone], crawl: { queued: 3, done: 1, failed: 0, etaSeconds: 3 } }))
 
-    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
 
-    expect(await screen.findByRole('heading', { level: 2, name: 'Your graph · 1 song' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Your graph · 1 song' })).toBeInTheDocument()
     const section = screen.getByRole('region', { name: /Your graph/ })
     expect(within(section).getByRole('status')).toHaveTextContent('Fetching credits: 3 lookups waiting, about 3 seconds to go')
   })
@@ -350,7 +356,7 @@ describe('graph list view', () => {
       }),
     )
 
-    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
 
     const canvas = await screen.findByRole('img', { name: /Graph of 1 song and 1 person/ })
     expect(canvas).toHaveAccessibleName(expect.stringContaining('The lists below hold the same information'))
@@ -370,7 +376,7 @@ describe('graph list view', () => {
       }),
     )
 
-    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
     await screen.findByRole('table', { name: 'Songs and their credits' })
     expect(screen.queryByRole('region', { name: /Details:/ })).not.toBeInTheDocument()
 
@@ -400,7 +406,7 @@ describe('graph list view', () => {
       }),
     )
 
-    renderAt('/', { graphConnection: () => new FakeGraphHub() })
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
     await screen.findByRole('table', { name: 'Songs and their credits' })
 
     act(() => useSelection.getState().select(`song:${redboneMbid}`))

@@ -207,6 +207,8 @@ export interface components {
             detail?: null | string;
             instance?: null | string;
         };
+        /** @enum {unknown} */
+        RecordingKind: "remix" | "edit" | "bootleg" | "mixtape" | null;
         SearchResponse: {
             source: components["schemas"]["SearchSource"];
             results: components["schemas"]["SearchResultItem"][];
@@ -227,6 +229,7 @@ export interface components {
             artReleaseMbid?: null | string;
             /** Format: uuid */
             artReleaseGroupMbid?: null | string;
+            kind?: null | components["schemas"]["RecordingKind"];
         };
         /** @enum {unknown} */
         SearchSource: "cache" | "musicBrainz";

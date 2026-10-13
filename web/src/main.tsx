@@ -1,7 +1,3 @@
-// Self-hosted variable fonts (decision 0020): Archivo with its width axis for display type, and JetBrains Mono for
-// labels. Only the latin subset is downloaded unless a page uses other characters (unicode-range in the CSS).
-import '@fontsource-variable/archivo/wdth.css'
-import '@fontsource-variable/jetbrains-mono/wght.css'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './app/App.tsx'
@@ -14,6 +10,13 @@ createRoot(document.getElementById('root')!).render(
 )
 
 // LEARN: LG-01 deferred-import | A dynamic import() becomes its own JavaScript chunk that is downloaded only when this line runs, so the OpenTelemetry SDK is kept out of the main bundle and loaded after first paint (ADR 0002); requests made before it arrives are not traced
+// Self-hosted variable fonts (decision 0020). They are requested after the first paint, like telemetry: the page is
+// readable in the system fonts at once and the faces swap in when they arrive. A font declared up front is a request the
+// first paint is measured against (it moved the largest contentful paint from 2.1 s to 2.6 s on the simulated 4G).
+afterFirstPaint(() => {
+  void import('./app/fonts.css')
+})
+
 afterFirstPaint(() => {
   import('./telemetry/tracing.ts')
     .then(({ startTracing }) => {

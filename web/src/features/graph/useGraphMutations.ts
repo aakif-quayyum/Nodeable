@@ -1,5 +1,5 @@
 import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { addSongToGraph, ensureGraphSession, graphQueryKey, removeSongFromGraph } from './graphApi.ts'
+import { addSongToGraph, ensureGraphSession, fetchGraphSnapshot, graphQueryKey, removeSongFromGraph } from './graphApi.ts'
 import type { GraphSnapshot } from './graphEvents.ts'
 import { useGraphSession, type GraphSession } from './graphSession.ts'
 
@@ -62,20 +62,36 @@ export function useRemoveSong(session: GraphSession) {
 }
 
 /**
- * The MBIDs of the songs in the browser's graph, read from the cache without fetching: whoever shows the graph owns
- * loading it. Empty until it has loaded, and when the browser has no graph.
+ * The MBIDs of the songs in the browser's graph, so a search result can say "in your graph".
+ *
+ * When the graph is on screen its query is in the cache and is only observed here (whoever shows the graph owns
+ * loading it). When it is not (the landing page), `loadIfMissing` reads the graph once, under its own key, so the
+ * page that owns the live snapshot is never handed data that was read before its connection joined.
  */
-export function useGraphSongIds(): ReadonlySet<string> {
+export function useGraphSongIds(loadIfMissing = false): ReadonlySet<string> {
   const session = useGraphSession()
+  const id = session?.id ?? ''
 
-  // `skipToken` as the queryFn makes a query that observes the cache and never fetches, and TypeScript still knows the data's type: the search results can ask "is this song in the graph?" without a second request or a second owner of loading
-  const { data } = useQuery({
-    queryKey: graphQueryKey(session?.id ?? ''),
+  // `skipToken` as the queryFn makes a query that observes the cache and never fetches, and TypeScript still knows the data's type.
+  const cached = useQuery({
+    queryKey: graphQueryKey(id),
     queryFn: skipToken,
     select: (snapshot: GraphSnapshot) => new Set(snapshot.songs.map((song) => song.mbid)),
   })
 
-  return data ?? emptySet
+  const fetched = useQuery({
+    queryKey: [...graphQueryKey(id), 'song-ids'],
+    enabled: loadIfMissing && session !== null && cached.data === undefined,
+    queryFn: async ({ signal }) => {
+      const snapshot = await fetchGraphSnapshot(session!, signal)
+      return snapshot.songs.map((song) => song.mbid)
+    },
+    select: (ids) => new Set(ids),
+    staleTime: 30_000,
+    retry: false,
+  })
+
+  return cached.data ?? fetched.data ?? emptySet
 }
 
 const emptySet: ReadonlySet<string> = new Set()
