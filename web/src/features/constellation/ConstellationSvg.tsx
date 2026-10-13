@@ -8,7 +8,7 @@ import type { GraphNode } from '../graph/graphModel.ts'
 import { PersonGlyph, personRadius, RecordGlyph, recordRadius } from '../orbit/NodeGlyphs.tsx'
 import { OrbitSvg } from '../orbit/orbitStyles.ts'
 import { fitName } from '../orbit/labelFit.ts'
-import type { Constellation } from './constellationModel.ts'
+import { fitMargins, type Constellation } from './constellationModel.ts'
 import type { LayoutController } from './LayoutController.ts'
 
 // jsdom has no layout and no ResizeObserver; a test gets this size.
@@ -76,7 +76,7 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
         ?.setAttribute('transform', `translate(${position.x.toFixed(1)},${position.y.toFixed(1)}) scale(${(node.r / base).toFixed(3)})`)
       elements.current
         .get(`t:${id}`)
-        ?.setAttribute('transform', `translate(${position.x.toFixed(1)},${(position.y + node.r + 15).toFixed(1)})`)
+        ?.setAttribute('transform', `translate(${position.x.toFixed(1)},${(position.y + node.r + 3).toFixed(1)})`)
     }
     for (const link of current.links) {
       const from = controller.positions.get(link.source)
@@ -156,6 +156,8 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
       .scaleExtent([0.2, 3])
       .on('zoom', (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
         world.setAttribute('transform', event.transform.toString())
+        // Names are drawn at 12 px on the screen whatever the zoom: the labels' size is divided by it (see `--ls`).
+        svg.style.setProperty('--zk', event.transform.k.toFixed(3))
         if (event.sourceEvent !== null && event.sourceEvent !== undefined) moved.current = true
       })
     zoomRef.current = behaviour
@@ -173,13 +175,14 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
       }
       const xs = points.map((point) => point.x)
       const ys = points.map((point) => point.y)
+      const margin = fitMargins(width)
       const w = Math.max(...xs) - Math.min(...xs) + 190
       const h = Math.max(...ys) - Math.min(...ys) + 110
-      const k = Math.min(2, Math.max(0.2, Math.min(width / w, height / h)))
+      const room = Math.max(60, height - margin.top - margin.bottom)
+      const k = Math.min(2, Math.max(0.2, Math.min(width / w, room / h)))
       const cx = (Math.max(...xs) + Math.min(...xs)) / 2
       const cy = (Math.max(...ys) + Math.min(...ys)) / 2
-      const lifted = 16
-      behaviour.transform(select(svg), zoomIdentity.translate(width / 2 - cx * k, height / 2 - cy * k + lifted).scale(k))
+      behaviour.transform(select(svg), zoomIdentity.translate(width / 2 - cx * k, margin.top + room / 2 - cy * k).scale(k))
     }
     fitRef.current()
 
@@ -265,12 +268,15 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
           ))}
         </g>
 
-        <g aria-hidden="true" style={{ '--ls': 1 } as React.CSSProperties}>
+        <g aria-hidden="true" style={{ '--ls': 'calc(1 / var(--zk, 1))' } as React.CSSProperties}>
           {graph.nodes.map((node) => {
-            // Songs and connectors are always named; anyone else while one of their neighbours is looked at.
-            const always = node.kind === 'song' || node.isHub
-            const shown = always || (lit !== null && lit.has(node.id))
+            // Songs are always named; connectors too once the picture is large enough for their names not to run
+            // into each other (a zoom of one half or more); anyone else while one of their neighbours is looked at.
             const dim = lit !== null && !lit.has(node.id)
+            let opacity: number | string = 0
+            if (lit !== null) opacity = lit.has(node.id) ? 1 : 0
+            else if (node.kind === 'song') opacity = 1
+            else if (node.isHub) opacity = 'clamp(0, calc((var(--zk, 1) - 0.5) * 40), 1)'
             const lines = node.id === focusId ? [nameOf(node)] : fitName(nameOf(node), 26, true)
             return (
               <text
@@ -278,10 +284,10 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
                 ref={(element) => register(`t:${node.id}`, element)}
                 className={`lbl${node.kind === 'person' && !node.isHub ? ' sm' : ''}`}
                 textAnchor="middle"
-                style={{ opacity: shown && !dim ? 1 : 0, transition: 'opacity 150ms' }}
+                style={{ opacity: dim ? 0 : opacity, transition: 'opacity 150ms' }}
               >
                 {lines.map((line, index) => (
-                  <tspan key={index} x={0} dy={index === 0 ? 0 : '1.15em'}>
+                  <tspan key={index} x={0} dy={index === 0 ? '1em' : '1.15em'}>
                     {line}
                   </tspan>
                 ))}

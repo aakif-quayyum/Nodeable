@@ -581,7 +581,8 @@ describe('workspace: constellation, the view toggle and find', () => {
     const constellation = await screen.findByRole('group', { name: /as a constellation/ })
 
     // Songs and connectors are always named; Riley is on one song, so not until Redbone's neighbours are lit.
-    const labels = () => Array.from(constellation.querySelectorAll('text.lbl')).filter((label) => (label as SVGElement).style.opacity === '1')
+    // A connector's name fades in with the zoom (a CSS expression), a song's is 1 and anyone else's is 0 until lit.
+    const labels = () => Array.from(constellation.querySelectorAll('text.lbl')).filter((label) => (label as SVGElement).style.opacity !== '0')
     expect(labels().map((label) => label.textContent)).toEqual(expect.arrayContaining(['Redbone', 'This Is America', 'Donald Glover']))
     expect(labels().map((label) => label.textContent)).not.toContain('Riley Mackin')
 

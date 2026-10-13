@@ -98,7 +98,7 @@ export class GraphLayout {
       .force('link', this.linkForce)
       // A song pushes hardest, so the records spread out and their crews gather round them.
       .force('charge', forceManyBody<SimNode>().strength((node) => (node.heavy ? -620 : -150)))
-      .force('collide', forceCollide<SimNode>().radius((node) => node.r + (node.heavy ? 26 : 16)))
+      .force('collide', forceCollide<SimNode>().radius((node) => node.r + (node.heavy ? 28 : 20)))
       // Weak pulls toward the middle keep separate clusters from drifting apart without a centre force's jitter.
       .force('x', forceX<SimNode>(0).strength((node) => this.pull(node)))
       .force('y', forceY<SimNode>(0).strength((node) => this.pull(node)))

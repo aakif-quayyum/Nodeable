@@ -8,7 +8,7 @@ import { drawGraph, ENTER_MS, type Palette, type Transform } from '../graph/draw
 import type { GraphNode } from '../graph/graphModel.ts'
 import { createHitTester, type HitTester } from '../graph/hitTest.ts'
 import { useReducedMotion } from '../../motion/useReducedMotion.ts'
-import type { Constellation } from './constellationModel.ts'
+import { fitMargins, type Constellation } from './constellationModel.ts'
 import type { ConstellationHandlers } from './ConstellationSvg.tsx'
 import type { LayoutController } from './LayoutController.ts'
 
@@ -162,12 +162,14 @@ export function ConstellationCanvas({ graph, controller, focusId, onChoose, onHo
       }
       const xs = nodes.map((node) => node.x ?? 0)
       const ys = nodes.map((node) => node.y ?? 0)
+      const margin = fitMargins(state.width)
       const w = Math.max(...xs) - Math.min(...xs) + 190
       const h = Math.max(...ys) - Math.min(...ys) + 110
-      const k = Math.min(2, Math.max(0.2, Math.min(state.width / w, state.height / h)))
+      const room = Math.max(60, state.height - margin.top - margin.bottom)
+      const k = Math.min(2, Math.max(0.2, Math.min(state.width / w, room / h)))
       const cx = (Math.max(...xs) + Math.min(...xs)) / 2
       const cy = (Math.max(...ys) + Math.min(...ys)) / 2
-      behaviour.transform(select(canvas), zoomIdentity.translate(state.width / 2 - cx * k, state.height / 2 - cy * k + 16).scale(k))
+      behaviour.transform(select(canvas), zoomIdentity.translate(state.width / 2 - cx * k, margin.top + room / 2 - cy * k).scale(k))
     }
 
     // Dragging a node and choosing one share the pointer: a press that moves is a drag, one that does not is a click.

@@ -49,7 +49,7 @@ describe('useFlip', () => {
     expect(slides).toContain('translate(0px, 80px)')
     expect(slides).toContain('translate(0px, -40px)')
     expect(calls[0]![0]).toHaveLength(2)
-    expect(calls[0]![0]![1]!.transform).toBe('none')
+    expect(calls[0]![0][1]!.transform).toBe('none')
   })
 
   it('NFR_MOTION_01 does not animate an item that is new, or one that did not move', () => {

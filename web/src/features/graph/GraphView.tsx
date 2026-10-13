@@ -11,7 +11,7 @@ import { ConnectorCards } from '../connectors/ConnectorCards.tsx'
 import { LinerNotes } from '../notes/LinerNotes.tsx'
 import { ConstellationView } from '../constellation/ConstellationView.tsx'
 import { OrbitView } from '../orbit/OrbitView.tsx'
-import { Breadcrumbs, Caption, ConnectionChip, LegendChips, LiveChip, StageChips } from '../orbit/StageOverlays.tsx'
+import { Breadcrumbs, Caption, ConnectionChip, LegendChips, LiveChip, StageChips, StageHeading } from '../orbit/StageOverlays.tsx'
 import { rootRef } from '../orbit/orbitLayout.ts'
 import { useCentre } from '../orbit/useCentre.ts'
 import { useView } from '../orbit/useView.ts'
@@ -159,13 +159,17 @@ export function GraphView({ session }: { session: GraphSession }) {
                     setPeopleExpanded(true)
                   }}
                 />
-                <Breadcrumbs workspace={workspace} crumbs={crumbs} onGo={goTo} />
-                <Caption workspace={workspace} centre={centre} onHide={(mbid) => hidePerson(session.id, mbid)} />
+                <StageHeading>
+                  <Breadcrumbs workspace={workspace} crumbs={crumbs} onGo={goTo} />
+                  <Caption workspace={workspace} centre={centre} onHide={(mbid) => hidePerson(session.id, mbid)} />
+                </StageHeading>
               </>
             ) : (
               <>
                 <ConstellationView workspace={workspace} onCentre={goTo} />
-                <Caption workspace={workspace} centre={rootRef} onHide={(mbid) => hidePerson(session.id, mbid)} />
+                <StageHeading>
+                  <Caption workspace={workspace} centre={rootRef} onHide={(mbid) => hidePerson(session.id, mbid)} />
+                </StageHeading>
               </>
             )}
             <StageChips>

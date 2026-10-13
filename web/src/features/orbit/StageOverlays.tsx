@@ -23,6 +23,32 @@ function nameOf(workspace: Workspace, ref: NodeRef): string {
 const crumbsAfterRoot = 3
 
 /**
+ * The top-left corner of the stage: the breadcrumbs and, under them, the caption, in one column. They were two
+ * absolutely positioned layers, and a trail that wrapped or a name that was long made them run into each other and
+ * into the chips on the right; in one column they only push each other down. The column stops short of the corner the
+ * chips stack in.
+ */
+export function StageHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        right: { xs: 12, md: 262 },
+        zIndex: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        pointerEvents: 'none',
+      }}
+    >
+      {children}
+    </Box>
+  )
+}
+
+/**
  * The trail of centres (FR-VIEW-01, FR-VIEW-04): "Your graph" first, always, so there is a way back to the overview,
  * then the last few centres, each a button that goes back to that centre.
  */
@@ -35,17 +61,7 @@ export function Breadcrumbs({ workspace, crumbs, onGo }: { workspace: Workspace;
     <Box
       component="nav"
       aria-label="Exploration path"
-      sx={{
-        position: 'absolute',
-        top: 12,
-        left: 12,
-        right: { xs: 12, md: 220 },
-        zIndex: 2,
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 0.5,
-        alignItems: 'center',
-      }}
+      sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center', pointerEvents: 'auto' }}
     >
       {visible.map((ref, index) => {
         const current = ref === crumbs[crumbs.length - 1]
@@ -111,14 +127,11 @@ export function Caption({
     <Box
       key={nodeKey(centre)}
       sx={{
-        position: 'absolute',
-        top: 48,
-        left: 14,
-        zIndex: 2,
         display: 'flex',
         flexDirection: 'column',
         gap: '4px',
-        maxWidth: 'min(340px, 60%)',
+        maxWidth: 'min(340px, 100%)',
+        px: '2px',
         pointerEvents: 'none',
         '@media (prefers-reduced-motion: no-preference)': { animation: `${swap} 450ms cubic-bezier(0.2, 0.8, 0.2, 1) both` },
       }}

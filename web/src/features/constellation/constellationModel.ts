@@ -14,6 +14,14 @@ export function rendererFor(nodeCount: number): ConstellationRenderer {
   return nodeCount > CANVAS_THRESHOLD ? 'canvas' : 'svg'
 }
 
+/**
+ * What the stage keeps free for its own overlays when the picture is fitted: the caption above and the legend below
+ * (two rows of chips on a narrow desktop stage, three on a phone), in CSS pixels.
+ */
+export function fitMargins(stageWidth: number): { top: number; bottom: number } {
+  return stageWidth < 560 ? { top: 96, bottom: 108 } : { top: 40, bottom: 66 }
+}
+
 /** A record's radius in the constellation, and how big a person is for the songs they are on (FR-HUB-01). */
 export const constellationSongRadius = 14
 const personRadiusFor = (songs: number) => Math.min(20, 3 + songs * 2)
