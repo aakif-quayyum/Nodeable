@@ -7,7 +7,7 @@ const palette: Palette = {
   background: '#000',
   text: '#fff',
   link: '#888',
-  song: '#eee',
+  song: '#0A0A0B',
   selected: '#fa0',
   roles: Object.fromEntries(creditRoles.map((role) => [role, creditRoleStyles[role].colors.dark])) as Record<
     CreditRoleKey,
@@ -79,6 +79,7 @@ function recordingContext() {
     rect: () => void (calls.rect += 1),
     arc: () => void (calls.arc += 1),
     fillText: (text: string) => void calls.text.push(text),
+    strokeText: noop,
     set globalAlpha(value: number) {
       calls.alphas.push(value)
     },
@@ -115,13 +116,24 @@ describe('labelledNodes', () => {
 })
 
 describe('drawGraph', () => {
-  it('FR_HUB_01 draws songs as squares and people as circles', () => {
+  it('FR_VIEW_02 steps back everything outside the focus and names the focused node’s neighbours', () => {
+    const { context, calls } = recordingContext()
+    const nodes = [song('s'), person('a'), person('b')]
+
+    drawGraph(context, scene({ nodes, hoveredId: 'person:a', focusIds: new Set(['person:a', 'song:s']) }))
+
+    // Person b is outside the focus: it is drawn at the stepped-back alpha.
+    expect(calls.alphas).toContain(0.12)
+    expect(calls.text).toEqual(expect.arrayContaining(['Song s', 'Person a']))
+  })
+
+  it('FR_HUB_01 draws a song as a record (a disc, its label and the hole) and a person as one disc', () => {
     const { context, calls } = recordingContext()
 
     drawGraph(context, scene({ nodes: [song('s1'), song('s2'), person('a'), person('b'), person('c')] }))
 
-    expect(calls.rect).toBe(2)
-    expect(calls.arc).toBe(3)
+    expect(calls.rect).toBe(0)
+    expect(calls.arc).toBe(2 * 3 + 3)
   })
 
   it('FR_GRAPH_02 fades a new node in over 300 ms and reports that it is still animating', () => {

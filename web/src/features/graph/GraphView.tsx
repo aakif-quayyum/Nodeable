@@ -9,13 +9,17 @@ import { creditRoles } from '../../app/creditRoles.ts'
 import { useRoleFilters } from '../../stores/roleFilters.ts'
 import { ConnectorCards } from '../connectors/ConnectorCards.tsx'
 import { LinerNotes } from '../notes/LinerNotes.tsx'
+import { ConstellationView } from '../constellation/ConstellationView.tsx'
 import { OrbitView } from '../orbit/OrbitView.tsx'
 import { Breadcrumbs, Caption, ConnectionChip, LegendChips, LiveChip, StageChips } from '../orbit/StageOverlays.tsx'
+import { rootRef } from '../orbit/orbitLayout.ts'
 import { useCentre } from '../orbit/useCentre.ts'
+import { useView } from '../orbit/useView.ts'
 import { hidePerson, showEveryone, showPerson, useHiddenPeople } from './hiddenPeople.ts'
 import type { GraphSession } from './graphSession.ts'
 import { useLiveStatus } from './liveStatus.ts'
 import { flushRemovals, undoRemoval, useRemovals } from './removals.ts'
+import { GraphTools } from './GraphTools.tsx'
 import { RoleFilterBar } from './RoleFilterBar.tsx'
 import { Strip } from './Strip.tsx'
 import { TextView } from './TextView.tsx'
@@ -50,6 +54,7 @@ export function GraphView({ session }: { session: GraphSession }) {
   )
   const { centre, crumbs, goTo } = useCentre(workspace)
   const status = useLiveStatus(workspace, snapshot, graph.live)
+  const [view, setView] = useView()
 
   const [textView, setTextView] = useState(false)
   const [peopleExpanded, setPeopleExpanded] = useState(false)
@@ -114,6 +119,8 @@ export function GraphView({ session }: { session: GraphSession }) {
         </Alert>
       )}
 
+      {workspace !== null && songCount > 0 && <GraphTools workspace={workspace} view={view} onView={setView} onFind={goTo} />}
+
       {workspace !== null && songCount === 0 && (
         <Typography color="text.secondary">Your graph is empty. Search for a song and choose “Add to graph”.</Typography>
       )}
@@ -138,17 +145,37 @@ export function GraphView({ session }: { session: GraphSession }) {
               backgroundColor: theme.vars.palette.background.paper,
             })}
           >
-            <OrbitView workspace={workspace} centre={centre} onCentre={goTo} onMore={() => {
-              setTextView(true)
-              setPeopleExpanded(true)
-            }} />
-            <Breadcrumbs workspace={workspace} crumbs={crumbs} onGo={goTo} />
-            <Caption workspace={workspace} centre={centre} onHide={(mbid) => hidePerson(session.id, mbid)} />
+            {view === 'orbit' ? (
+              <>
+                <OrbitView
+                  workspace={workspace}
+                  centre={centre}
+                  onCentre={goTo}
+                  onMore={() => {
+                    setTextView(true)
+                    setPeopleExpanded(true)
+                  }}
+                />
+                <Breadcrumbs workspace={workspace} crumbs={crumbs} onGo={goTo} />
+                <Caption workspace={workspace} centre={centre} onHide={(mbid) => hidePerson(session.id, mbid)} />
+              </>
+            ) : (
+              <>
+                <ConstellationView workspace={workspace} onCentre={goTo} />
+                <Caption workspace={workspace} centre={rootRef} onHide={(mbid) => hidePerson(session.id, mbid)} />
+              </>
+            )}
             <StageChips>
               <LiveChip text={status.text} pulsing={status.pulsing} />
-              <ConnectionChip workspace={workspace} centre={centre} onGo={goTo} />
+              {view === 'orbit' && <ConnectionChip workspace={workspace} centre={centre} onGo={goTo} />}
             </StageChips>
-            <LegendChips />
+            <LegendChips
+              hint={
+                view === 'orbit'
+                  ? 'Click anyone to put them at the centre · scroll to zoom'
+                  : 'Click anyone to open them in the orbit · drag to move · scroll to zoom'
+              }
+            />
           </Box>
 
           <Box

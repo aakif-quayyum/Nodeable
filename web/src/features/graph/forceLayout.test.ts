@@ -124,3 +124,30 @@ describe('GraphLayout', () => {
     expect(elapsed).toBeLessThan(15_000)
   })
 })
+
+describe('GraphLayout dragging', () => {
+  it('FR_VIEW_02 holds a pinned node where it was put and lets it go on release', () => {
+    const { layout, positions } = run({ nodes: [song('s1'), person('p1')], links: [{ source: 's1', target: 'p1' }] })
+
+    layout.pin('p1', 300, -120)
+    layout.step(60)
+    expect(positions.get('p1')).toEqual({ x: 300, y: -120 })
+
+    layout.release('p1')
+    layout.step(120)
+    const free = positions.get('p1')!
+    // Pulled back toward its song once it is free.
+    expect(Math.hypot(free.x - positions.get('s1')!.x, free.y - positions.get('s1')!.y)).toBeLessThan(200)
+  })
+
+  it('FR_VIEW_02 gives songs more room than people, as the constellation draws them', () => {
+    const heavy = run({ nodes: [{ id: 's1', r: 14, heavy: true }, { id: 's2', r: 14, heavy: true }], links: [] })
+    const light = run({ nodes: [{ id: 'p1', r: 6 }, { id: 'p2', r: 6 }], links: [] })
+    const gap = (positions: Positions) => {
+      const [a, b] = [...positions.values()]
+      return Math.hypot(a!.x - b!.x, a!.y - b!.y)
+    }
+
+    expect(gap(heavy.positions)).toBeGreaterThan(gap(light.positions))
+  })
+})

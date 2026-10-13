@@ -26,6 +26,9 @@ export interface SongNode extends NodeBase {
   artist: string
   year: number | null
   status: SongStatus
+  /** Where the cover is looked up (FR-ART-01); unknown until the recording has been fetched with its releases. */
+  artRelease?: string | null
+  artGroup?: string | null
 }
 
 export interface PersonNode extends NodeBase {

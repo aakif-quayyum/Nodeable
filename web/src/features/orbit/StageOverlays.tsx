@@ -404,7 +404,7 @@ export function ConnectionChip({ workspace, centre, onGo }: { workspace: Workspa
  * The role legend, and the role filters (FR-HUB-03): a chip with the role's icon and name, each a toggle with
  * `aria-pressed`. A chip that is off is outlined and struck through, so the state is not carried by colour alone.
  */
-export function LegendChips() {
+export function LegendChips({ hint = 'Click anyone to put them at the centre · scroll to zoom' }: { hint?: string }) {
   const active = useRoleFilters((state) => state.active)
   const toggle = useRoleFilters((state) => state.toggle)
   const reset = useRoleFilters((state) => state.reset)
@@ -475,7 +475,7 @@ export function LegendChips() {
         </li>
       )}
       <Box component="li" sx={{ ml: 'auto', display: { xs: 'none', md: 'block' }, fontSize: 12, color: 'text.secondary', textTransform: 'none' }}>
-        Click anyone to put them at the centre · scroll to zoom
+        {hint}
       </Box>
     </Box>
   )

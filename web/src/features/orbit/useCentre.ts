@@ -73,6 +73,8 @@ export function useCentre(workspace: Workspace | null): Centre {
         const next = new URLSearchParams(current)
         if (ref.type === 'graph') next.delete('focus')
         else next.set('focus', focusParam(ref))
+        // Choosing a centre is a thing to see in the orbit, whichever view it was chosen from (FR-VIEW-02).
+        next.delete('view')
         next.delete('sheet')
         return next
       })

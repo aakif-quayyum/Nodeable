@@ -4,9 +4,10 @@ import Button from '@mui/material/Button'
 import LinearProgress from '@mui/material/LinearProgress'
 import Toolbar from '@mui/material/Toolbar'
 import Typography from '@mui/material/Typography'
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Link, NavLink, Outlet, useMatch, useNavigation } from 'react-router'
 import { useAddSheet } from '../features/search/addSheet.ts'
+import { HeaderSlot } from './headerSlot.ts'
 import { ThemeToggle } from './ThemeToggle.tsx'
 
 // The sheet is only needed once someone opens it, so its code (the dialog and the results list) waits until then.
@@ -17,6 +18,8 @@ export function AppShell() {
   const { open, openSheet } = useAddSheet()
   // The workspace is as tall as the window (the stage fills it and the column beside it scrolls); other pages flow.
   const workspace = useMatch('/graph') !== null
+  // Where a page puts its own controls in the bar (the workspace's find box and view toggle).
+  const [slot, setSlot] = useState<HTMLElement | null>(null)
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100dvh', height: workspace ? { md: '100dvh' } : undefined }}>
@@ -71,6 +74,9 @@ export function AppShell() {
             </Button>
           </Box>
 
+          {/* `display: contents`: what a page renders in here takes part in the bar's own flex row. */}
+          <Box ref={setSlot} sx={{ display: 'contents' }} />
+
           <Button variant="contained" onClick={openSheet} aria-haspopup="dialog">
             + Add a song
           </Button>
@@ -94,7 +100,9 @@ export function AppShell() {
           ...(workspace ? { display: 'flex', flexDirection: 'column', pb: { md: 2.5 } } : {}),
         }}
       >
-        <Outlet />
+        <HeaderSlot value={slot}>
+          <Outlet />
+        </HeaderSlot>
       </Box>
 
       {open && (

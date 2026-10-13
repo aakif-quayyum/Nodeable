@@ -1,4 +1,4 @@
-import { arc, linkRadial, pie } from 'd3-shape'
+import { linkRadial } from 'd3-shape'
 import {
   memo,
   useCallback,
@@ -14,18 +14,14 @@ import {
 } from 'react'
 import { creditRoleStyles, type CreditRoleKey } from '../../app/creditRoles.ts'
 import { useReducedMotion } from '../../motion/useReducedMotion.ts'
-import { artSources, type ArtSource } from '../art/artSources.ts'
-import { sleeveFor } from '../art/sleeveSpec.ts'
 import { rolesOnSong, type Workspace } from '../graph/workspaceModel.ts'
 import { polarToXY, type NodeRef, type OrbitLayout, type OrbitNode, type RoleArc } from './orbitLayout.ts'
-import { initials } from './initials.ts'
+import { PersonGlyph, recordRadius, personRadius, RecordGlyph } from './NodeGlyphs.tsx'
 import { OrbitMotion, type MotionNode } from './orbitMotion.ts'
 
 // The size a record and a person's disc are drawn at before the motion scales them (the prototype's values).
-const baseRadius = { graph: 22, song: 22, person: 12.6, more: 12 } as const
+const baseRadius = { graph: 22, song: recordRadius, person: personRadius, more: 12 } as const
 const noRoles: CreditRoleKey[] = []
-/** The cover on a record is the label: this radius in the record's own units, out of 22. */
-const coverRadius = 14.6
 
 export interface SceneHandlers {
   /** A node was chosen: it becomes the centre. */
@@ -334,31 +330,6 @@ interface NodeShapeProps extends SceneHandlers {
 }
 
 /**
- * A record's label is the song's cover. The chain is the one `AlbumArt` uses (Cover Art Archive by release, by release
- * group, then Deezer) as an SVG `<image>`, which has no `loading` attribute but does fire `error`; when the list runs
- * out nothing is drawn and the generated sleeve underneath shows.
- */
-function RecordCover({ sources }: { sources: readonly ArtSource[] }) {
-  const [index, setIndex] = useState(0)
-  const source = sources[index]
-  if (source === undefined) return null
-
-  return (
-    <image
-      key={source.url}
-      href={source.url}
-      x={-coverRadius}
-      y={-coverRadius}
-      width={coverRadius * 2}
-      height={coverRadius * 2}
-      preserveAspectRatio="xMidYMid slice"
-      style={{ clipPath: 'circle(50%)' }}
-      onError={() => setIndex((current) => current + 1)}
-    />
-  )
-}
-
-/**
  * One node. A song is a record (a black disc with grooves and a label in its sleeve's colours); a person is a disc with
  * their initials, ringed by one segment per role, and a connector (two or more songs) has a ripple. Every node but the
  * centre is a button that makes it the centre.
@@ -366,16 +337,6 @@ function RecordCover({ sources }: { sources: readonly ArtSource[] }) {
 const OrbitNodeShape = memo(function OrbitNodeShape(props: NodeShapeProps) {
   const { node, roles, name, summary, connector, songCount, artRelease, artGroup, spinning, dim, leaving, register, onChoose, onHover, onLeave, onMove, stageRect } = props
   const isCentre = node.depth === 0
-
-  const sources = useMemo(() => artSources({ releaseMbid: artRelease, releaseGroupMbid: artGroup }, 64), [artRelease, artGroup])
-  // A different cover is a different chain: the component's state is keyed by what it will try.
-  const sourcesKey = sources.map((source) => source.url).join('|')
-
-  const segments = useMemo(() => {
-    const slices = pie<CreditRoleKey>().value(1).sort(null).padAngle(roles.length > 1 ? 0.16 : 0)(roles.length > 0 ? roles : ['other'])
-    const shape = arc<(typeof slices)[number]>().innerRadius(10).outerRadius(12.8)
-    return slices.map((slice) => ({ role: slice.data, d: shape(slice) ?? '' }))
-  }, [roles])
 
   function activate(event: KeyboardEvent) {
     if (event.key !== 'Enter' && event.key !== ' ') return
@@ -390,7 +351,6 @@ const OrbitNodeShape = memo(function OrbitNodeShape(props: NodeShapeProps) {
     : node.kind === 'more'
       ? `Show the ${node.moreCount} more people in the text view`
       : `Put ${name} at the centre; ${summary}`
-  const palette = node.kind === 'song' ? sleeveFor(node.ref) : null
 
   return (
     <g
@@ -418,21 +378,7 @@ const OrbitNodeShape = memo(function OrbitNodeShape(props: NodeShapeProps) {
       }}
       onBlur={onLeave}
     >
-      {node.kind === 'song' && palette !== null && (
-        <>
-          <circle className="hit" r={22} style={{ fill: "var(--vinyl)" }} stroke="#ffffff30" />
-          <g className="spin">
-            {[20.4, 18.3, 16.2].map((r) => (
-              <circle key={r} r={r} fill="none" stroke="#fff" strokeOpacity={0.08} />
-            ))}
-            {/* The generated sleeve first, so a cover that is late or missing leaves a label, never a hole. */}
-            <circle r={coverRadius} fill={palette.background} />
-            <circle cx={0} cy={-coverRadius * 0.6} r={3.4} fill={palette.mark} />
-            <RecordCover key={sourcesKey} sources={sources} />
-          </g>
-          <circle r={1.6} style={{ fill: "var(--vinyl)" }} />
-        </>
-      )}
+      {node.kind === 'song' && <RecordGlyph mbid={node.ref} artRelease={artRelease} artGroup={artGroup} />}
 
       {node.kind === 'graph' && (
         <>
@@ -447,18 +393,7 @@ const OrbitNodeShape = memo(function OrbitNodeShape(props: NodeShapeProps) {
         </>
       )}
 
-      {node.kind === 'person' && (
-        <>
-          {connector && <circle className="ripple" r={13} style={{ stroke: `var(--role-${roles[0] ?? 'other'})` }} />}
-          <circle className="hit" r={10} style={{ fill: "var(--raised)" }} />
-          {segments.map((segment) => (
-            <path key={segment.role} d={segment.d} style={{ fill: `var(--role-${segment.role})` }} />
-          ))}
-          <text className="ini" textAnchor="middle" dy=".36em">
-            {initials(name)}
-          </text>
-        </>
-      )}
+      {node.kind === 'person' && <PersonGlyph name={name} roles={roles} connector={connector} />}
 
       {node.kind === 'more' && (
         <>

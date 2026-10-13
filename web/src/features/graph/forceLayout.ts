@@ -14,6 +14,8 @@ import {
 export interface LayoutNodeInput {
   id: string
   r: number
+  /** A song: the heavy kind of node, which pushes harder and keeps more room around it (the people hang off songs). */
+  heavy?: boolean | undefined
   x?: number | undefined
   y?: number | undefined
 }
@@ -31,6 +33,7 @@ export interface LayoutInput {
 interface SimNode extends SimulationNodeDatum {
   id: string
   r: number
+  heavy: boolean
 }
 
 type SimLink = SimulationLinkDatum<SimNode>
@@ -68,7 +71,11 @@ function hash(text: string): number {
  */
 export class GraphLayout {
   private readonly simulation: Simulation<SimNode, SimLink>
-  private readonly linkForce = forceLink<SimNode, SimLink>().id((node) => node.id).distance(70).strength(0.4)
+  // A person's link is as long as the person is big, so a connector sits a little way from its songs (the prototype's).
+  private readonly linkForce = forceLink<SimNode, SimLink>()
+    .id((node) => node.id)
+    .distance((link) => 70 + ((link.target as SimNode).r ?? 4) * 3)
+    .strength(0.5)
   private readonly autoStart: boolean
   private nodes: SimNode[] = []
   private linked = new Set<string>()
@@ -89,9 +96,9 @@ export class GraphLayout {
     this.autoStart = options.autoStart !== false
     this.simulation = forceSimulation<SimNode, SimLink>()
       .force('link', this.linkForce)
-      // A bigger node pushes harder, so hubs get room around them.
-      .force('charge', forceManyBody<SimNode>().strength((node) => -40 - node.r * 6))
-      .force('collide', forceCollide<SimNode>().radius((node) => node.r + 4))
+      // A song pushes hardest, so the records spread out and their crews gather round them.
+      .force('charge', forceManyBody<SimNode>().strength((node) => (node.heavy ? -620 : -150)))
+      .force('collide', forceCollide<SimNode>().radius((node) => node.r + (node.heavy ? 26 : 16)))
       // Weak pulls toward the middle keep separate clusters from drifting apart without a centre force's jitter.
       .force('x', forceX<SimNode>(0).strength((node) => this.pull(node)))
       .force('y', forceY<SimNode>(0).strength((node) => this.pull(node)))
@@ -134,12 +141,13 @@ export class GraphLayout {
       const kept = existing.get(node.id)
       if (kept !== undefined) {
         kept.r = node.r
+        kept.heavy = node.heavy === true
         next.push(kept)
         continue
       }
 
       changed = true
-      const created: SimNode = { id: node.id, r: node.r }
+      const created: SimNode = { id: node.id, r: node.r, heavy: node.heavy === true }
       if (node.x !== undefined && node.y !== undefined) {
         // A position that came with the node (for example from the other layout engine) is kept as it is.
         created.x = node.x
@@ -189,6 +197,28 @@ export class GraphLayout {
       if (this.autoStart) this.simulation.restart()
     }
     return changed
+  }
+
+  /**
+   * Holds a node at a point while it is being dragged, and keeps the simulation warm so the rest follows it. The node
+   * is released with `release`, after which it is free again.
+   */
+  pin(id: string, x: number, y: number): void {
+    const node = this.nodes.find((candidate) => candidate.id === id)
+    if (node === undefined) return
+    node.fx = x
+    node.fy = y
+    this.simulation.alphaTarget(0.25)
+    if (this.autoStart) this.simulation.restart()
+  }
+
+  release(id: string): void {
+    const node = this.nodes.find((candidate) => candidate.id === id)
+    if (node !== undefined) {
+      node.fx = null
+      node.fy = null
+    }
+    this.simulation.alphaTarget(0)
   }
 
   /** Runs `count` steps now and reports the result once. For tests and for measuring; the timer is not involved. */
