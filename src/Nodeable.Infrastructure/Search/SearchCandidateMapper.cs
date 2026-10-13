@@ -40,7 +40,9 @@ internal static class SearchCandidateMapper
                 IsLive: r.ReleaseGroupSecondaryTypes.Contains("Live", StringComparer.OrdinalIgnoreCase),
                 IsCompilation: r.ReleaseGroupSecondaryTypes.Any(IsCompilationType),
                 Mbid: r.Mbid,
-                ReleaseGroupMbid: r.ReleaseGroupMbid))
+                ReleaseGroupMbid: r.ReleaseGroupMbid,
+                IsRemix: r.ReleaseGroupSecondaryTypes.Contains("Remix", StringComparer.OrdinalIgnoreCase),
+                IsMixtape: r.ReleaseGroupSecondaryTypes.Contains("Mixtape/Street", StringComparer.OrdinalIgnoreCase)))
             .ToList());
 
     // "Beyoncé feat. Jay-Z" arrives as two names with their join phrases: "Beyoncé" + " feat. " and "Jay-Z".
@@ -66,7 +68,9 @@ internal static class SearchCandidateMapper
             IsLive: secondaryTypes.Contains("Live", StringComparer.OrdinalIgnoreCase),
             IsCompilation: secondaryTypes.Any(IsCompilationType),
             Mbid: release.Id,
-            ReleaseGroupMbid: release.ReleaseGroup?.Id);
+            ReleaseGroupMbid: release.ReleaseGroup?.Id,
+            IsRemix: secondaryTypes.Contains("Remix", StringComparer.OrdinalIgnoreCase),
+            IsMixtape: secondaryTypes.Contains("Mixtape/Street", StringComparer.OrdinalIgnoreCase));
     }
 
     private static bool IsCompilationType(string type) =>

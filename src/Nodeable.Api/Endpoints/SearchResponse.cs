@@ -18,6 +18,7 @@ public sealed record SearchResponse(SearchSource Source, IReadOnlyList<SearchRes
 /// <param name="Versions">Live takes, remasters and compilation appearances, earliest first. Empty when there are none.</param>
 /// <param name="ArtReleaseMbid">The release whose front cover is tried first (FR-ART-01); null when no release is known.</param>
 /// <param name="ArtReleaseGroupMbid">The release group tried second; null when it is not known.</param>
+/// <param name="Kind">What a separate recording of the song is (remix, edit, bootleg, mixtape); null for the song itself.</param>
 public sealed record SearchResultItem(
     Guid Mbid,
     string Title,
@@ -28,7 +29,8 @@ public sealed record SearchResultItem(
     CreditsStatus? CreditsStatus,
     IReadOnlyList<SearchVersionItem> Versions,
     Guid? ArtReleaseMbid = null,
-    Guid? ArtReleaseGroupMbid = null);
+    Guid? ArtReleaseGroupMbid = null,
+    RecordingKind? Kind = null);
 
 /// <summary>A recording folded behind a result: same song, and the reason it is not the original.</summary>
 /// <param name="Note">MusicBrainz's disambiguation comment, for example which DJ-mix it is part of.</param>

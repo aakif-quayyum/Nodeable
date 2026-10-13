@@ -58,6 +58,24 @@ public sealed class SearchEndpointTests(ApiFactory factory) : IClassFixture<ApiF
     }
 
     [Fact]
+    public async Task FR_SEARCH_02_separate_recordings_say_what_they_are_and_the_song_itself_says_nothing()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        ServeSearch(HttpStatusCode.OK, File.ReadAllText(Fixture("search-recordings-duplicates.json")));
+        using var client = Client();
+
+        var response = await client.GetAsync("/api/v1/search/recordings?q=Redbone&artist=Childish%20Gambino", ct);
+        var body = await response.Content.ReadFromJsonAsync<SearchResponse>(_json, ct);
+
+        var kinds = body!.Results.ToDictionary(r => r.Title, r => r.Kind);
+        kinds["Redbone"].Should().BeNull();
+        kinds["Redbone (radio edit)"].Should().Be(RecordingKind.Edit);
+        kinds["Redbone (WBBL remix)"].Should().Be(RecordingKind.Remix);
+        kinds["Redbone (Tsunxmi remix)"].Should().Be(RecordingKind.Remix);
+        kinds["Redbone (Nick Bike edit)"].Should().Be(RecordingKind.Edit);
+    }
+
+    [Fact]
     public async Task FR_SEARCH_01_the_wire_format_names_enums_in_camel_case_and_ids_as_strings()
     {
         var ct = TestContext.Current.CancellationToken;

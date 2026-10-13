@@ -87,7 +87,8 @@ public static class SearchEndpoints
             StatusOf(group.Primary.Mbid),
             group.Versions.Select(version => ToVersion(version, StatusOf(version.Candidate.Mbid))).ToList(),
             group.Primary.Cover.ReleaseMbid,
-            group.Primary.Cover.ReleaseGroupMbid));
+            group.Primary.Cover.ReleaseGroupMbid,
+            group.Primary.Kind));
 
         return new SearchResponse(outcome.Source, results.ToList());
     }
