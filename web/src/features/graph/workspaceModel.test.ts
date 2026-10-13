@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { creditRoles, type CreditRoleKey } from '../../app/creditRoles.ts'
 import { credit, person, sampleSnapshot, snapshotOf, song } from '../../test/workspaceFixtures.ts'
-import { buildWorkspace, defaultSong, headlineOf, noteRows, primaryRole, rolesOnSong } from './workspaceModel.ts'
+import { buildWorkspace, headlineOf, noteRows, primaryRole, rolesOnSong } from './workspaceModel.ts'
 
 const allRoles: ReadonlySet<CreditRoleKey> = new Set(creditRoles)
 const nothing = { roles: allRoles, removed: new Set<string>(), hidden: new Set<string>() }
@@ -99,12 +99,15 @@ describe('workspace model', () => {
     expect(headlineOf(alone)).toBeNull()
   })
 
-  it('FR_GRAPH_02 centres on the song that is loading, else on the latest one', () => {
-    const loading = snapshotOf({ songs: [song('a', 'A', { creditsStatus: 'loading' }), song('b', 'B')] })
-    expect(defaultSong(buildWorkspace(loading, nothing))!.title).toBe('A')
+  it('FR_GRAPH_04 counts every credit a song has before the role filters and the hidden people take any away', () => {
+    const snapshot = sampleSnapshot()
+    const filtered = buildWorkspace(snapshot, { roles: new Set(['mixing']), removed: new Set(), hidden: new Set(['person-riley']) })
 
-    const settled = snapshotOf({ songs: [song('a', 'A'), song('b', 'B')] })
-    expect(defaultSong(buildWorkspace(settled, nothing))!.title).toBe('B')
-    expect(defaultSong(buildWorkspace(snapshotOf({}), nothing))).toBeNull()
+    // Redbone has eight credits in all; with only mixing on and the one mixer hidden, none are shown.
+    const redbone = filtered.songById.get('song-redbone')!
+    expect(redbone.credits).toHaveLength(0)
+    expect(redbone.totalCredits).toBe(8)
+    // Telegraph Ave. has none at all, which is a different thing from "all filtered out".
+    expect(filtered.songById.get('song-tg')!.totalCredits).toBe(0)
   })
 })

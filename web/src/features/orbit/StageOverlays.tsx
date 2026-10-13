@@ -6,19 +6,29 @@ import { keyframes } from '@mui/material/styles'
 import { Fragment } from 'react'
 import { creditRoles, creditRoleStyles } from '../../app/creditRoles.ts'
 import { useRoleFilters } from '../../stores/roleFilters.ts'
-import type { Workspace } from '../graph/workspaceModel.ts'
-import { nodeKey, type NodeRef } from './orbitLayout.ts'
+import { AlbumArt } from '../art/AlbumArt.tsx'
+import type { Workspace, WorkspaceSong } from '../graph/workspaceModel.ts'
+import { nodeKey, type EmptyCentre as EmptyCentreReason, type NodeRef } from './orbitLayout.ts'
 
 const swap = keyframes`from { opacity: 0; transform: translateY(8px); }`
 const blink = keyframes`50% { opacity: 0.25; }`
 
 function nameOf(workspace: Workspace, ref: NodeRef): string {
+  if (ref.type === 'graph') return 'Your graph'
   return ref.type === 'song' ? (workspace.songById.get(ref.id)?.title ?? '') : (workspace.personById.get(ref.id)?.name ?? '')
 }
 
-/** The trail of centres, the last four of them, each a button that goes back to that centre (FR-VIEW-01). */
+/** How many crumbs after "Your graph" are shown; earlier ones are folded into "…". */
+const crumbsAfterRoot = 3
+
+/**
+ * The trail of centres (FR-VIEW-01, FR-VIEW-04): "Your graph" first, always, so there is a way back to the overview,
+ * then the last few centres, each a button that goes back to that centre.
+ */
 export function Breadcrumbs({ workspace, crumbs, onGo }: { workspace: Workspace; crumbs: readonly NodeRef[]; onGo: (ref: NodeRef) => void }) {
-  const start = Math.max(0, crumbs.length - 4)
+  const folded = Math.max(0, crumbs.length - 1 - crumbsAfterRoot)
+  const visible = crumbs.filter((_, index) => index === 0 || index > folded)
+  const start = folded
 
   return (
     <Box
@@ -36,18 +46,13 @@ export function Breadcrumbs({ workspace, crumbs, onGo }: { workspace: Workspace;
         alignItems: 'center',
       }}
     >
-      {start > 0 && (
-        <Box component="span" aria-hidden="true" sx={{ color: 'text.secondary', fontSize: 12 }}>
-          …
-        </Box>
-      )}
-      {crumbs.slice(start).map((ref, index) => {
-        const current = start + index === crumbs.length - 1
+      {visible.map((ref, index) => {
+        const current = ref === crumbs[crumbs.length - 1]
         return (
           <Fragment key={nodeKey(ref)}>
             {index > 0 && (
-              <Box component="span" aria-hidden="true" sx={{ color: 'lineStrong', fontSize: 12 }}>
-                /
+              <Box component="span" aria-hidden="true" sx={{ color: 'text.secondary', fontSize: 12 }}>
+                {index === 1 && start > 0 ? '/ … /' : '/'}
               </Box>
             )}
             <Box
@@ -99,6 +104,7 @@ export function Caption({
   const song = centre.type === 'song' ? workspace.songById.get(centre.id) : undefined
   const person = centre.type === 'person' ? workspace.personById.get(centre.id) : undefined
   const people = song === undefined ? 0 : (workspace.peopleBySong.get(song.mbid)?.length ?? 0)
+  const overview = centre.type === 'graph'
 
   return (
     <Box
@@ -116,7 +122,7 @@ export function Caption({
         '@media (prefers-reduced-motion: no-preference)': { animation: `${swap} 450ms cubic-bezier(0.2, 0.8, 0.2, 1) both` },
       }}
     >
-      <Kicker>{song !== undefined ? 'Now spinning' : 'Following'}</Kicker>
+      <Kicker>{overview ? 'The whole graph' : song !== undefined ? 'Now spinning' : 'Following'}</Kicker>
       <Box
         component="p"
         sx={(theme) => ({
@@ -130,8 +136,17 @@ export function Caption({
           textWrap: 'balance',
         })}
       >
-        {song?.title ?? person?.name ?? ''}
+        {overview ? 'Your graph' : (song?.title ?? person?.name ?? '')}
       </Box>
+
+      {overview && (
+        // The strip above the stage has these numbers; on a phone the room is the orbit's.
+        <Typography variant="body2" color="text.secondary" component="p" sx={{ m: 0, display: { xs: 'none', md: 'block' } }}>
+          {workspace.songs.length} {workspace.songs.length === 1 ? 'song' : 'songs'} · {workspace.people.length}{' '}
+          {workspace.people.length === 1 ? 'person' : 'people'} · {workspace.connectors.length}{' '}
+          {workspace.connectors.length === 1 ? 'connector' : 'connectors'}
+        </Typography>
+      )}
 
       {song !== undefined && (
         <Typography variant="body2" color="text.secondary" component="p" sx={{ m: 0 }}>
@@ -170,6 +185,83 @@ export function Caption({
             sx={{ alignSelf: 'flex-start', pointerEvents: 'auto', mt: 0.5, py: 0.25 }}
           >
             Hide from view
+          </Button>
+        </>
+      )}
+    </Box>
+  )
+}
+
+/**
+ * A song at the centre with nothing to draw around it (FR-GRAPH-04, FR-VIEW-01): its cover large, and a sentence big
+ * enough to read that says why and what can be done, instead of a dot with a ring and a line of small print.
+ */
+export function EmptyCentre({
+  song,
+  reason,
+  origin,
+  compact,
+}: {
+  song: WorkspaceSong
+  reason: EmptyCentreReason
+  origin: { x: number; y: number }
+  compact: boolean
+}) {
+  const reset = useRoleFilters((state) => state.reset)
+  const size = compact ? 132 : 188
+
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        left: origin.x,
+        top: origin.y,
+        transform: 'translate(-50%, -50%)',
+        zIndex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: 1.75,
+        width: 'max-content',
+        maxWidth: 'min(380px, calc(100% - 32px))',
+        textAlign: 'center',
+        pointerEvents: 'none',
+        '@media (prefers-reduced-motion: no-preference)': { animation: `${swap} 450ms cubic-bezier(0.2, 0.8, 0.2, 1) both` },
+      }}
+    >
+      <Box sx={(theme) => ({ borderRadius: '8px', overflow: 'hidden', lineHeight: 0, boxShadow: '0 14px 44px #0009', outline: `1px solid ${theme.vars.palette.lineStrong}` })}>
+        <AlbumArt
+          seed={song.mbid}
+          size={size}
+          alt={`Cover of ${song.title}`}
+          releaseMbid={song.artReleaseMbid}
+          releaseGroupMbid={song.artReleaseGroupMbid}
+        />
+      </Box>
+
+      {reason === 'noCredits' ? (
+        <Typography component="p" sx={{ m: 0, fontSize: { xs: 15, md: 17 }, fontWeight: 600, lineHeight: 1.35 }}>
+          No credits on MusicBrainz yet
+          {' · '}
+          <Link
+            href={`https://musicbrainz.org/recording/${song.mbid}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            underline="always"
+            sx={{ pointerEvents: 'auto', fontWeight: 800 }}
+            // The visible words start the name (WCAG 2.5.3); the rest says which song, and that it opens a tab.
+            aria-label={`Add them on MusicBrainz: credits for ${song.title} (opens in a new tab)`}
+          >
+            Add them
+          </Link>
+        </Typography>
+      ) : (
+        <>
+          <Typography component="p" sx={{ m: 0, fontSize: { xs: 15, md: 17 }, fontWeight: 600, lineHeight: 1.35 }}>
+            Every credit on this song is filtered out or hidden
+          </Typography>
+          <Button size="small" variant="outlined" onClick={reset} sx={{ pointerEvents: 'auto' }}>
+            Show all roles
           </Button>
         </>
       )}

@@ -7,21 +7,25 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type KeyboardEvent,
   type MouseEvent,
   type RefObject,
 } from 'react'
 import { creditRoleStyles, type CreditRoleKey } from '../../app/creditRoles.ts'
 import { useReducedMotion } from '../../motion/useReducedMotion.ts'
+import { artSources, type ArtSource } from '../art/artSources.ts'
 import { sleeveFor } from '../art/sleeveSpec.ts'
 import { rolesOnSong, type Workspace } from '../graph/workspaceModel.ts'
-import { layoutOrbit, polarToXY, type NodeRef, type OrbitLayout, type OrbitNode, type RoleArc, type StageSize } from './orbitLayout.ts'
+import { polarToXY, type NodeRef, type OrbitLayout, type OrbitNode, type RoleArc } from './orbitLayout.ts'
 import { initials } from './initials.ts'
 import { OrbitMotion, type MotionNode } from './orbitMotion.ts'
 
 // The size a record and a person's disc are drawn at before the motion scales them (the prototype's values).
-const baseRadius = { song: 22, person: 12.6, more: 12 } as const
+const baseRadius = { graph: 22, song: 22, person: 12.6, more: 12 } as const
 const noRoles: CreditRoleKey[] = []
+/** The cover on a record is the label: this radius in the record's own units, out of 22. */
+const coverRadius = 14.6
 
 export interface SceneHandlers {
   /** A node was chosen: it becomes the centre. */
@@ -35,7 +39,8 @@ export interface SceneHandlers {
 interface OrbitSceneProps extends SceneHandlers {
   workspace: Workspace
   centre: NodeRef
-  stage: StageSize
+  /** The tree fitted to the stage (`layoutOrbit`); the view makes it, because it also needs the layout's origin. */
+  layout: OrbitLayout
   /** The node being looked at, for the focus mode. */
   focusId: string | null
   svgRef: RefObject<SVGSVGElement | null>
@@ -49,11 +54,8 @@ interface OrbitSceneProps extends SceneHandlers {
  * second, and React never sets those attributes itself, so it never undoes them.
  */
 // LEARN: LG-03R react-structure-d3-motion | React decides which elements exist and what they look like; the motion engine writes transform and opacity onto those elements through refs, and React never sets those two attributes in JSX, so a re-render cannot undo a frame of the animation
-export function OrbitScene({ workspace, centre, stage, focusId, svgRef, onChoose, onHover, onLeave, onMove }: OrbitSceneProps) {
+export function OrbitScene({ workspace, centre, layout, focusId, svgRef, onChoose, onHover, onLeave, onMove }: OrbitSceneProps) {
   const reduced = useReducedMotion()
-  // The layout depends on which node is the centre, not on the object that names it (a new one on every render).
-  const { type: centreType, id: centreId } = centre
-  const layout = useMemo(() => layoutOrbit(workspace, { type: centreType, id: centreId }, stage), [workspace, centreType, centreId, stage])
 
   const elements = useRef(new Map<string, SVGElement>())
   const motionRef = useRef<OrbitMotion | null>(null)
@@ -209,7 +211,7 @@ export function OrbitScene({ workspace, centre, stage, focusId, svgRef, onChoose
               key={edge.id}
               ref={(element) => register(`l:${edge.id}`, element)}
               className={related !== null && !onPath ? 'lnk dim' : 'lnk'}
-              style={{ stroke: `var(--role-${edge.role})` }}
+              style={{ stroke: edge.role === 'plain' ? 'var(--line-strong)' : `var(--role-${edge.role})` }}
             />
           )
         })}
@@ -224,7 +226,10 @@ export function OrbitScene({ workspace, centre, stage, focusId, svgRef, onChoose
             name={nodeName(workspace, node)}
             summary={nodeSummary(workspace, node, centre)}
             connector={node.kind === 'person' && (workspace.personById.get(node.ref)?.songs.length ?? 0) >= 2}
-            spinning={node.depth === 0 || workspace.songById.get(node.ref)?.creditsStatus === 'loading'}
+            songCount={workspace.songs.length}
+            artRelease={node.kind === 'song' ? workspace.songById.get(node.ref)?.artReleaseMbid : undefined}
+            artGroup={node.kind === 'song' ? workspace.songById.get(node.ref)?.artReleaseGroupMbid : undefined}
+            spinning={(node.depth === 0 && node.kind !== 'graph') || workspace.songById.get(node.ref)?.creditsStatus === 'loading'}
             dim={related !== null && !related.has(node.id)}
             leaving={!staying.has(node.id)}
             register={register}
@@ -237,7 +242,8 @@ export function OrbitScene({ workspace, centre, stage, focusId, svgRef, onChoose
         ))}
       </g>
 
-      <g aria-hidden="true">
+      {/* The names are never smaller than 12 px; on a large stage they grow with the nodes (`fontScale`). */}
+      <g aria-hidden="true" style={{ '--ls': layout.fontScale } as CSSProperties}>
         {rendered.map((node) => (
           <text
             key={node.id}
@@ -248,17 +254,12 @@ export function OrbitScene({ workspace, centre, stage, focusId, svgRef, onChoose
           </text>
         ))}
       </g>
-
-      {layout.noCredits && settled && (
-        <text className="empty" textAnchor="middle" y={90}>
-          No credits on MusicBrainz yet
-        </text>
-      )}
     </>
   )
 }
 
 function nodeName(workspace: Workspace, node: OrbitNode): string {
+  if (node.kind === 'graph') return 'Your graph'
   if (node.kind === 'song') return workspace.songById.get(node.ref)?.title ?? ''
   if (node.kind === 'person') return workspace.personById.get(node.ref)?.name ?? ''
   return `${node.moreCount} more people`
@@ -287,6 +288,11 @@ interface NodeShapeProps extends SceneHandlers {
   name: string
   summary: string
   connector: boolean
+  /** The number of songs in the graph, which the graph's own hub names. */
+  songCount: number
+  /** The ids a song's cover is looked up by, for the record's label. */
+  artRelease: string | null | undefined
+  artGroup: string | null | undefined
   spinning: boolean
   dim: boolean
   leaving: boolean
@@ -295,13 +301,42 @@ interface NodeShapeProps extends SceneHandlers {
 }
 
 /**
+ * A record's label is the song's cover. The chain is the one `AlbumArt` uses (Cover Art Archive by release, by release
+ * group, then Deezer) as an SVG `<image>`, which has no `loading` attribute but does fire `error`; when the list runs
+ * out nothing is drawn and the generated sleeve underneath shows.
+ */
+function RecordCover({ sources }: { sources: readonly ArtSource[] }) {
+  const [index, setIndex] = useState(0)
+  const source = sources[index]
+  if (source === undefined) return null
+
+  return (
+    <image
+      key={source.url}
+      href={source.url}
+      x={-coverRadius}
+      y={-coverRadius}
+      width={coverRadius * 2}
+      height={coverRadius * 2}
+      preserveAspectRatio="xMidYMid slice"
+      style={{ clipPath: 'circle(50%)' }}
+      onError={() => setIndex((current) => current + 1)}
+    />
+  )
+}
+
+/**
  * One node. A song is a record (a black disc with grooves and a label in its sleeve's colours); a person is a disc with
  * their initials, ringed by one segment per role, and a connector (two or more songs) has a ripple. Every node but the
  * centre is a button that makes it the centre.
  */
 const OrbitNodeShape = memo(function OrbitNodeShape(props: NodeShapeProps) {
-  const { node, roles, name, summary, connector, spinning, dim, leaving, register, onChoose, onHover, onLeave, onMove, stageRect } = props
+  const { node, roles, name, summary, connector, songCount, artRelease, artGroup, spinning, dim, leaving, register, onChoose, onHover, onLeave, onMove, stageRect } = props
   const isCentre = node.depth === 0
+
+  const sources = useMemo(() => artSources({ releaseMbid: artRelease, releaseGroupMbid: artGroup }, 64), [artRelease, artGroup])
+  // A different cover is a different chain: the component's state is keyed by what it will try.
+  const sourcesKey = sources.map((source) => source.url).join('|')
 
   const segments = useMemo(() => {
     const slices = pie<CreditRoleKey>().value(1).sort(null).padAngle(roles.length > 1 ? 0.16 : 0)(roles.length > 0 ? roles : ['other'])
@@ -316,7 +351,9 @@ const OrbitNodeShape = memo(function OrbitNodeShape(props: NodeShapeProps) {
   }
 
   const label = isCentre
-    ? `${name}, the centre of this view`
+    ? node.kind === 'graph'
+      ? `Your graph, ${songCount} ${songCount === 1 ? 'song' : 'songs'}, the centre of this view`
+      : `${name}, the centre of this view`
     : node.kind === 'more'
       ? `Show the ${node.moreCount} more people in the text view`
       : `Put ${name} at the centre; ${summary}`
@@ -352,13 +389,28 @@ const OrbitNodeShape = memo(function OrbitNodeShape(props: NodeShapeProps) {
         <>
           <circle className="hit" r={22} style={{ fill: "var(--vinyl)" }} stroke="#ffffff30" />
           <g className="spin">
-            {[20.4, 18.3, 16.2, 14.1].map((r) => (
+            {[20.4, 18.3, 16.2].map((r) => (
               <circle key={r} r={r} fill="none" stroke="#fff" strokeOpacity={0.08} />
             ))}
-            <circle r={10.6} fill={palette.background} />
-            <circle cx={0} cy={-6.4} r={2.6} fill={palette.mark} />
+            {/* The generated sleeve first, so a cover that is late or missing leaves a label, never a hole. */}
+            <circle r={coverRadius} fill={palette.background} />
+            <circle cx={0} cy={-coverRadius * 0.6} r={3.4} fill={palette.mark} />
+            <RecordCover key={sourcesKey} sources={sources} />
           </g>
           <circle r={1.6} style={{ fill: "var(--vinyl)" }} />
+        </>
+      )}
+
+      {node.kind === 'graph' && (
+        <>
+          <circle className="hit" r={22} style={{ fill: 'var(--raised)', stroke: 'var(--line-strong)' }} />
+          <circle r={18.5} fill="none" stroke="var(--line-strong)" strokeDasharray="1 3" />
+          <text className="hubN" textAnchor="middle" y={2}>
+            {songCount}
+          </text>
+          <text className="hubL" textAnchor="middle" y={11}>
+            {songCount === 1 ? 'song' : 'songs'}
+          </text>
         </>
       )}
 
@@ -404,7 +456,7 @@ function RoleArcShape({ arc: roleArc }: { arc: RoleArc }) {
       <path className="roleArc" style={{ stroke: color }} d={arcPath(roleArc.radius, roleArc.a0, roleArc.a1, false)} />
       {roleArc.label !== null && (
         <>
-          <path id={id} fill="none" d={arcPath(roleArc.flip ? roleArc.radius - 6 : roleArc.radius - 12, roleArc.a0, roleArc.a1, roleArc.flip)} />
+          <path id={id} fill="none" d={arcPath(roleArc.flip ? roleArc.radius - 6 : roleArc.radius - 13, roleArc.a0, roleArc.a1, roleArc.flip)} />
           <text className="roleTxt" style={{ fill: color }}>
             <textPath href={`#${id}`} startOffset="50%" textAnchor="middle">
               {roleArc.label}

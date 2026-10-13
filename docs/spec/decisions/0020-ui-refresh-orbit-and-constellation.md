@@ -92,3 +92,22 @@ The developer saw the landing page, results and sheet running, and reordered the
 | Review by merging on green | Each UI pull request waits for the developer's "merge", with side-by-side screenshots of the prototype and the app at desktop and phone width and a list of every difference | Fidelity to the prototype is the bar |
 
 Choices made inside the new items (open to change): the removal is **deferred** rather than undone by adding the song again, because the server then never holds a state the person did not mean and an undo needs no request; hidden people are kept in `sessionStorage` per graph; and the browser flow of pull request 3 runs the built web app with the Api and the hub faked at the network edge, because the end-to-end suite against the whole stack (with a recorded MusicBrainz) is M4's.
+
+## Changes after the workspace was reviewed (2026-10-13)
+
+The developer added two unrelated songs to the workspace of pull request 3 and gave five findings. Decided by the developer; the spec (sections 4 and 12) says what is built.
+
+| Finding | Now | Why |
+| --- | --- | --- |
+| Two unrelated songs could only be seen one at a time | FR-VIEW-04: the default centre is **the whole graph**, a hub labelled with the number of songs, every song on the first ring with its cover and their people on the second; the first breadcrumb, "Your graph", always goes back | The workspace is about the graph; a song is a place to go into from it |
+| The orbit rendered small in a large stage | The layout is **fitted to the stage**: the largest radius at which every disc and name fits the free part of the stage, nodes and names that grow with the room, names never under 12 px, refitted on resize and on every re-root | A fixed radius leaves a large stage empty; names that cannot be read are not labels |
+| It was not obvious that a role filter was on | FR-HUB-03: a bar under the headline names what is shown or hidden and says the counts follow it, with "Show all roles"; a chip toggles its role (it never solos it) | A state that changes every number should not live only in a struck-through chip at the bottom of the stage |
+| The first liner-notes card's header was cut off when the column scrolled | The two headings of the column stick to its top on an opaque background | Cards slide under a heading instead of under the container's edge |
+| A song with no credits was a dot with small print | Its cover large at the centre and, in 17 px type, "No credits on MusicBrainz yet · Add them" | The empty state is the song's whole view; it should say what is wrong and what to do |
+
+Choices made inside these (open to change):
+
+- **The fit is a bisection over the box the tree really fills**, not a closed-form radius: a disc's size and a name's length do not scale with the radius, so there is no formula, and a bisection on a monotonic function takes 28 steps over at most a few hundred points. The tree is then centred in the free box, so a tree whose names all point up is moved down instead of being made smaller to leave room below.
+- **Names get the room their own node has**: a second-ring name runs outward along the radius to the stage's edge, so it is long on the sides and short at the top and bottom, where the stage is shortest. A name is cut with an ellipsis; on a small stage the second ring has none (the tooltip and the accessible name give them).
+- **Adding a song still puts the orbit on that song**, so its crew can be watched arriving; "Your graph" is the first breadcrumb and one click away.
+- **Covers are the labels of the records** in the orbit, drawn as an SVG `<image>` with the same source chain as the cards. The no-referrer rule for cover images (NFR-PRIV-01) became a page-level `<meta name="referrer">`, because an SVG `<image>` has no `referrerPolicy` prop in React.

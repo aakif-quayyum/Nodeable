@@ -38,6 +38,13 @@ test('FR_VIEW_01 search, add, orbit and remove', async ({ page }) => {
   await trail.getByRole('button', { name: 'Redbone' }).click()
   await expect(page.getByRole('group', { name: 'Credits graph, centred on Redbone' })).toBeVisible()
 
+  // The first crumb is always the whole graph, with every song on its first ring (FR-VIEW-04).
+  await trail.getByRole('button', { name: 'Your graph' }).click()
+  const overview = page.getByRole('group', { name: 'Credits graph, centred on your graph' })
+  await expect(overview).toBeVisible()
+  await overview.getByRole('button', { name: /Put Redbone at the centre/ }).click()
+  await expect(page.getByRole('group', { name: 'Credits graph, centred on Redbone' })).toBeVisible()
+
   // Remove the song: it leaves the views at once, and the request is sent when the undo time is up.
   await page.getByRole('button', { name: 'Remove from graph: Redbone by Childish Gambino' }).click()
   await expect(page.getByText('Removed “Redbone” from your graph')).toBeVisible()

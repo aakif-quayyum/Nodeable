@@ -15,9 +15,11 @@ function layoutOf(nodes: OrbitNode[]): OrbitLayout {
     guides: [],
     arcs: [],
     radius: 200,
+    origin: { x: 0, y: 0 },
     scale: 1,
+    fontScale: 1,
     key: nodes.map((n) => n.id).join(','),
-    noCredits: false,
+    empty: null,
   }
 }
 

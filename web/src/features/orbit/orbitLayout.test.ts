@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { creditRoles, type CreditRoleKey } from '../../app/creditRoles.ts'
 import { credit, person, sampleSnapshot, snapshotOf, song } from '../../test/workspaceFixtures.ts'
 import { buildWorkspace } from '../graph/workspaceModel.ts'
-import { focusParam, layoutOrbit, lerpAngle, maxSecondRing, nodeKey, parseFocus, polarToXY } from './orbitLayout.ts'
+import { focusParam, layoutOrbit, lerpAngle, maxSecondRing, nodeKey, parseFocus, polarToXY, rootRef } from './orbitLayout.ts'
 
 const stage = { width: 900, height: 640 }
 const all: ReadonlySet<CreditRoleKey> = new Set(creditRoles)
@@ -89,6 +89,7 @@ describe('orbit layout', () => {
     expect(parseFocus(null)).toBeNull()
     expect(focusParam({ type: 'person', id: 'abc' })).toBe('person:abc')
     expect(nodeKey({ type: 'person', id: 'abc' })).toBe('p:abc')
+    expect(nodeKey(rootRef)).toBe('g:')
   })
 
   it('FR_VIEW_01 places polar coordinates with zero pointing up', () => {
@@ -99,10 +100,105 @@ describe('orbit layout', () => {
     expect(rx).toBeCloseTo(100)
   })
 
-  it('FR_GRAPH_04 says a centre song has no credits to show, once it is not loading', () => {
+  it('FR_GRAPH_04 says a centre song has no credits at all, once it is not loading', () => {
     const layout = layoutOrbit(build(), { type: 'song', id: 'song-tg' }, stage)
 
-    expect(layout.noCredits).toBe(true)
+    expect(layout.empty).toBe('noCredits')
     expect(layout.nodes).toHaveLength(1)
+    // The cover takes the middle of the stage: the record is not drawn, and there is no ring to guide the eye round.
+    expect(layout.nodes[0]!.size).toBeLessThan(1)
+    expect(layout.guides).toEqual([])
+  })
+
+  it('FR_GRAPH_04 tells "nothing to show with these filters" from "no credits"', () => {
+    const ws = buildWorkspace(sampleSnapshot(), { roles: new Set<CreditRoleKey>(['vocal']), removed: new Set(), hidden: new Set() })
+
+    expect(layoutOrbit(ws, { type: 'song', id: 'song-redbone' }, stage).empty).toBe('filtered')
+    expect(layoutOrbit(ws, { type: 'song', id: 'song-tg' }, stage).empty).toBe('noCredits')
+  })
+
+  it('FR_VIEW_04 centres on the whole graph: every song on the first ring, their people on the second', () => {
+    const layout = layoutOrbit(build(), rootRef, stage)
+
+    expect(layout.nodes[0]).toMatchObject({ id: 'g:', kind: 'graph', depth: 0 })
+    expect(layout.nodes.filter((node) => node.depth === 1).map((node) => node.id)).toEqual(['s:song-redbone', 's:song-mym', 's:song-tg'])
+    // Donald, Ludwig, Collins and Riley are on Redbone, so they hang from it; Me and Your Mama reaches them by cross-links.
+    expect(layout.nodes.filter((node) => node.depth === 2).map((node) => node.id).sort()).toEqual([
+      'p:person-collins',
+      'p:person-donald',
+      'p:person-ludwig',
+      'p:person-riley',
+    ])
+    expect(layout.crossLinks.filter((link) => link.source === 's:song-mym')).toHaveLength(3)
+    // The hub's links to its songs are plain: they carry no role.
+    expect(layout.links.filter((link) => link.source === 'g:').every((link) => link.role === 'plain')).toBe(true)
+    expect(layout.arcs).toEqual([])
+  })
+
+  it('FR_VIEW_04 shows songs that share nobody side by side, each with its own people', () => {
+    const snapshot = snapshotOf({
+      songs: [song('beautiful', 'Beautiful Things'), song('sawadika', 'SaWaDiKa')],
+      people: [person('a', 'Benson Boone'), person('b', 'Jack LaFrantz'), person('c', 'Rex Orange'), person('d', 'Sara Mac')],
+      credits: [credit('beautiful', 'a', 'songwriter'), credit('beautiful', 'b', 'producer'), credit('sawadika', 'c', 'songwriter'), credit('sawadika', 'd', 'producer')],
+    })
+
+    const layout = layoutOrbit(build(snapshot), rootRef, stage)
+
+    expect(layout.nodes.filter((node) => node.depth === 1).map((node) => node.label)).toEqual(['Beautiful Things', 'SaWaDiKa'])
+    expect(layout.nodes.filter((node) => node.depth === 2)).toHaveLength(4)
+    expect(layout.crossLinks).toEqual([])
+  })
+
+  it('FR_VIEW_01 fits the tree to the stage: nothing outside it, a bigger stage a bigger tree, and no name under 12 px', () => {
+    const ws = build()
+    const inside = (layout: ReturnType<typeof layoutOrbit>, size: { width: number; height: number }) =>
+      layout.nodes.every((node) => {
+        const [x, y] = polarToXY(node.radius, node.angle)
+        const left = layout.origin.x + x - node.size
+        const right = layout.origin.x + x + node.size
+        const above = layout.origin.y + y - node.size
+        const below = layout.origin.y + y + node.size
+        return left >= 0 && right <= size.width && above >= 0 && below <= size.height
+      })
+
+    const sizes = [
+      { width: 1100, height: 760 },
+      { width: 760, height: 460 },
+      { width: 380, height: 520 },
+    ]
+    for (const size of sizes) {
+      for (const centre of [rootRef, { type: 'song', id: 'song-redbone' } as const, { type: 'person', id: 'person-donald' } as const]) {
+        const layout = layoutOrbit(ws, centre, size)
+        expect(inside(layout, size), `${centre.type} on ${size.width}x${size.height}`).toBe(true)
+        expect(layout.fontScale).toBeGreaterThanOrEqual(1)
+      }
+    }
+
+    const small = layoutOrbit(ws, { type: 'song', id: 'song-redbone' }, { width: 760, height: 460 })
+    const large = layoutOrbit(ws, { type: 'song', id: 'song-redbone' }, { width: 1500, height: 900 })
+    expect(large.radius).toBeGreaterThan(small.radius * 1.3)
+    expect(large.scale).toBeGreaterThan(small.scale)
+  })
+
+  it('FR_VIEW_01 shortens long names to keep the tree large, and never draws a name under 12 px', () => {
+    const people = Array.from({ length: 12 }, (_, index) => person(`p${index}`, `A Person With A Very Long Name Number ${index}`))
+    const snapshot = snapshotOf({
+      songs: [song('a', 'A'), song('b', 'B')],
+      people,
+      credits: people.map((_, index) => credit(index < 6 ? 'a' : 'b', `p${index}`, 'songwriter')),
+    })
+    const ws = build(snapshot)
+    const names = (layout: ReturnType<typeof layoutOrbit>) => layout.nodes.filter((node) => node.depth === 2).map((node) => node.label)
+
+    const wide = layoutOrbit(ws, rootRef, { width: 1100, height: 760 })
+    const narrow = layoutOrbit(ws, rootRef, { width: 320, height: 420 })
+
+    // Cut with an ellipsis to the room each node has, and left off where there is none; the full name is still the
+    // node's accessible name and its tooltip. A small stage gives less room than a large one.
+    expect(names(wide).every((name) => name === '' || (name.length <= 28 && name.endsWith('…')))).toBe(true)
+    expect(names(wide).some((name) => name !== '')).toBe(true)
+    expect(Math.max(...names(narrow).map((name) => name.length))).toBeLessThan(Math.max(...names(wide).map((name) => name.length)))
+    expect(wide.fontScale).toBeGreaterThanOrEqual(1)
+    expect(narrow.fontScale).toBe(1)
   })
 })

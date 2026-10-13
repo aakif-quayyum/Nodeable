@@ -163,7 +163,7 @@ describe('workspace: graph and live updates', () => {
     expect(hub.calls).not.toContain('GET snapshot')
 
     answerJoin()
-    await orbitNamed('Credits graph, centred on Redbone')
+    await orbitNamed('Credits graph, centred on your graph')
 
     expect(hub.calls).toEqual(['start', `JoinGraph(${graphId}, ${token})`, 'GET snapshot'])
   })
@@ -199,7 +199,7 @@ describe('workspace: graph and live updates', () => {
     })
     release()
 
-    const orbit = await orbitNamed('Credits graph, centred on Redbone')
+    const orbit = await orbitNamed('Credits graph, centred on your graph')
     expect(await within(orbit).findByRole('button', { name: /Put Donald Glover at the centre; credited as producer/ })).toBeInTheDocument()
     expect(within(screen.getByRole('region', { name: 'Liner notes' })).getByText('Loading credits')).toBeInTheDocument()
   })
@@ -218,7 +218,7 @@ describe('workspace: graph and live updates', () => {
     expect(screen.queryByRole('button', { name: /^Add to graph: Redbone/ })).not.toBeInTheDocument()
 
     await user.click(button)
-    // The latest song would be the default centre; the address names Redbone, and that is what is centred.
+    // With no address the centre would be the whole graph; the address names Redbone, and that is what is centred.
     expect(await orbitNamed('Credits graph, centred on Redbone')).toBeInTheDocument()
   })
 
@@ -259,7 +259,7 @@ describe('workspace: graph and live updates', () => {
     serveSnapshot(() => snapshot({ songs: [redbone] }), hub)
 
     renderAt('/graph', { graphConnection: () => hub })
-    await orbitNamed('Credits graph, centred on Redbone')
+    await orbitNamed('Credits graph, centred on your graph')
 
     act(() => hub.simulateReconnecting())
     expect(await screen.findByText(/Reconnecting/)).toBeInTheDocument()
@@ -278,7 +278,7 @@ describe('workspace: graph and live updates', () => {
 
     renderAt('/graph', { graphConnection: () => hub })
 
-    expect(await orbitNamed('Credits graph, centred on Redbone')).toBeInTheDocument()
+    expect(await orbitNamed('Credits graph, centred on your graph')).toBeInTheDocument()
     expect(screen.getByText(/Live updates are off/)).toBeInTheDocument()
   })
 
@@ -301,12 +301,19 @@ describe('workspace: orbit, cards and notes', () => {
     rememberGraph()
   })
 
-  it('FR_VIEW_01 re-roots on a person from a connector card, keeps a trail of breadcrumbs and goes back along it', async () => {
+  it('FR_VIEW_04 starts on the whole graph, re-roots on a song and then a person, and always goes back to "Your graph"', async () => {
     const user = userEvent.setup()
     serveSnapshot(() => twoSongs())
 
     renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
-    // The latest song is the centre when the address names none.
+    // The whole graph is the centre when the address names none: a hub with the number of songs, and every song around it.
+    const orbit = await orbitNamed('Credits graph, centred on your graph')
+    expect(screen.getByText('The whole graph')).toBeInTheDocument()
+    expect(within(orbit).getByRole('img', { name: 'Your graph, 2 songs, the centre of this view' })).toBeInTheDocument()
+    const trail = () => screen.getByRole('navigation', { name: 'Exploration path' })
+    expect(within(trail()).getAllByRole('button').map((button) => button.textContent)).toEqual(['Your graph'])
+
+    await user.click(within(orbit).getByRole('button', { name: 'Put This Is America at the centre; 2 people credited' }))
     await orbitNamed('Credits graph, centred on This Is America')
     expect(screen.getByText('Now spinning')).toBeInTheDocument()
 
@@ -315,16 +322,50 @@ describe('workspace: orbit, cards and notes', () => {
 
     await orbitNamed('Credits graph, centred on Donald Glover')
     expect(screen.getByText('Following')).toBeInTheDocument()
-    const trail = screen.getByRole('navigation', { name: 'Exploration path' })
-    expect(within(trail).getAllByRole('button').map((button) => button.textContent)).toEqual(['This Is America', 'Donald Glover'])
-    expect(within(trail).getByRole('button', { name: 'Donald Glover' })).toHaveAttribute('aria-current', 'true')
+    expect(within(trail()).getAllByRole('button').map((button) => button.textContent)).toEqual(['Your graph', 'This Is America', 'Donald Glover'])
+    expect(within(trail()).getByRole('button', { name: 'Donald Glover' })).toHaveAttribute('aria-current', 'true')
 
-    await user.click(within(trail).getByRole('button', { name: 'This Is America' }))
+    await user.click(within(trail()).getByRole('button', { name: 'This Is America' }))
     await orbitNamed('Credits graph, centred on This Is America')
-    expect(within(screen.getByRole('navigation', { name: 'Exploration path' })).getAllByRole('button')).toHaveLength(1)
+    expect(within(trail()).getAllByRole('button')).toHaveLength(2)
+
+    await user.click(within(trail()).getByRole('button', { name: 'Your graph' }))
+    await orbitNamed('Credits graph, centred on your graph')
+    expect(within(trail()).getAllByRole('button').map((button) => button.textContent)).toEqual(['Your graph'])
   })
 
-  it('FR_VIEW_01 centres on what the address names, and falls back to the latest song when it names nothing that is there', async () => {
+  it('FR_VIEW_04 shows two songs that share nobody together, each with its own people and its own cover', async () => {
+    const user = userEvent.setup()
+    const beautiful = { ...redbone, mbid: 'b0000000-0000-4000-8000-000000000001', title: 'Beautiful Things', artist: 'Benson Boone', creditsStatus: 'complete' as const }
+    const sawadika = { ...redbone, mbid: 'b0000000-0000-4000-8000-000000000002', title: 'SaWaDiKa', artist: 'Tems', creditsStatus: 'complete' as const }
+    const jack = { mbid: 'c0000000-0000-4000-8000-000000000001', name: 'Jack LaFrantz' }
+    const tems = { mbid: 'c0000000-0000-4000-8000-000000000002', name: 'Tems' }
+    serveSnapshot(() =>
+      snapshot({
+        songs: [beautiful, sawadika],
+        people: [jack, tems],
+        credits: [credit(beautiful.mbid, jack, 'producer'), credit(sawadika.mbid, tems, 'songwriter')],
+      }),
+    )
+
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
+    const orbit = await orbitNamed('Credits graph, centred on your graph')
+
+    // Both songs, and both songs' people, are in the one view; neither has to be chosen to see the other.
+    expect(within(orbit).getByRole('button', { name: 'Put Beautiful Things at the centre; 1 person credited' })).toBeInTheDocument()
+    expect(within(orbit).getByRole('button', { name: 'Put SaWaDiKa at the centre; 1 person credited' })).toBeInTheDocument()
+    expect(within(orbit).getByRole('button', { name: /Put Jack LaFrantz at the centre/ })).toBeInTheDocument()
+    expect(within(orbit).getByRole('button', { name: /Put Tems at the centre/ })).toBeInTheDocument()
+
+    await user.click(within(orbit).getByRole('button', { name: /Put SaWaDiKa at the centre/ }))
+    await orbitNamed('Credits graph, centred on SaWaDiKa')
+    await user.click(within(screen.getByRole('navigation', { name: 'Exploration path' })).getByRole('button', { name: 'Your graph' }))
+
+    const again = await orbitNamed('Credits graph, centred on your graph')
+    expect(within(again).getByRole('button', { name: /Put Beautiful Things at the centre/ })).toBeInTheDocument()
+  })
+
+  it('FR_VIEW_01 centres on what the address names, and falls back to the whole graph when it names nothing that is there', async () => {
     serveSnapshot(() => twoSongs())
 
     renderAt(`/graph?focus=person:${riley.mbid}`, { graphConnection: () => new FakeGraphHub() })
@@ -335,7 +376,19 @@ describe('workspace: orbit, cards and notes', () => {
     serveSnapshot(() => twoSongs())
 
     renderAt('/graph?focus=song:not-in-the-graph', { graphConnection: () => new FakeGraphHub() })
-    expect(await orbitNamed('Credits graph, centred on This Is America')).toBeInTheDocument()
+    expect(await orbitNamed('Credits graph, centred on your graph')).toBeInTheDocument()
+  })
+
+  it('FR_GRAPH_04 gives a song with no credits its cover large at the centre and a link that says what to do', async () => {
+    serveSnapshot(() => snapshot({ songs: [{ ...redbone, creditsStatus: 'none' }] }))
+
+    renderAt(`/graph?focus=song:${redboneMbid}`, { graphConnection: () => new FakeGraphHub() })
+    await orbitNamed('Credits graph, centred on Redbone')
+
+    const link = await screen.findByRole('link', { name: /Add them on MusicBrainz: credits for Redbone/ })
+    expect(link).toHaveTextContent('Add them')
+    expect(link).toHaveAttribute('href', `https://musicbrainz.org/recording/${redboneMbid}`)
+    expect(link.closest('p')).toHaveTextContent('No credits on MusicBrainz yet · Add them')
   })
 
   it('FR_HUB_01 puts a song’s people on the first ring with their roles in the node’s name and a connector marked in the cards', async () => {
@@ -422,6 +475,38 @@ describe('workspace: orbit, cards and notes', () => {
     // The badge is about the song, not about what the filter leaves: Redbone still has a producer.
     expect(screen.queryByText('Credits incomplete')).not.toBeInTheDocument()
   })
+
+  it('FR_HUB_03 says out loud that the graph is filtered, turns one role off without soloing it, and puts everything back in one click', async () => {
+    const user = userEvent.setup()
+    serveSnapshot(() => twoSongs())
+
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
+    await screen.findByRole('region', { name: 'Connectors' })
+    const roles = within(screen.getByRole('list', { name: 'Roles' }))
+    expect(screen.queryByText('Filtered by role')).not.toBeInTheDocument()
+    expect(screen.getByRole('group', { name: 'Totals' })).toBeInTheDocument()
+
+    // One click turns that role off and leaves every other role on: it is a toggle, not a "show only".
+    await user.click(roles.getByRole('button', { name: 'Songwriter' }))
+    expect(roles.getByRole('button', { name: 'Songwriter' })).toHaveAttribute('aria-pressed', 'false')
+    expect(roles.getByRole('button', { name: 'Producer' })).toHaveAttribute('aria-pressed', 'true')
+    expect(roles.getByRole('button', { name: 'Mixing' })).toHaveAttribute('aria-pressed', 'true')
+
+    // The bar names what is off and says the counts follow it.
+    const bar = screen.getByText('Filtered by role').closest('[role="status"]') as HTMLElement
+    expect(bar).toHaveTextContent('hiding Songwriter')
+    expect(bar).toHaveTextContent('the counts, connectors and cards below only count these credits')
+    expect(screen.getByRole('group', { name: 'Totals, filtered by role' })).toBeInTheDocument()
+
+    // With most roles off the bar names the ones that are on instead.
+    for (const name of ['Producer', 'Mixing', 'Engineering', 'Instrument']) await user.click(roles.getByRole('button', { name }))
+    expect(bar).toHaveTextContent('showing Vocal, Other')
+
+    await user.click(within(bar).getByRole('button', { name: 'Show all roles' }))
+    expect(screen.queryByText('Filtered by role')).not.toBeInTheDocument()
+    expect(roles.getByRole('button', { name: 'Songwriter' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('group', { name: 'Totals' })).toBeInTheDocument()
+  })
 })
 
 describe('workspace: removing a song and hiding a person', () => {
@@ -450,7 +535,7 @@ describe('workspace: removing a song and hiding a person', () => {
 
     await user.click(screen.getByRole('button', { name: 'Undo' }))
 
-    expect(await orbitNamed('Credits graph, centred on Redbone')).toBeInTheDocument()
+    expect(await orbitNamed('Credits graph, centred on your graph')).toBeInTheDocument()
     expect(screen.queryByText('Removed “Redbone” from your graph')).not.toBeInTheDocument()
     expect(deleted).toBe(false)
   })
@@ -530,8 +615,8 @@ describe('workspace: removing a song and hiding a person', () => {
 
     await user.click(screen.getByRole('button', { name: 'Hide from view: Donald Glover (the centre)' }))
 
-    // Nothing earlier on the trail: the latest song is the centre.
-    expect(await orbitNamed('Credits graph, centred on This Is America')).toBeInTheDocument()
+    // Nothing earlier on the trail: the whole graph is the centre.
+    expect(await orbitNamed('Credits graph, centred on your graph')).toBeInTheDocument()
   })
 })
 

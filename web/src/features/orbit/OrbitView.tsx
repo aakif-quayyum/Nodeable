@@ -1,12 +1,13 @@
 import { select } from 'd3-selection'
 import { zoom as d3zoom, zoomIdentity, type D3ZoomEvent, type ZoomBehavior } from 'd3-zoom'
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type MouseEvent } from 'react'
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import { creditRoleStyles, roleText } from '../../app/creditRoles.ts'
 import type { Workspace } from '../graph/workspaceModel.ts'
-import type { NodeRef, OrbitNode, StageSize } from './orbitLayout.ts'
+import { layoutOrbit, type NodeRef, type OrbitNode, type StageSize } from './orbitLayout.ts'
 import { OrbitScene } from './OrbitScene.tsx'
 import { OrbitSvg } from './orbitStyles.ts'
 import { OrbitTooltip, type TooltipContent } from './OrbitTooltip.tsx'
+import { EmptyCentre } from './StageOverlays.tsx'
 
 // A fixed sprinkling of stars: the same on every render, so nothing about the background is ever random.
 const stars = (() => {
@@ -72,11 +73,27 @@ export function OrbitView({ workspace, centre, onCentre, onMore }: OrbitViewProp
   }, [])
 
   // Pan and zoom: d3-zoom moves the world group directly, because a state update per wheel tick would re-render every node.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const svg = svgRef.current
     const world = worldRef.current
     if (svg === null || world === null) return
     const behaviour = d3zoom<SVGSVGElement, unknown>()
+      // The default extent reads the element's SVG `width.baseVal`, which a browser has and jsdom does not; the stage's
+      // own box is what it means anyway.
+      .extent(() => {
+        const { width, height } = svg.getBoundingClientRect()
+        return [
+          [0, 0],
+          [width || fallbackStage.width, height || fallbackStage.height],
+        ]
+      })
+      // A press that starts on a node is a click on that node, never the start of a pan; the wheel zooms anywhere.
+      .filter((event: Event) => {
+        if (event.type === 'wheel') return true
+        const pointer = event as globalThis.MouseEvent
+        if (pointer.button || pointer.ctrlKey) return false
+        return !(event.target instanceof Element && event.target.closest('.nd') !== null)
+      })
       .scaleExtent([0.45, 3])
       .on('zoom', (event: D3ZoomEvent<SVGSVGElement, unknown>) => world.setAttribute('transform', event.transform.toString()))
     zoomRef.current = behaviour
@@ -87,13 +104,24 @@ export function OrbitView({ workspace, centre, onCentre, onMore }: OrbitViewProp
     }
   }, [])
 
-  // The centre of the orbit is the origin, so the view starts with the origin at the middle of the stage.
+  // The tree is fitted to the stage by the layout, which is a pure function of the data, the centre and the stage's size.
+  // The layout depends on which node is the centre, not on the object that names it (a new one on every render).
+  const { type: centreType, id: centreId } = centre
+  const layout = useMemo(
+    () => (stage === null ? null : layoutOrbit(workspace, { type: centreType, id: centreId }, stage)),
+    [workspace, centreType, centreId, stage],
+  )
+  const originX = layout?.origin.x
+  const originY = layout?.origin.y
+
+  // The centre of the orbit is the origin of the drawing. The view is put back where the tree fits whenever the stage
+  // is resized or the centre changes, so a pan or a zoom never leaves the new tree off screen.
   useLayoutEffect(() => {
     const svg = svgRef.current
     const behaviour = zoomRef.current
-    if (svg === null || behaviour === null || stage === null) return
-    behaviour.transform(select(svg), zoomIdentity.translate(stage.width / 2, stage.height / 2 + (stage.width < 560 ? 26 : 14)))
-  }, [stage])
+    if (svg === null || behaviour === null || originX === undefined || originY === undefined) return
+    behaviour.transform(select(svg), zoomIdentity.translate(originX, originY))
+  }, [originX, originY, centreType, centreId])
 
   const describe = useCallback(
     (node: OrbitNode): TooltipContent | null => {
@@ -146,7 +174,13 @@ export function OrbitView({ workspace, centre, onCentre, onMore }: OrbitViewProp
     [onCentre, onMore],
   )
 
-  const centreName = centre.type === 'song' ? workspace.songById.get(centre.id)?.title : workspace.personById.get(centre.id)?.name
+  const centreName =
+    centre.type === 'graph'
+      ? 'your graph'
+      : centre.type === 'song'
+        ? workspace.songById.get(centre.id)?.title
+        : workspace.personById.get(centre.id)?.name
+  const emptySong = layout?.empty != null && centre.type === 'song' ? workspace.songById.get(centre.id) : undefined
 
   return (
     <>
@@ -175,11 +209,11 @@ export function OrbitView({ workspace, centre, onCentre, onMore }: OrbitViewProp
             ))}
           </g>
 
-          {stage !== null && (
+          {layout !== null && (
             <OrbitScene
               workspace={workspace}
               centre={centre}
-              stage={stage}
+              layout={layout}
               focusId={hover?.id ?? null}
               svgRef={svgRef}
               onChoose={onChoose}
@@ -190,6 +224,10 @@ export function OrbitView({ workspace, centre, onCentre, onMore }: OrbitViewProp
           )}
         </g>
       </OrbitSvg>
+
+      {emptySong !== undefined && layout !== null && layout.empty !== null && stage !== null && (
+        <EmptyCentre song={emptySong} reason={layout.empty} origin={layout.origin} compact={stage.width < 560} />
+      )}
 
       {hover !== null && <OrbitTooltip ref={tooltipRef} content={hover.content} x={hover.x} y={hover.y} />}
     </>

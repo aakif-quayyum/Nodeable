@@ -220,18 +220,39 @@ function Card({
   )
 }
 
-/** A column heading: capitals, a rule under it, as the prototype's panel headings are. */
+/**
+ * A column heading: capitals, a rule under it, as the prototype's panel headings are. It sticks to the top of the
+ * scrolling column on an opaque background, so cards slide under it instead of being cut off at the container's edge;
+ * its section is its limit, so the next section's heading takes its place.
+ */
 export function Heading({ id, children, action }: { id: string; children: string; action?: React.ReactNode }) {
   return (
     <Box
       sx={(theme) => ({
+        // Only where the column scrolls on its own (md and up); on a phone the page scrolls and nothing sticks.
+        position: { xs: 'static', md: 'sticky' },
+        top: 0,
+        zIndex: 3,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         gap: 1,
+        pt: '6px',
         pb: 1,
         mb: 1.25,
+        backgroundColor: theme.vars.palette.background.default,
         borderBottom: `1px solid ${theme.vars.palette.lineStrong}`,
+        // The gap under the rule fades, so a card that is passing under it does not appear from nowhere.
+        '&::after': {
+          content: '""',
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: '100%',
+          height: 10,
+          pointerEvents: 'none',
+          background: `linear-gradient(${theme.vars.palette.background.default}, transparent)`,
+        },
       })}
     >
       <Typography id={id} variant="h3" component="h2" sx={{ fontSize: 22, lineHeight: 1 }}>

@@ -1,11 +1,11 @@
 import { useCallback, useLayoutEffect } from 'react'
 import { useSearchParams } from 'react-router'
 import { create } from 'zustand'
-import { defaultSong, type Workspace } from '../graph/workspaceModel.ts'
-import { focusParam, parseFocus, type NodeRef } from './orbitLayout.ts'
+import type { Workspace } from '../graph/workspaceModel.ts'
+import { focusParam, parseFocus, rootRef, type NodeRef } from './orbitLayout.ts'
 
 interface TrailState {
-  /** The centres the person has been through, the last of which is the centre. */
+  /** The centres the person has been through after the whole graph (which is always the first crumb), the last of which is the centre. */
   trail: readonly NodeRef[]
   visit: (ref: NodeRef) => void
 }
@@ -13,11 +13,13 @@ interface TrailState {
 const sameRef = (a: NodeRef, b: NodeRef) => a.type === b.type && a.id === b.id
 
 // UI state that the breadcrumbs, the orbit and the cards all read, with no server involved (spec section 12). Visiting a
-// place already on the trail goes back to it, as the prototype's trail does: the trail is a path, not a history.
+// place already on the trail goes back to it, as the prototype's trail does: the trail is a path, not a history. The
+// whole graph is not on the trail: it is the start of every path, so visiting it empties the trail.
 export const useTrail = create<TrailState>((set) => ({
   trail: [],
   visit: (ref) =>
     set((state) => {
+      if (ref.type === 'graph') return state.trail.length === 0 ? state : { trail: [] }
       const at = state.trail.findIndex((entry) => sameRef(entry, ref))
       if (state.trail.length > 0 && at === state.trail.length - 1) return state
       return { trail: at >= 0 ? state.trail.slice(0, at + 1) : [...state.trail, ref] }
@@ -27,29 +29,20 @@ export const useTrail = create<TrailState>((set) => ({
 export interface Centre {
   /** What the orbit is centred on, or null while there is nothing in the graph. */
   centre: NodeRef | null
-  /** The centres visited that still exist, ending with the centre itself. */
+  /** The whole graph, then the centres visited that still exist, ending with the centre itself. */
   crumbs: NodeRef[]
   /** Makes a node the centre. It is an address change (`?focus=`), so the back button goes back through the centres. */
   goTo: (ref: NodeRef) => void
 }
 
 const exists = (workspace: Workspace, ref: NodeRef) =>
-  ref.type === 'song' ? workspace.songById.has(ref.id) : workspace.personById.has(ref.id)
-
-function choose(workspace: Workspace | null, focus: NodeRef | null, alive: readonly NodeRef[]): NodeRef | null {
-  if (workspace === null) return null
-  if (focus !== null && exists(workspace, focus)) return focus
-  const last = alive.at(-1)
-  if (last !== undefined) return last
-  const song = defaultSong(workspace)
-  return song === null ? null : { type: 'song', id: song.mbid }
-}
+  ref.type === 'graph' ? true : ref.type === 'song' ? workspace.songById.has(ref.id) : workspace.personById.has(ref.id)
 
 /**
- * The orbit's centre (FR-VIEW-01). The address is the source of truth (`?focus=song:<mbid>`), so a view can be reloaded,
- * bookmarked and stepped through with the back button. When the address names nothing that is in the graph (no focus, a
- * song that was removed, a person who is hidden), the centre is the last place on the trail that still exists, and
- * failing that the song that is loading or was added last.
+ * The orbit's centre (FR-VIEW-01, FR-VIEW-04). The address is the source of truth (`?focus=song:<mbid>`), so a view can
+ * be reloaded, bookmarked and stepped through with the back button. With no focus the centre is the whole graph. When
+ * the address names something that is not in the graph (a song that was removed, a person who is hidden), the centre is
+ * the last place on the trail that still exists, and failing that the whole graph.
  */
 export function useCentre(workspace: Workspace | null): Centre {
   const [params, setParams] = useSearchParams()
@@ -59,7 +52,12 @@ export function useCentre(workspace: Workspace | null): Centre {
   const focus = parseFocus(params.get('focus'))
   const alive = workspace === null ? [] : trail.filter((ref) => exists(workspace, ref))
 
-  const centre = choose(workspace, focus, alive)
+  let centre: NodeRef | null = null
+  if (workspace !== null) {
+    if (focus === null && params.get('focus') === null) centre = rootRef
+    else if (focus !== null && exists(workspace, focus)) centre = focus
+    else centre = alive.at(-1) ?? rootRef
+  }
 
   // The trail follows the centre, whichever way the centre changed (a click, the back button, a removal). The effect
   // depends on the centre's two fields, not on the object, which is a new one on every render.
@@ -73,7 +71,8 @@ export function useCentre(workspace: Workspace | null): Centre {
     (ref: NodeRef) => {
       setParams((current) => {
         const next = new URLSearchParams(current)
-        next.set('focus', focusParam(ref))
+        if (ref.type === 'graph') next.delete('focus')
+        else next.set('focus', focusParam(ref))
         next.delete('sheet')
         return next
       })
@@ -81,6 +80,7 @@ export function useCentre(workspace: Workspace | null): Centre {
     [setParams],
   )
 
-  const crumbs = centre === null ? [] : alive.some((ref) => sameRef(ref, centre)) ? alive : [...alive, centre]
+  const crumbs: NodeRef[] =
+    centre === null ? [] : [rootRef, ...alive, ...(centre.type === 'graph' || alive.some((ref) => sameRef(ref, centre)) ? [] : [centre])]
   return { centre, crumbs, goTo }
 }

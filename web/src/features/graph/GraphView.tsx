@@ -5,6 +5,7 @@ import LinearProgress from '@mui/material/LinearProgress'
 import Snackbar from '@mui/material/Snackbar'
 import Typography from '@mui/material/Typography'
 import { useEffect, useMemo, useState } from 'react'
+import { creditRoles } from '../../app/creditRoles.ts'
 import { useRoleFilters } from '../../stores/roleFilters.ts'
 import { ConnectorCards } from '../connectors/ConnectorCards.tsx'
 import { LinerNotes } from '../notes/LinerNotes.tsx'
@@ -15,6 +16,7 @@ import { hidePerson, showEveryone, showPerson, useHiddenPeople } from './hiddenP
 import type { GraphSession } from './graphSession.ts'
 import { useLiveStatus } from './liveStatus.ts'
 import { flushRemovals, undoRemoval, useRemovals } from './removals.ts'
+import { RoleFilterBar } from './RoleFilterBar.tsx'
 import { Strip } from './Strip.tsx'
 import { TextView } from './TextView.tsx'
 import { useRemoveSong } from './useGraphMutations.ts'
@@ -35,6 +37,7 @@ export function GraphView({ session }: { session: GraphSession }) {
   const removeSong = useRemoveSong(session)
 
   const roles = useRoleFilters((state) => state.active)
+  const resetRoles = useRoleFilters((state) => state.reset)
   const hidden = useHiddenPeople(session.id)
   const pending = useRemovals((state) => state.pending)
   const removalFailed = useRemovals((state) => state.failed)
@@ -80,12 +83,16 @@ export function GraphView({ session }: { session: GraphSession }) {
       }}
     >
       {workspace !== null && songCount > 0 ? (
-        <Strip
-          workspace={workspace}
-          hidden={workspace.hiddenPeople}
-          onShow={(mbid) => showPerson(session.id, mbid)}
-          onShowEveryone={() => showEveryone(session.id)}
-        />
+        <Box sx={{ display: 'grid', gap: 1.25 }}>
+          <Strip
+            workspace={workspace}
+            filtered={roles.size < creditRoles.length}
+            hidden={workspace.hiddenPeople}
+            onShow={(mbid) => showPerson(session.id, mbid)}
+            onShowEveryone={() => showEveryone(session.id)}
+          />
+          <RoleFilterBar active={roles} onReset={resetRoles} />
+        </Box>
       ) : (
         <Typography variant="h1" sx={{ fontSize: 'clamp(26px, 3.2vw, 42px)', m: 0 }}>
           Your graph
@@ -150,8 +157,13 @@ export function GraphView({ session }: { session: GraphSession }) {
               gap: 2.5,
               minHeight: 0,
               overflow: { md: 'auto' },
-              pr: '2px',
+              // Room for a card's outline and its hover lift: the container clips whatever pokes out of it. No padding
+              // on top, so the sticky headings sit flush against it.
+              px: '3px',
+              pb: '3px',
               scrollbarWidth: 'thin',
+              // A link that is scrolled into view lands below the sticky heading, not under it.
+              scrollPaddingTop: '48px',
             }}
           >
             <ConnectorCards workspace={workspace} centre={centre} onCentre={goTo} onHide={(mbid) => hidePerson(session.id, mbid)} />

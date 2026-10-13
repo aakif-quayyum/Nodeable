@@ -14,6 +14,8 @@ export interface WorkspaceOptions {
 export interface WorkspaceSong extends GraphSong {
   /** The credits that are shown: those of the active roles, without hidden people. */
   credits: GraphCredit[]
+  /** Every credit the song has, before the role filters and the hidden people: 0 means MusicBrainz has none. */
+  totalCredits: number
   /**
    * FR-GRAPH-04: neither a producer nor a songwriter credit. Judged from every credit of the song, not from what the
    * filters leave, and not while the song is still loading.
@@ -91,6 +93,7 @@ export function buildWorkspace(snapshot: GraphSnapshot, options: WorkspaceOption
   const songs: WorkspaceSong[] = liveSongs.map((song) => ({
     ...song,
     credits: creditsBySong.get(song.mbid) ?? [],
+    totalCredits: (allBySong.get(song.mbid) ?? []).length,
     incomplete:
       song.creditsStatus !== 'loading' &&
       !(allBySong.get(song.mbid) ?? []).some((credit) => credit.role === 'producer' || credit.role === 'songwriter'),
@@ -222,10 +225,4 @@ export function headlineOf(ws: Workspace): Headline | null {
   if (most < 2) return null
   const top = ws.connectors.filter((person) => person.songs.length === most)
   return { names: top.slice(0, 3).map((person) => person.name), more: Math.max(0, top.length - 3), connects: most }
-}
-
-/** The song that the orbit centres on when nothing else is chosen: the one that is loading, else the latest added. */
-export function defaultSong(ws: Workspace): WorkspaceSong | null {
-  const loading = [...ws.songs].reverse().find((song) => song.creditsStatus === 'loading')
-  return loading ?? ws.songs.at(-1) ?? null
 }

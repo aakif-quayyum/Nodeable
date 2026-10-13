@@ -48,7 +48,8 @@ const visuallyHidden = {
 
 interface StripProps {
   workspace: Workspace
-  /** What shows when there is no connector yet: the graph is still being read, or has fewer than two songs. */
+  /** A role filter is on: the four counts are of what it leaves, and say so. */
+  filtered: boolean
   hidden: { mbid: string; name: string }[]
   onShow: (personMbid: string) => void
   onShowEveryone: () => void
@@ -59,7 +60,7 @@ interface StripProps {
  * when they change, and the "n hidden · show" control when someone is hidden (FR-VIEW-03). The headline is the page's
  * `h1`, and the only part of the strip that is a live region, so a screen reader hears one sentence, not four counters.
  */
-export function Strip({ workspace, hidden, onShow, onShowEveryone }: StripProps) {
+export function Strip({ workspace, filtered, hidden, onShow, onShowEveryone }: StripProps) {
   const headline = headlineOf(workspace)
   const songs = workspace.songs.length
   const people = workspace.people.length
@@ -144,9 +145,38 @@ export function Strip({ workspace, hidden, onShow, onShowEveryone }: StripProps)
 
         <Box
           role="group"
-          aria-label="Totals"
-          sx={(theme) => ({ display: 'flex', border: `1px solid ${theme.vars.palette.divider}`, borderRadius: '10px', overflow: 'hidden' })}
+          aria-label={filtered ? 'Totals, filtered by role' : 'Totals'}
+          sx={(theme) => ({
+            position: 'relative',
+            display: 'flex',
+            border: `1px ${filtered ? 'dashed' : 'solid'} ${filtered ? theme.vars.palette.secondary.main : theme.vars.palette.divider}`,
+            borderRadius: '10px',
+            overflow: filtered ? 'visible' : 'hidden',
+          })}
         >
+          {filtered && (
+            // A visible word on the counts themselves: the bar above explains it, this ties it to the numbers.
+            <Box
+              component="span"
+              aria-hidden="true"
+              sx={(theme) => ({
+                position: 'absolute',
+                top: -9,
+                left: 10,
+                px: '6px',
+                borderRadius: '3px',
+                fontFamily: theme.typography.kicker.fontFamily,
+                fontSize: 9.5,
+                fontWeight: 800,
+                letterSpacing: '0.1em',
+                textTransform: 'uppercase',
+                backgroundColor: theme.vars.palette.secondary.main,
+                color: theme.vars.palette.secondary.contrastText,
+              })}
+            >
+              Filtered
+            </Box>
+          )}
           <Stat label="songs" value={songs} />
           <Stat label="people" value={people} />
           <Stat label="credits" value={workspace.creditCount} />
