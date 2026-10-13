@@ -637,6 +637,62 @@ describe('workspace: constellation, the view toggle and find', () => {
   })
 })
 
+describe('workspace: new credits in the liner notes', () => {
+  beforeEach(() => {
+    rememberGraph()
+  })
+
+  it('FR_NOTES_01 highlights the credits that arrive and raises their role row, and lets the highlight go after 1.6 seconds', async () => {
+    setReducedMotion(false)
+    const hub = new FakeGraphHub()
+    serveSnapshot(
+      () => snapshot({ songs: [{ ...redbone, creditsStatus: 'partial' }], people: [donald], credits: [credit(redboneMbid, donald, 'songwriter')] }),
+      hub,
+    )
+
+    renderAt('/graph', { graphConnection: () => hub })
+    const notes = await screen.findByRole('region', { name: 'Liner notes' })
+    // What was there when the graph opened is not "new".
+    expect(within(notes).getByRole('button', { name: 'Donald Glover' })).not.toHaveAttribute('data-fresh')
+
+    act(() => {
+      hub.emit('CreditsResolved', {
+        seq: 6,
+        songMbid: redboneMbid,
+        people: [ludwig],
+        credits: [{ personMbid: ludwig.mbid, role: 'producer', detail: '', level: 'recording' }],
+      })
+    })
+
+    const fresh = await within(notes).findByRole('button', { name: 'Ludwig Göransson' })
+    expect(fresh).toHaveAttribute('data-fresh', 'credit')
+    // Produced by is a row that was not there before, so it rises; Written by was, and does not.
+    expect(fresh.closest('[data-fresh="row"]')).not.toBeNull()
+    expect(within(notes).getByRole('button', { name: 'Donald Glover' })).not.toHaveAttribute('data-fresh')
+
+    await waitFor(() => expect(within(notes).getByRole('button', { name: 'Ludwig Göransson' })).not.toHaveAttribute('data-fresh'), { timeout: 4000 })
+  })
+
+  it('NFR_MOTION_01 highlights nothing when the person asked for reduced motion: the credit is simply there', async () => {
+    setReducedMotion(true)
+    const hub = new FakeGraphHub()
+    serveSnapshot(() => snapshot({ songs: [{ ...redbone, creditsStatus: 'partial' }], people: [donald], credits: [credit(redboneMbid, donald, 'songwriter')] }), hub)
+
+    renderAt('/graph', { graphConnection: () => hub })
+    const notes = await screen.findByRole('region', { name: 'Liner notes' })
+    act(() => {
+      hub.emit('CreditsResolved', {
+        seq: 6,
+        songMbid: redboneMbid,
+        people: [ludwig],
+        credits: [{ personMbid: ludwig.mbid, role: 'producer', detail: '', level: 'recording' }],
+      })
+    })
+
+    expect(await within(notes).findByRole('button', { name: 'Ludwig Göransson' })).not.toHaveAttribute('data-fresh')
+  })
+})
+
 describe('workspace: removing a song and hiding a person', () => {
   beforeEach(() => {
     setReducedMotion(true)

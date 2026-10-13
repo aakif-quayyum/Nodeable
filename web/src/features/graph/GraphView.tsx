@@ -24,6 +24,7 @@ import { RoleFilterBar } from './RoleFilterBar.tsx'
 import { Strip } from './Strip.tsx'
 import { TextView } from './TextView.tsx'
 import { useRemoveSong } from './useGraphMutations.ts'
+import { useFreshCredits } from './useFreshCredits.ts'
 import { useLiveGraph } from './useLiveGraph.ts'
 import { buildWorkspace } from './workspaceModel.ts'
 
@@ -55,6 +56,8 @@ export function GraphView({ session }: { session: GraphSession }) {
   const { centre, crumbs, goTo } = useCentre(workspace)
   const status = useLiveStatus(workspace, snapshot, graph.live)
   const [view, setView] = useView()
+  // The credits that have just arrived, for the liner notes to highlight (FR-NOTES-01).
+  const freshCredits = useFreshCredits(snapshot)
 
   const [textView, setTextView] = useState(false)
   const [peopleExpanded, setPeopleExpanded] = useState(false)
@@ -202,6 +205,7 @@ export function GraphView({ session }: { session: GraphSession }) {
               workspace={workspace}
               centre={centre}
               failures={graph.failures}
+              fresh={freshCredits}
               textView={textView}
               onToggleTextView={() => setTextView((on) => !on)}
               onCentre={goTo}

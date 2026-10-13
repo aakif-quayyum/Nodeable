@@ -4,7 +4,9 @@ import Button from '@mui/material/Button'
 import IconButton from '@mui/material/IconButton'
 import Typography from '@mui/material/Typography'
 import { keyframes } from '@mui/material/styles'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
+import { useCountUp } from '../../motion/useCountUp.ts'
+import { useFlip } from '../../motion/useFlip.ts'
 import { creditRoleStyles } from '../../app/creditRoles.ts'
 import { AlbumArt } from '../art/AlbumArt.tsx'
 import { type NodeRef } from '../orbit/orbitLayout.ts'
@@ -33,6 +35,9 @@ export function ConnectorCards({ workspace, centre, onCentre, onHide }: Connecto
   const [all, setAll] = useState(false)
   const connectors = workspace.connectors
   const shown = all ? connectors : connectors.slice(0, firstCards)
+  // The cards slide to their new places when the order changes (a person who has just become the most connected).
+  const list = useRef<HTMLUListElement>(null)
+  useFlip(list, shown.map((person) => person.mbid).join('|'))
 
   return (
     <Box component="section" aria-labelledby="connectors-heading" sx={(theme) => ({ ...roleVars(theme) })}>
@@ -45,6 +50,7 @@ export function ConnectorCards({ workspace, centre, onCentre, onHide }: Connecto
       ) : (
         <>
           <Box
+            ref={list}
             component="ul"
             sx={{ display: 'grid', gridTemplateColumns: { xs: 'minmax(0, 1fr)', sm: 'repeat(2, minmax(0, 1fr))', md: 'repeat(2, minmax(0, 1fr))' }, gap: 1, listStyle: 'none', m: 0, p: 0 }}
           >
@@ -96,10 +102,13 @@ function Card({
           .join(', ')})`
   const roleNames = person.roles.map((role) => creditRoleStyles[role].label)
   const songCount = person.songs.length
+  // The number the eye sees counts up to the real one; the card's accessible name already carries the real one.
+  const counted = useCountUp(songCount)
 
   return (
     <Box
       component="li"
+      data-flip={person.mbid}
       sx={(theme) => ({
         position: 'relative',
         minWidth: 0,
@@ -169,7 +178,7 @@ function Card({
                 fontVariantNumeric: 'tabular-nums',
               })}
             >
-              {songCount}
+              {counted}
             </Box>
             <Typography variant="kicker" component="small" color="text.secondary" sx={{ fontWeight: 700 }}>
               songs
