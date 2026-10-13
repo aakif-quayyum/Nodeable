@@ -1,6 +1,6 @@
 # 0020. UI refresh: orbit and constellation replace the force canvas
 
-- **Status:** Proposed (awaiting the developer's approval; nothing is implemented)
+- **Status:** Accepted (approved by the developer on 2026-10-13, with the answers listed under "Confirmed on approval"; nothing is implemented yet)
 - **Date:** 2026-10-13
 - **Spec:** section 4 (FR-VIEW-01, FR-VIEW-02, FR-NOTES-01, FR-LAND-01, FR-GRAPH-05, FR-ART-01, FR-HUB-02 reworded), section 5 (NFR-MOTION-01), section 8 (`releases`), section 10 (album art), section 12 (frontend, rewritten), section 14 (M3R), decisions 0002, 0010, 0013
 - **Reference design:** `docs/design/nodeable-ui-prototype.html`, a self-contained prototype with fake data. Its CSS, markup and interaction code are the visual reference; its data is not.
@@ -31,6 +31,15 @@ The prototype is a design reference, not code to port. It uses fake data, builds
 **Design tokens and fonts (spec section 12).** A flat palette with no gradients (the prototype's `--bg`, `--panel`, `--line`, `--fg`, `--muted`, role colours), expressed in the MUI theme so that inputs, buttons, dialogs and sheets stay MUI and take the look from the theme. Display type is **Archivo** (variable, `wdth` axis, used condensed and in capitals) and labels are **JetBrains Mono**, both self-hosted from `@fontsource-variable/*`, not Google Fonts (no third-party request, the budget stays ours). The latin subsets are 90 KB and 40 KB of woff2; only the display font is preloaded.
 
 **Album art (FR-ART-01) and motion (NFR-MOTION-01)** are new requirements; the album-art chain, its data-model change and the content-security-policy hosts are in spec section 10, and the motion rules are in section 5 and section 12.
+
+## Confirmed on approval
+
+1. **One Playwright test** (search, add, orbit) is added in the orbit pull request and runs in CI only. The wider Playwright suite stays in M4.
+2. **The Deezer cover step is wired now** and gets its data from M4's preview lookup (FR-PREVIEW-01). No Deezer album lookup is pulled into M3R.
+3. **Routes:** `/` is the landing page and `/graph?view=…&focus=song:<mbid>` the workspace; the spec's route list is updated.
+4. **Legend chips (icon and name) are the role filters**, keyboard operable with `aria-pressed`, and each liner-notes card has "Remove from graph".
+5. **`kind` on search results** is derived from MusicBrainz data first (release-group secondary types, then the recording's disambiguation comment) and only then from the title's decoration; the fallback is tested with real titles.
+6. **A light scheme** is derived from the tokens and covered by the contrast tests; there is **no demo graph button** until the M4 seed.
 
 ## Changes from the prototype
 

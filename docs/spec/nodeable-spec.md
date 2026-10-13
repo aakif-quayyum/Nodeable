@@ -126,7 +126,7 @@ Requirements are grouped by release phase. The MVP is the smallest version that 
 | FR-PREVIEW-01 | Recordings play a 30-second preview when one is available from Deezer | US-03 |
 | FR-ABOUT-01 | An About page shows the architecture, a live crawl status panel from real telemetry, and links to the repository and spec | US-08 |
 
-### M3R UI refresh (proposed, decision 0020)
+### M3R UI refresh (approved 2026-10-13, decision 0020)
 
 The design is the prototype in `docs/design/nodeable-ui-prototype.html`. These requirements add to the MVP table; FR-SEARCH-01/02, FR-GRAPH-01..04 and FR-HUB-01..03 still apply to the new views.
 
@@ -416,7 +416,7 @@ GET /api/v1/search/recordings?q=Redbone&artist=Childish%20Gambino
 - `q` is the title (2 to 200 characters); `artist` is optional (up to 200). Results are at most 10, best match first.
 - `source` is `cache` when the local cache filled the page by itself, and `musicBrainz` otherwise. It also says what `score` means: MusicBrainz's own 0 to 100 score, or the cache's trigram similarity times 100.
 - `year` is `null` when the first release date is unknown, never `0`. `creditsStatus` is `null` when the recording has never been fetched, and otherwise the stored status; the add-song flow serves a recording with a status other than `none` from the cache.
-- `kind` (M3R) on a result is what the title says it is when it is a separate recording of the song: `remix`, `edit`, `bootleg`, `mixtape`, or `null` for the original; it is read from the title's decoration the way `DuplicateCollapser` already reads "(Live ...)". `artReleaseMbid` and `artReleaseGroupMbid` are the release and release group the cover is loaded for (FR-ART-01); either may be `null`, and graph songs carry the same two fields.
+- `kind` (M3R) on a result says what a separate recording of the song is: `remix`, `edit`, `bootleg`, `mixtape`, or `null` for the original. It is derived in this order, and the first rule that decides wins: (1) the secondary types of the recording's release groups (`Remix` gives `remix`, `Mixtape/Street` gives `mixtape`); (2) the recording's disambiguation comment ("radio edit", "Tsunxmi remix", "bootleg"); (3) the decoration of the title ("(... remix)", "(... edit)", "(... bootleg)"), the way `DuplicateCollapser` already reads "(Live ...)". The title rule is the fallback and is tested with real titles. `artReleaseMbid` and `artReleaseGroupMbid` are the release and release group the cover is loaded for (FR-ART-01); either may be `null`, and graph songs carry the same two fields.
 - `versions` holds the duplicates folded behind the result, earliest first, each with a `kind` (`live`, `remaster`, `compilation`, `other`) and MusicBrainz's disambiguation comment as `note`. How duplicates are decided is in section 10.
 - Errors are Problem Details with these `type` values: `/errors/invalid-search` (400), `/errors/rate-limited` (429, for more than 60 searches a minute from one address, or when the shared MusicBrainz gate has no slot within the wait cap; `Retry-After` says when to try again), `/errors/upstream-unavailable` (503, MusicBrainz busy or too slow) and `/errors/upstream-error` (502, MusicBrainz rejected the query).
 
@@ -536,7 +536,7 @@ Each step is a separate `crawl_jobs` row, so a failure retries only that step. T
 - **The original.** The row that stays is the recording with an official release that is neither a live album nor a compilation, earliest first; promotions and bootlegs never win. A recording whose releases are unknown (a cache row) is not marked down. The folded recordings keep their reason: live, remaster, compilation or other.
 - **First release.** The title and year shown are those of the official release with the earliest date.
 
-### Album art (FR-ART-01, proposed in M3R)
+### Album art (FR-ART-01, M3R)
 
 The browser loads the cover itself, with an `<img>`; the Api and the Worker make no request for it. The chain, stopping at the first image that loads:
 
@@ -629,7 +629,7 @@ A read-only slice of the crawler dashboard is exposed on the About page through 
 
 The frontend is a Vite single-page app in TypeScript, organised by feature. MUI supplies inputs, buttons, dialogs and sheets and takes its look from the theme tokens; D3 supplies the maths (hierarchy and radial layout, forces, scales, zoom, drag, easing); React owns the DOM everywhere, including the SVG views, and the one canvas. The visual and interaction reference is `docs/design/nodeable-ui-prototype.html` (decision 0020); its data is fake and none of its code is ported.
 
-> **Status:** this section describes the M3R UI refresh, which is **proposed** and not built. Until it is, the M3 interface (a force canvas, a left panel of hubs and role filters, a details panel and the tables) is what runs; where this section and the code differ, the code is M3's.
+> **Status:** this section describes the M3R UI refresh, which is **approved** (decision 0020) and being built, pull request by pull request. Until each part lands, the M3 interface (a force canvas, a left panel of hubs and role filters, a details panel and the tables) is what runs; where this section and the code differ, the code is M3's.
 
 ### Folder structure
 
@@ -872,13 +872,13 @@ Each milestone ends with a demo, a spec review and its learning guide PDF (secti
 - [x] Lighthouse performance check in CI, 90 or better on the home page (spec section 12)
 - [x] Persistent local database: data volume and remembered password, with a documented reset (decision 0011)
 
-### M3R UI refresh (proposed, 1 to 2 weeks)
+### M3R UI refresh (approved 2026-10-13, 1 to 2 weeks)
 
 Design: `docs/design/nodeable-ui-prototype.html`, decision 0020. Pull requests in this order, each naming its requirement IDs and merged on green. Tag `v0.3.1` when the last is done.
 
 - [ ] Theme and tokens, self-hosted fonts, role colour and icon map, `Sleeve` and `AlbumArt` with the fallback chain, and the `releases` migration with the `release-groups` include (FR-ART-01, NFR-A11Y-02)
-- [ ] Landing page and search sheet with results and version-expand animation, and `kind` on results (FR-LAND-01, FR-SEARCH-01, FR-SEARCH-02, NFR-MOTION-01)
-- [ ] OrbitView with re-rooting, breadcrumbs, role arcs, tooltip, focus mode and the streaming bloom from SignalR events; the `/graph` route and its address state; "Find in your graph" (FR-VIEW-01, FR-GRAPH-02, FR-GRAPH-05, FR-HUB-01, FR-HUB-03)
+- [ ] Landing page and search sheet with results and version-expand animation, and `kind` on results derived from MusicBrainz data first (FR-LAND-01, FR-SEARCH-01, FR-SEARCH-02, NFR-MOTION-01)
+- [ ] OrbitView with re-rooting, breadcrumbs, role arcs, tooltip, focus mode and the streaming bloom from SignalR events; the `/graph` route and its address state; "Find in your graph"; the one Playwright flow (search, add, orbit), run in CI (FR-VIEW-01, FR-GRAPH-02, FR-GRAPH-05, FR-HUB-01, FR-HUB-03)
 - [ ] ConstellationView and the toggle; connector cards with FLIP reorder and count-up; liner notes with new-credit highlight, the credits status and the credits incomplete badge, and removing a song (FR-VIEW-02, FR-HUB-02, FR-NOTES-01, FR-GRAPH-04, FR-GRAPH-01)
 - [ ] Remove the M3 force canvas, the left panel and the old details panel; the Text view covers everything; the phone layout; reduced-motion pass (NFR-A11Y-01, NFR-MOTION-01)
 - [ ] LEARN anchors (10 to 15), the learning guide LG-03R, spec updates, tag `v0.3.1` (spec section 16)
@@ -891,7 +891,7 @@ Design: `docs/design/nodeable-ui-prototype.html`, decision 0020. Pull requests i
 - [ ] About page with architecture and live crawl status (FR-ABOUT-01)
 - [ ] Grafana dashboards and SLO alerts (section 11)
 - [ ] Terraform VPS, Caddy, Docker Compose deploy; seed the demo cache
-- [ ] Playwright suite green; k6 confirms NFR-PERF-01 and 02
+- [ ] Playwright suite green (extending the one flow added in M3R); k6 confirms NFR-PERF-01 and 02
 
 ### v2 and v3
 
@@ -961,7 +961,7 @@ Raised while building M1 and decided on 2026-10-11 (each has a decision record, 
 | 2026-10-12 | MusicBrainz requests go through a Redis token bucket placed inside the retry, replacing the default resilience handler ([0016](decisions/0016-musicbrainz-request-pipeline.md)) | A retry is a new request and must wait for its own slot; N Workers must share one budget |
 | 2026-10-12 | The crawl queue is a PostgreSQL table claimed with SKIP LOCKED, with guarded updates and stale-job recovery ([0017](decisions/0017-crawl-queue-on-postgresql.md)) | Reliability without a broker at one request per second; inspectable with SQL |
 | 2026-10-12 | The Api asks MusicBrainz for searches itself, through the shared Redis gate with a 2 second wait cap and one retry; every other fetch stays in the Worker ([0018](decisions/0018-search-calls-musicbrainz-from-the-api.md)) | A search has to answer in the same request; the gate is already shared, so the limit still holds across processes |
-| 2026-10-13 | UI refresh: orbit and constellation replace the force canvas; album art from the Cover Art Archive with fallbacks; motion rules ([0020](decisions/0020-ui-refresh-orbit-and-constellation.md)) | The M3 canvas is unreadable at 50 songs; the developer designed a replacement as a prototype (proposed, not yet approved) |
+| 2026-10-13 | UI refresh: orbit and constellation replace the force canvas; album art from the Cover Art Archive with fallbacks; motion rules ([0020](decisions/0020-ui-refresh-orbit-and-constellation.md)) | The M3 canvas is unreadable at 50 songs; the developer designed a replacement as a prototype (approved 2026-10-13) |
 | 2026-10-12 | A song is added by MBID only; the Api confirms an unknown recording with MusicBrainz and a hub join carries the token as an argument ([0019](decisions/0019-add-by-mbid-and-hub-token-argument.md)) | The shared cache must not accept client-supplied titles; a WebSocket cannot send a header and a URL token reaches logs |
 
 ## 16. Learning guides
