@@ -136,5 +136,6 @@ Pull request 5 went over every animation and every view at phone width. What it 
 
 - **A reduced-motion baseline in the theme**, so MUI's own animations are covered without wrapping each component, and a test that reads the stylesheet and fails on the app's own animation or transition declared outside `no-preference`. The first run found five of the app's rules (hover transitions of the cards and notes, the constellation's focus fades, the button's transition).
 - **Names in the liner notes are 24 px targets** (WCAG 2.2, 2.5.8): found at 390 px, where wrapped names sat 22 px apart.
+- **The app bar is sticky only from 900 px up**: on a phone it is up to four rows (brand, links, find, view toggle) and kept on screen it took about a third of the page.
 - **The orbit's second-ring nodes stay 10 px on a phone**, which fails 2.5.8 on its own; recorded as an exception because the same action is on four controls that pass (spec section 12, "Phone check").
 - **The M3 canvas page's model code is gone** (`deriveGraph` and three helpers): the constellation builds its graph from the workspace.

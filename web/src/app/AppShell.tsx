@@ -44,7 +44,9 @@ export function AppShell() {
       </Box>
 
       {/* AppBar renders a <header>, which screen readers announce as the banner landmark. */}
-      <AppBar position="sticky">
+      {/* Sticky from the md breakpoint up. On a phone the bar is up to four rows (brand, links, find, view toggle) and
+          kept on screen it took a third of the page. */}
+      <AppBar position="sticky" sx={{ position: { xs: 'static', md: 'sticky' } }}>
         <Toolbar sx={{ gap: 1, flexWrap: 'wrap', py: 1 }}>
           <Typography
             variant="display"
