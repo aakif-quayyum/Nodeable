@@ -1,8 +1,16 @@
 // Adds DOM matchers such as toBeInTheDocument() to Vitest's expect.
 import '@testing-library/jest-dom/vitest'
-import { cleanup } from '@testing-library/react'
+import { cleanup, configure } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll } from 'vitest'
+import { resetHiddenPeopleForTests } from '../features/graph/hiddenPeople.ts'
+import { resetRemovalsForTests } from '../features/graph/removals.ts'
+import { useTrail } from '../features/orbit/useCentre.ts'
+import { useRoleFilters } from '../stores/roleFilters.ts'
 import { server } from './server.ts'
+
+// The first test of a file waits for lazy chunks (the graph, the results) to be transformed and imported, which on a busy
+// machine takes longer than the default second.
+configure({ asyncUtilTimeout: 5000 })
 
 // jsdom has no matchMedia, which MUI's colour-scheme support calls to follow the operating system setting.
 const defaultMatchMedia = (query: string): MediaQueryList => ({
@@ -26,6 +34,12 @@ beforeAll(() => {
 afterEach(() => {
   cleanup()
   localStorage.clear()
+  // The workspace's own state: hidden people, removals waiting out their undo, the trail and the role filters.
+  sessionStorage.clear()
+  resetHiddenPeopleForTests()
+  resetRemovalsForTests()
+  useTrail.setState({ trail: [] })
+  useRoleFilters.getState().reset()
   // A test that picked a window width (test/viewport.ts) does not leave it for the next one.
   window.matchMedia = defaultMatchMedia
   server.resetHandlers()

@@ -1,107 +1,96 @@
-import ChevronLeft from '@mui/icons-material/ChevronLeft'
-import ChevronRight from '@mui/icons-material/ChevronRight'
 import Alert from '@mui/material/Alert'
-import Badge from '@mui/material/Badge'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
-import Drawer from '@mui/material/Drawer'
-import IconButton from '@mui/material/IconButton'
 import LinearProgress from '@mui/material/LinearProgress'
+import Snackbar from '@mui/material/Snackbar'
 import Typography from '@mui/material/Typography'
-import useMediaQuery from '@mui/material/useMediaQuery'
-import { useMemo, useState } from 'react'
-import { creditRoles } from '../../app/creditRoles.ts'
+import { useEffect, useMemo, useState } from 'react'
 import { useRoleFilters } from '../../stores/roleFilters.ts'
-import { useSelection } from '../../stores/selection.ts'
-import { HubsPanel } from '../hubs/HubsPanel.tsx'
-import { GraphCanvas } from './GraphCanvas.tsx'
-import { GraphListView } from './GraphListView.tsx'
-import { filterCredits, hubsOf, deriveGraph } from './graphModel.ts'
-import { hasIncompleteCredits, type GraphSnapshot } from './graphEvents.ts'
+import { ConnectorCards } from '../connectors/ConnectorCards.tsx'
+import { LinerNotes } from '../notes/LinerNotes.tsx'
+import { OrbitView } from '../orbit/OrbitView.tsx'
+import { Breadcrumbs, Caption, LegendChips, LiveChip } from '../orbit/StageOverlays.tsx'
+import { useCentre } from '../orbit/useCentre.ts'
+import { hidePerson, showEveryone, showPerson, useHiddenPeople } from './hiddenPeople.ts'
 import type { GraphSession } from './graphSession.ts'
-import { NodePanel } from './NodePanel.tsx'
-import { RoleFilters } from './RoleFilters.tsx'
+import { useLiveStatus } from './liveStatus.ts'
+import { flushRemovals, undoRemoval, useRemovals } from './removals.ts'
+import { Strip } from './Strip.tsx'
+import { TextView } from './TextView.tsx'
 import { useRemoveSong } from './useGraphMutations.ts'
-import { useLiveGraph, type LiveState } from './useLiveGraph.ts'
-
-function crawlText(crawl: GraphSnapshot['crawl']): string | null {
-  const parts: string[] = []
-  if (crawl.queued > 0) {
-    const seconds = crawl.etaSeconds
-    parts.push(
-      `Fetching credits: ${crawl.queued} ${crawl.queued === 1 ? 'lookup' : 'lookups'} waiting` +
-        (seconds > 0 ? `, about ${seconds} ${seconds === 1 ? 'second' : 'seconds'} to go` : ''),
-    )
-  }
-  if (crawl.failed > 0) {
-    parts.push(`${crawl.failed} ${crawl.failed === 1 ? 'lookup' : 'lookups'} could not be completed`)
-  }
-  return parts.length === 0 ? null : parts.join('. ')
-}
-
-function liveText(live: LiveState): string | null {
-  if (live === 'reconnecting') return 'Reconnecting: changes will show when the connection is back.'
-  if (live === 'offline') return 'Live updates are off. Reload the page to get them back.'
-  return null
-}
-
-const leftPanelWidth = 280
-const rightPanelWidth = 340
-const collapsedWidth = 48
+import { useLiveGraph } from './useLiveGraph.ts'
+import { buildWorkspace } from './workspaceModel.ts'
 
 /**
- * Your graph (FR-GRAPH-01..04, FR-HUB-01..03, NFR-A11Y-01): the canvas with a collapsible left panel for hubs and role
- * filters and a right panel for the selected node; on a phone the two panels are bottom sheets. The accessible tables
- * of the same data follow.
+ * Your graph (FR-VIEW-01, FR-HUB-01..03, FR-NOTES-01, FR-GRAPH-01, FR-GRAPH-04, FR-GRAPH-06, FR-VIEW-03, NFR-A11Y-01):
+ * the strip, the orbit on its stage, and the connector cards and liner notes in the column beside it.
+ *
+ * One `Workspace` is built from the live snapshot, the role filters, the removals that are waiting out their undo and
+ * the people who are hidden; the orbit, the cards, the notes and the Text view all read that one value, so they cannot
+ * disagree.
  */
 export function GraphView({ session }: { session: GraphSession }) {
   const graph = useLiveGraph(session)
-  const remove = useRemoveSong(session)
   const snapshot = graph.snapshot
+  const removeSong = useRemoveSong(session)
 
-  const wide = useMediaQuery((theme) => theme.breakpoints.up('md'))
-  const [leftOpen, setLeftOpen] = useState(true)
-  const [sheetOpen, setSheetOpen] = useState(false)
+  const roles = useRoleFilters((state) => state.active)
+  const hidden = useHiddenPeople(session.id)
+  const pending = useRemovals((state) => state.pending)
+  const removalFailed = useRemovals((state) => state.failed)
+  const dismissFailure = useRemovals((state) => state.dismissFailure)
+  const removed = useMemo(() => new Set(pending.map((entry) => entry.mbid)), [pending])
 
-  const active = useRoleFilters((state) => state.active)
-  const selectedId = useSelection((state) => state.selectedId)
-  const select = useSelection((state) => state.select)
-
-  // What is on screen is the snapshot with the credits of the roles that are switched on. The hubs are worked out from
-  // that, not read from the server's list, so they follow the filters; with every role on they are the same people.
-  const visible = useMemo(() => (snapshot ? filterCredits(snapshot, active) : null), [snapshot, active])
-  const derived = useMemo(() => (visible ? deriveGraph(visible) : null), [visible])
-  const hubs = useMemo(() => (derived ? hubsOf(derived) : []), [derived])
-  // The badge is about the song's credits, not about what the filters leave on screen.
-  const incomplete = useMemo(
-    () => new Set(snapshot?.songs.filter((song) => hasIncompleteCredits(snapshot, song)).map((song) => song.mbid)),
-    [snapshot],
+  const workspace = useMemo(
+    () => (snapshot === undefined ? null : buildWorkspace(snapshot, { roles, removed, hidden })),
+    [snapshot, roles, removed, hidden],
   )
+  const { centre, crumbs, goTo } = useCentre(workspace)
+  const status = useLiveStatus(workspace, snapshot, graph.live)
 
-  const status = snapshot ? crawlText(snapshot.crawl) : null
-  const connectionNote = liveText(graph.live)
-  const songCount = snapshot?.songs.length ?? 0
-  const filtersOff = creditRoles.length - active.size
+  const [textView, setTextView] = useState(false)
+  const [peopleExpanded, setPeopleExpanded] = useState(false)
 
-  const panels = (
-    <Box sx={{ display: 'grid', gap: 3 }}>
-      {derived && <HubsPanel hubs={hubs} />}
-      <RoleFilters />
-    </Box>
-  )
+  // Leaving the workspace, or the page, does not lose a removal that is still inside its undo time.
+  useEffect(() => {
+    window.addEventListener('pagehide', flushRemovals)
+    return () => {
+      window.removeEventListener('pagehide', flushRemovals)
+      flushRemovals()
+    }
+  }, [])
 
-  const details =
-    derived && visible ? (
-      <NodePanel graph={derived} snapshot={visible} selectedId={selectedId} onClose={() => select(null)} />
-    ) : null
-  const hasSelection = selectedId !== null && derived?.nodes.some((node) => node.id === selectedId) === true
+  const songCount = workspace?.songs.length ?? 0
+  const lastRemoved = pending.at(-1)
 
   return (
-    <Box component="section" aria-labelledby="graph-heading" aria-busy={graph.isPending}>
-      <Typography variant="h1" id="graph-heading" sx={{ fontSize: '1.75rem' }} gutterBottom>
-        Your graph
-        {snapshot && songCount > 0 ? ` · ${songCount} ${songCount === 1 ? 'song' : 'songs'}` : ''}
-      </Typography>
+    <Box
+      component="section"
+      aria-label="Your graph"
+      aria-busy={graph.isPending}
+      sx={{
+        display: 'grid',
+        gridTemplateRows: { xs: 'auto auto', md: 'auto minmax(0, 1fr)' },
+        gap: 1.75,
+        width: '100%',
+        maxWidth: 1660,
+        mx: 'auto',
+        minHeight: 0,
+        flex: { md: '1 1 0' },
+      }}
+    >
+      {workspace !== null && songCount > 0 ? (
+        <Strip
+          workspace={workspace}
+          hidden={workspace.hiddenPeople}
+          onShow={(mbid) => showPerson(session.id, mbid)}
+          onShowEveryone={() => showEveryone(session.id)}
+        />
+      ) : (
+        <Typography variant="h1" sx={{ fontSize: 'clamp(26px, 3.2vw, 42px)', m: 0 }}>
+          Your graph
+        </Typography>
+      )}
 
       {graph.isPending && <LinearProgress aria-label="Loading your graph" />}
 
@@ -118,94 +107,96 @@ export function GraphView({ session }: { session: GraphSession }) {
         </Alert>
       )}
 
-      {/* One status region for everything that changes by itself, so a screen reader hears progress without focus moving. */}
-      <Typography role="status" color="text.secondary" variant="body2" sx={{ minHeight: '1.5em', mb: 1 }}>
-        {[status, connectionNote].filter(Boolean).join(' ')}
-      </Typography>
-
-      {remove.isError && <Alert severity="warning">That song could not be removed. Try again.</Alert>}
-
-      {snapshot && songCount === 0 && (
-        <Typography color="text.secondary">
-          Your graph is empty. Search for a song and choose “Add to graph”.
-        </Typography>
+      {workspace !== null && songCount === 0 && (
+        <Typography color="text.secondary">Your graph is empty. Search for a song and choose “Add to graph”.</Typography>
       )}
 
-      {snapshot && visible && derived && songCount > 0 && (
-        <Box sx={{ mb: 3 }}>
-          {!wide && (
-            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-              <Badge color="warning" badgeContent={filtersOff} invisible={filtersOff === 0}>
-                <Button variant="outlined" size="small" onClick={() => setSheetOpen(true)}>
-                  Hubs and roles
-                </Button>
-              </Badge>
-            </Box>
-          )}
-
+      {workspace !== null && songCount > 0 && centre !== null && (
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) 390px' },
+            gap: 2,
+            minHeight: 0,
+          }}
+        >
           <Box
-            sx={{
-              display: 'grid',
-              gap: 2,
-              alignItems: 'start',
-              gridTemplateColumns: wide
-                ? `${leftOpen ? leftPanelWidth : collapsedWidth}px minmax(0, 1fr)${hasSelection ? ` ${rightPanelWidth}px` : ''}`
-                : 'minmax(0, 1fr)',
-            }}
+            sx={(theme) => ({
+              position: 'relative',
+              minHeight: { xs: 460, md: 0 },
+              height: { xs: '70svh', md: 'auto' },
+              borderRadius: '16px',
+              overflow: 'hidden',
+              border: `1px solid ${theme.vars.palette.divider}`,
+              backgroundColor: theme.vars.palette.background.paper,
+            })}
           >
-            {wide && (
-              <Box component="aside" aria-label="Hubs and role filters" sx={{ minWidth: 0 }}>
-                <IconButton
-                  size="small"
-                  onClick={() => setLeftOpen((open) => !open)}
-                  aria-expanded={leftOpen}
-                  aria-controls="hubs-and-roles"
-                  aria-label={leftOpen ? 'Hide hubs and roles' : 'Show hubs and roles'}
-                  sx={{ mb: 1 }}
-                >
-                  {leftOpen ? <ChevronLeft /> : <ChevronRight />}
-                </IconButton>
-                <Box id="hubs-and-roles" hidden={!leftOpen} sx={{ maxHeight: 520, overflowY: 'auto' }}>
-                  {panels}
-                </Box>
-              </Box>
-            )}
-
-            <GraphCanvas graph={derived} />
-
-            {wide && hasSelection && <Box sx={{ minWidth: 0 }}>{details}</Box>}
+            <OrbitView workspace={workspace} centre={centre} onCentre={goTo} onMore={() => {
+              setTextView(true)
+              setPeopleExpanded(true)
+            }} />
+            <Breadcrumbs workspace={workspace} crumbs={crumbs} onGo={goTo} />
+            <Caption workspace={workspace} centre={centre} onHide={(mbid) => hidePerson(session.id, mbid)} />
+            <LiveChip text={status.text} pulsing={status.pulsing} />
+            <LegendChips />
           </Box>
 
-          {/* The two panels as bottom sheets on a phone: a sheet keeps the canvas as large as the screen allows. */}
-          {!wide && (
-            <>
-              <Drawer anchor="bottom" open={sheetOpen} onClose={() => setSheetOpen(false)}>
-                <Box sx={{ p: 2, maxHeight: '70vh', overflowY: 'auto' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button size="small" onClick={() => setSheetOpen(false)}>
-                      Done
-                    </Button>
-                  </Box>
-                  {panels}
-                </Box>
-              </Drawer>
-              <Drawer anchor="bottom" open={hasSelection} onClose={() => select(null)}>
-                <Box sx={{ p: 2, maxHeight: '60vh', overflowY: 'auto' }}>{details}</Box>
-              </Drawer>
-            </>
-          )}
+          <Box
+            component="aside"
+            aria-label="Credits"
+            sx={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2.5,
+              minHeight: 0,
+              overflow: { md: 'auto' },
+              pr: '2px',
+              scrollbarWidth: 'thin',
+            }}
+          >
+            <ConnectorCards workspace={workspace} centre={centre} onCentre={goTo} onHide={(mbid) => hidePerson(session.id, mbid)} />
+
+            <LinerNotes
+              workspace={workspace}
+              centre={centre}
+              failures={graph.failures}
+              textView={textView}
+              onToggleTextView={() => setTextView((on) => !on)}
+              onCentre={goTo}
+              onRemove={(song) => removeSong({ mbid: song.mbid, title: song.title, artist: song.artist })}
+            />
+
+            {textView && (
+              <TextView
+                workspace={workspace}
+                failures={graph.failures}
+                peopleExpanded={peopleExpanded}
+                onExpandPeople={() => setPeopleExpanded(true)}
+                onRemove={(song) => removeSong({ mbid: song.mbid, title: song.title, artist: song.artist })}
+                onHide={(mbid) => hidePerson(session.id, mbid)}
+              />
+            )}
+          </Box>
         </Box>
       )}
 
-      {snapshot && visible && songCount > 0 && (
-        <GraphListView
-          snapshot={visible}
-          incomplete={incomplete}
-          failures={graph.failures}
-          removing={remove.isPending ? remove.variables : null}
-          onRemove={(song) => remove.mutate(song.mbid)}
-        />
-      )}
+      <Snackbar
+        open={lastRemoved !== undefined}
+        message={lastRemoved === undefined ? '' : `Removed “${lastRemoved.title}” from your graph`}
+        action={
+          <Button color="secondary" size="small" onClick={() => lastRemoved !== undefined && undoRemoval(lastRemoved.mbid)}>
+            Undo
+          </Button>
+        }
+        // No automatic close: the bar goes when the removal is sent or undone, which is what the store says.
+        slotProps={{ clickAwayListener: { onClickAway: () => undefined } }}
+      />
+
+      <Snackbar open={removalFailed !== null} onClose={dismissFailure} autoHideDuration={8000}>
+        <Alert severity="warning" onClose={dismissFailure}>
+          {removalFailed} could not be removed. It is back in your graph; try again.
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }

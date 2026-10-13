@@ -112,7 +112,7 @@ describe('add-a-song sheet', () => {
     const dialog = await screen.findByRole('dialog', { name: 'Add a song' })
     await user.click(await within(dialog).findByRole('button', { name: 'Add to graph: Redbone by Childish Gambino' }))
 
-    await screen.findByRole('heading', { level: 1, name: /Your graph/ })
+    await screen.findByRole('region', { name: 'Your graph' })
     await expect(screen.findByRole('dialog')).rejects.toThrow()
   })
 })
