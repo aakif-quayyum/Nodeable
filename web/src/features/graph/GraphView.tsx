@@ -4,24 +4,34 @@ import Button from '@mui/material/Button'
 import LinearProgress from '@mui/material/LinearProgress'
 import Snackbar from '@mui/material/Snackbar'
 import Typography from '@mui/material/Typography'
-import { useEffect, useMemo, useState } from 'react'
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { creditRoles } from '../../app/creditRoles.ts'
 import { useRoleFilters } from '../../stores/roleFilters.ts'
 import { ConnectorCards } from '../connectors/ConnectorCards.tsx'
 import { LinerNotes } from '../notes/LinerNotes.tsx'
 import { OrbitView } from '../orbit/OrbitView.tsx'
-import { Breadcrumbs, Caption, LegendChips, LiveChip } from '../orbit/StageOverlays.tsx'
+import { Breadcrumbs, Caption, ConnectionChip, LegendChips, LiveChip, StageChips, StageHeading } from '../orbit/StageOverlays.tsx'
+import { rootRef } from '../orbit/orbitLayout.ts'
 import { useCentre } from '../orbit/useCentre.ts'
+import { useView } from '../orbit/useView.ts'
 import { hidePerson, showEveryone, showPerson, useHiddenPeople } from './hiddenPeople.ts'
 import type { GraphSession } from './graphSession.ts'
 import { useLiveStatus } from './liveStatus.ts'
 import { flushRemovals, undoRemoval, useRemovals } from './removals.ts'
+import { GraphTools } from './GraphTools.tsx'
 import { RoleFilterBar } from './RoleFilterBar.tsx'
 import { Strip } from './Strip.tsx'
 import { TextView } from './TextView.tsx'
 import { useRemoveSong } from './useGraphMutations.ts'
+import { useFreshCredits } from './useFreshCredits.ts'
 import { useLiveGraph } from './useLiveGraph.ts'
 import { buildWorkspace } from './workspaceModel.ts'
+
+// The constellation carries the force simulation, the canvas renderer and the drag behaviour; someone who stays in the
+// orbit never downloads them (NFR-PERF-01).
+const ConstellationView = lazy(() =>
+  import('../constellation/ConstellationView.tsx').then((module) => ({ default: module.ConstellationView })),
+)
 
 /**
  * Your graph (FR-VIEW-01, FR-HUB-01..03, FR-NOTES-01, FR-GRAPH-01, FR-GRAPH-04, FR-GRAPH-06, FR-VIEW-03, NFR-A11Y-01):
@@ -50,6 +60,9 @@ export function GraphView({ session }: { session: GraphSession }) {
   )
   const { centre, crumbs, goTo } = useCentre(workspace)
   const status = useLiveStatus(workspace, snapshot, graph.live)
+  const [view, setView] = useView()
+  // The credits that have just arrived, for the liner notes to highlight (FR-NOTES-01).
+  const freshCredits = useFreshCredits(snapshot)
 
   const [textView, setTextView] = useState(false)
   const [peopleExpanded, setPeopleExpanded] = useState(false)
@@ -114,6 +127,8 @@ export function GraphView({ session }: { session: GraphSession }) {
         </Alert>
       )}
 
+      {workspace !== null && songCount > 0 && <GraphTools workspace={workspace} view={view} onView={setView} onFind={goTo} />}
+
       {workspace !== null && songCount === 0 && (
         <Typography color="text.secondary">Your graph is empty. Search for a song and choose “Add to graph”.</Typography>
       )}
@@ -138,14 +153,43 @@ export function GraphView({ session }: { session: GraphSession }) {
               backgroundColor: theme.vars.palette.background.paper,
             })}
           >
-            <OrbitView workspace={workspace} centre={centre} onCentre={goTo} onMore={() => {
-              setTextView(true)
-              setPeopleExpanded(true)
-            }} />
-            <Breadcrumbs workspace={workspace} crumbs={crumbs} onGo={goTo} />
-            <Caption workspace={workspace} centre={centre} onHide={(mbid) => hidePerson(session.id, mbid)} />
-            <LiveChip text={status.text} pulsing={status.pulsing} />
-            <LegendChips />
+            {view === 'orbit' ? (
+              <>
+                <OrbitView
+                  workspace={workspace}
+                  centre={centre}
+                  onCentre={goTo}
+                  onMore={() => {
+                    setTextView(true)
+                    setPeopleExpanded(true)
+                  }}
+                />
+                <StageHeading>
+                  <Breadcrumbs workspace={workspace} crumbs={crumbs} onGo={goTo} />
+                  <Caption workspace={workspace} centre={centre} onHide={(mbid) => hidePerson(session.id, mbid)} />
+                </StageHeading>
+              </>
+            ) : (
+              <>
+                <Suspense fallback={<LinearProgress aria-label="Loading the constellation" sx={{ position: 'absolute', top: 0, left: 0, right: 0 }} />}>
+                  <ConstellationView workspace={workspace} onCentre={goTo} />
+                </Suspense>
+                <StageHeading>
+                  <Caption workspace={workspace} centre={rootRef} constellation onHide={(mbid) => hidePerson(session.id, mbid)} />
+                </StageHeading>
+              </>
+            )}
+            <StageChips>
+              <LiveChip text={status.text} pulsing={status.pulsing} />
+              {view === 'orbit' && <ConnectionChip workspace={workspace} centre={centre} onGo={goTo} />}
+            </StageChips>
+            <LegendChips
+              hint={
+                view === 'orbit'
+                  ? 'Click anyone to put them at the centre · scroll to zoom'
+                  : 'Click anyone to open them in the orbit · drag to move · scroll to zoom'
+              }
+            />
           </Box>
 
           <Box
@@ -172,6 +216,7 @@ export function GraphView({ session }: { session: GraphSession }) {
               workspace={workspace}
               centre={centre}
               failures={graph.failures}
+              fresh={freshCredits}
               textView={textView}
               onToggleTextView={() => setTextView((on) => !on)}
               onCentre={goTo}

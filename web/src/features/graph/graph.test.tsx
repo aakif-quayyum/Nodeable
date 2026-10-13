@@ -7,6 +7,7 @@ import { FakeGraphHub } from '../../test/fakeGraphHub.ts'
 import { renderAt } from '../../test/renderApp.tsx'
 import { server } from '../../test/server.ts'
 import { setReducedMotion } from '../../test/viewport.ts'
+import { CANVAS_THRESHOLD } from '../constellation/constellationModel.ts'
 import { setUndoWindowForTests } from './removals.ts'
 
 type Snapshot = components['schemas']['GraphSnapshot']
@@ -365,6 +366,40 @@ describe('workspace: orbit, cards and notes', () => {
     expect(within(again).getByRole('button', { name: /Put Beautiful Things at the centre/ })).toBeInTheDocument()
   })
 
+  it('FR_VIEW_04 says how many songs share nothing with the centre, and goes back to the whole graph from there', async () => {
+    const user = userEvent.setup()
+    const tems = { mbid: 'c0000000-0000-4000-8000-000000000002', name: 'Tems' }
+    const apart = { ...america, mbid: 'b0000000-0000-4000-8000-000000000002', title: 'SaWaDiKa', artist: 'Tems' }
+    const base = twoSongs()
+    serveSnapshot(() =>
+      snapshot({
+        songs: [...base.songs, apart],
+        people: [...base.people, tems],
+        credits: [...base.credits, credit(apart.mbid, tems, 'songwriter')],
+      }),
+    )
+
+    renderAt(`/graph?focus=song:${redboneMbid}`, { graphConnection: () => new FakeGraphHub() })
+    await orbitNamed('Credits graph, centred on Redbone')
+
+    // Redbone, This Is America and their people are one part; SaWaDiKa is another.
+    const chip = await screen.findByRole('button', { name: '1 song not connected. Back to your whole graph' })
+    expect(chip).toHaveTextContent('1 song not connected·Your graph')
+
+    await user.click(chip)
+    await orbitNamed('Credits graph, centred on your graph')
+    expect(screen.queryByRole('button', { name: /Back to your whole graph/ })).not.toBeInTheDocument()
+  })
+
+  it('FR_VIEW_04 says when every song is connected to the centre', async () => {
+    serveSnapshot(() => twoSongs())
+
+    renderAt(`/graph?focus=person:${riley.mbid}`, { graphConnection: () => new FakeGraphHub() })
+    await orbitNamed('Credits graph, centred on Riley Mackin')
+
+    expect(await screen.findByRole('button', { name: 'All 2 songs connected. Back to your whole graph' })).toBeInTheDocument()
+  })
+
   it('FR_VIEW_01 centres on what the address names, and falls back to the whole graph when it names nothing that is there', async () => {
     serveSnapshot(() => twoSongs())
 
@@ -506,6 +541,156 @@ describe('workspace: orbit, cards and notes', () => {
     expect(screen.queryByText('Filtered by role')).not.toBeInTheDocument()
     expect(roles.getByRole('button', { name: 'Songwriter' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('group', { name: 'Totals' })).toBeInTheDocument()
+  })
+})
+
+describe('workspace: constellation, the view toggle and find', () => {
+  beforeEach(() => {
+    setReducedMotion(true)
+    rememberGraph()
+  })
+
+  it('FR_VIEW_02 switches to the constellation with the toggle, and opens the orbit on a node that is chosen in it', async () => {
+    const user = userEvent.setup()
+    serveSnapshot(() => twoSongs())
+
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
+    await orbitNamed('Credits graph, centred on your graph')
+    const toggle = within(screen.getByRole('group', { name: 'View' }))
+    expect(toggle.getByRole('button', { name: 'Orbit' })).toHaveAttribute('aria-pressed', 'true')
+
+    await user.click(toggle.getByRole('button', { name: 'Constellation' }))
+
+    const constellation = await screen.findByRole('group', { name: 'Credits graph, the whole graph as a constellation of 2 songs and 3 people' })
+    expect(toggle.getByRole('button', { name: 'Constellation' })).toHaveAttribute('aria-pressed', 'true')
+    // Every node is a button with a name that says where it goes.
+    expect(within(constellation).getByRole('button', { name: 'Open Redbone in the orbit; Childish Gambino' })).toBeInTheDocument()
+
+    await user.click(within(constellation).getByRole('button', { name: /^Open Donald Glover in the orbit; on 2 songs/ }))
+
+    await orbitNamed('Credits graph, centred on Donald Glover')
+    expect(toggle.getByRole('button', { name: 'Orbit' })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.queryByRole('group', { name: /as a constellation/ })).not.toBeInTheDocument()
+  })
+
+  it('FR_VIEW_02 opens on the constellation when the address says so, and names the people in it only while their neighbour is looked at', async () => {
+    const user = userEvent.setup()
+    serveSnapshot(() => twoSongs())
+
+    renderAt('/graph?view=constellation', { graphConnection: () => new FakeGraphHub() })
+    const constellation = await screen.findByRole('group', { name: /as a constellation/ })
+
+    // Songs and connectors are always named; Riley is on one song, so not until Redbone's neighbours are lit.
+    // A connector's name fades in with the zoom (a CSS expression), a song's is 1 and anyone else's is 0 until lit.
+    const labels = () => Array.from(constellation.querySelectorAll('text.lbl')).filter((label) => (label as SVGElement).style.opacity !== '0')
+    expect(labels().map((label) => label.textContent)).toEqual(expect.arrayContaining(['Redbone', 'This Is America', 'Donald Glover']))
+    expect(labels().map((label) => label.textContent)).not.toContain('Riley Mackin')
+
+    await user.hover(within(constellation).getByRole('button', { name: /^Open This Is America in the orbit/ }))
+    expect(labels().map((label) => label.textContent)).toContain('Riley Mackin')
+  })
+
+  it('FR_VIEW_02 draws the constellation on a canvas above the node threshold, and the Text view still has every person', async () => {
+    const people = Array.from({ length: CANVAS_THRESHOLD }, (_, index) => ({ mbid: `d0000000-0000-4000-8000-${String(index).padStart(12, '0')}`, name: `Person ${index}` }))
+    serveSnapshot(() =>
+      snapshot({
+        songs: [{ ...redbone, creditsStatus: 'complete' }],
+        people,
+        credits: people.map((person) => credit(redboneMbid, person, 'songwriter')),
+      }),
+    )
+
+    renderAt('/graph?view=constellation', { graphConnection: () => new FakeGraphHub() })
+
+    const canvas = await screen.findByRole('img', { name: /as a constellation of 1 song and 60 people/ })
+    expect(canvas.tagName).toBe('CANVAS')
+    expect(canvas.closest('[data-renderer]')).toHaveAttribute('data-renderer', 'canvas')
+    expect(screen.queryByRole('button', { name: /Open Person 3 in the orbit/ })).not.toBeInTheDocument()
+  })
+
+  it('FR_GRAPH_05 finds a song or a person that is in the graph by name and makes it the orbit’s centre', async () => {
+    const user = userEvent.setup()
+    serveSnapshot(() => twoSongs())
+
+    renderAt('/graph?view=constellation', { graphConnection: () => new FakeGraphHub() })
+    const box = await screen.findByRole('combobox', { name: 'Find in your graph' })
+
+    await user.type(box, 'goran')
+    await user.click(await screen.findByRole('option', { name: /Ludwig Göransson/ }))
+    await orbitNamed('Credits graph, centred on Ludwig Göransson')
+    expect(box).toHaveValue('')
+
+    await user.type(box, 'america')
+    await user.click(await screen.findByRole('option', { name: /This Is America/ }))
+    await orbitNamed('Credits graph, centred on This Is America')
+  })
+
+  it('FR_GRAPH_05 does not offer a person who is hidden or a song that was removed', async () => {
+    const user = userEvent.setup()
+    serveSnapshot(() => twoSongs())
+    sessionStorage.setItem(`nodeable.hidden.${graphId}`, JSON.stringify([riley.mbid]))
+
+    renderAt('/graph', { graphConnection: () => new FakeGraphHub() })
+    const box = await screen.findByRole('combobox', { name: 'Find in your graph' })
+
+    await user.type(box, 'Riley')
+    expect(await screen.findByText('Nothing in your graph matches')).toBeInTheDocument()
+  })
+})
+
+describe('workspace: new credits in the liner notes', () => {
+  beforeEach(() => {
+    rememberGraph()
+  })
+
+  it('FR_NOTES_01 highlights the credits that arrive and raises their role row, and lets the highlight go after 1.6 seconds', async () => {
+    setReducedMotion(false)
+    const hub = new FakeGraphHub()
+    serveSnapshot(
+      () => snapshot({ songs: [{ ...redbone, creditsStatus: 'partial' }], people: [donald], credits: [credit(redboneMbid, donald, 'songwriter')] }),
+      hub,
+    )
+
+    renderAt('/graph', { graphConnection: () => hub })
+    const notes = await screen.findByRole('region', { name: 'Liner notes' })
+    // What was there when the graph opened is not "new".
+    expect(within(notes).getByRole('button', { name: 'Donald Glover' })).not.toHaveAttribute('data-fresh')
+
+    act(() => {
+      hub.emit('CreditsResolved', {
+        seq: 6,
+        songMbid: redboneMbid,
+        people: [ludwig],
+        credits: [{ personMbid: ludwig.mbid, role: 'producer', detail: '', level: 'recording' }],
+      })
+    })
+
+    const fresh = await within(notes).findByRole('button', { name: 'Ludwig Göransson' })
+    expect(fresh).toHaveAttribute('data-fresh', 'credit')
+    // Produced by is a row that was not there before, so it rises; Written by was, and does not.
+    expect(fresh.closest('[data-fresh="row"]')).not.toBeNull()
+    expect(within(notes).getByRole('button', { name: 'Donald Glover' })).not.toHaveAttribute('data-fresh')
+
+    await waitFor(() => expect(within(notes).getByRole('button', { name: 'Ludwig Göransson' })).not.toHaveAttribute('data-fresh'), { timeout: 4000 })
+  })
+
+  it('NFR_MOTION_01 highlights nothing when the person asked for reduced motion: the credit is simply there', async () => {
+    setReducedMotion(true)
+    const hub = new FakeGraphHub()
+    serveSnapshot(() => snapshot({ songs: [{ ...redbone, creditsStatus: 'partial' }], people: [donald], credits: [credit(redboneMbid, donald, 'songwriter')] }), hub)
+
+    renderAt('/graph', { graphConnection: () => hub })
+    const notes = await screen.findByRole('region', { name: 'Liner notes' })
+    act(() => {
+      hub.emit('CreditsResolved', {
+        seq: 6,
+        songMbid: redboneMbid,
+        people: [ludwig],
+        credits: [{ personMbid: ludwig.mbid, role: 'producer', detail: '', level: 'recording' }],
+      })
+    })
+
+    expect(await within(notes).findByRole('button', { name: 'Ludwig Göransson' })).not.toHaveAttribute('data-fresh')
   })
 })
 

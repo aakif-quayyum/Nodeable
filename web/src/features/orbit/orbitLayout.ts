@@ -1,5 +1,6 @@
 import { hierarchy, tree } from 'd3-hierarchy'
 import { creditRoleStyles, type CreditRoleKey } from '../../app/creditRoles.ts'
+import { fitName } from './labelFit.ts'
 import { primaryRole, type Workspace, type WorkspacePerson, type WorkspaceSong } from '../graph/workspaceModel.ts'
 
 /**
@@ -48,10 +49,17 @@ export interface OrbitNode {
   radius: number
   /** The drawn radius in pixels. */
   size: number
+  /** The name as drawn, one line or two joined with a space; '' when there is no room for one. */
   label: string
+  /** The lines the name is drawn in: one, or two when wrapping at a word beat cutting (spec section 12). */
+  lines: string[]
+  /** Where the name sits against the node: under it, above it, beside it, or along the radius (second ring). */
+  place: LabelPlace
   /** For the "+N more" node: how many people it stands for. */
   moreCount: number
 }
+
+export type LabelPlace = 'below' | 'above' | 'start' | 'end' | 'radial'
 
 export interface OrbitLink {
   id: string
@@ -140,10 +148,6 @@ function baseSize(kind: OrbitNode['kind'], depth: number, degree: number): numbe
   if (depth === 0) return 36
   if (depth === 1) return Math.min(19, 9 + (degree - 1) * 3)
   return Math.min(15, 7 + (degree - 1) * 2.4)
-}
-
-function shortLabel(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 }
 
 function nameOf(ws: Workspace, kind: OrbitNode['kind'], ref: string): string {
@@ -299,14 +303,18 @@ export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): Or
     return { d, data, depth, angle, full, degree: degreeOf(ws, data.kind, data.ref) }
   })
 
-  /** Names the fit allows for: a first-ring name is up to 22 characters, a second-ring one up to `chars` (null: none). */
-  const labelFor = (depth: number, full: string, chars: number | null): string => {
-    if (depth === 0) return ''
-    if (depth === 1) return first > maxLabelledFirstRing ? '' : shortLabel(full, 22)
-    return chars === null ? '' : shortLabel(full, chars)
+  // A song's people ring has the role arcs inside it, so its names go on the outer side of each node, where they
+  // cannot run across an arc's text; the other rings put them under the node.
+  const outward1 = centre.type === 'song'
+  const lineHeight = fontPx * 1.15
+  const placeFirst = (angle: number): LabelPlace => {
+    if (!outward1) return 'below'
+    const dx = Math.sin(angle)
+    if (Math.abs(dx) > 0.5) return dx > 0 ? 'start' : 'end'
+    return Math.cos(angle) > 0 ? 'above' : 'below'
   }
 
-  /** What the tree fills when second-ring names are cut to `chars` characters (null: no second-ring names). */
+  /** What the tree fills when second-ring names keep at least `chars` characters (null: no second-ring names). */
   const extentsFor = (chars: number | null): Extent[] => {
     const extents: Extent[] = []
     for (const node of described) {
@@ -320,22 +328,23 @@ export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): Or
       const disc = baseSize(node.data.kind, node.depth, node.degree) * designScale
       extents.push({ px, py, ex: disc, ey: disc }, { px, py, ex: -disc, ey: -disc })
 
-      const label = labelFor(node.depth, node.full, chars)
-      if (label === '') continue
-      const width = textWidth(label.length)
       if (node.depth === 2) {
+        if (chars === null || node.full === '') continue
         // Set along the radius, outward from the disc: the end of the name is `reach` beyond the node in that direction.
-        const reach = disc + 6 + width
+        const reach = disc + 6 + textWidth(Math.min(chars, node.full.length))
         const dx = Math.sin(node.angle)
         const dy = -Math.cos(node.angle)
         extents.push({ px, py, ex: dx * reach + (dx >= 0 ? 7 : -7), ey: dy * reach + (dy >= 0 ? 7 : -7) })
-      } else {
-        // Centred under the disc.
-        extents.push(
-          { px, py, ex: width / 2, ey: disc + 20 },
-          { px, py, ex: -width / 2, ey: disc + 20 },
-        )
+        continue
       }
+
+      if (first > maxLabelledFirstRing || node.full === '') continue
+      const width = textWidth(Math.min(22, node.full.length))
+      const place = placeFirst(node.angle)
+      if (place === 'start') extents.push({ px, py, ex: disc + 6 + width, ey: 10 })
+      else if (place === 'end') extents.push({ px, py, ex: -(disc + 6 + width), ey: 10 })
+      else if (place === 'above') extents.push({ px, py, ex: width / 2, ey: -(disc + 12 + lineHeight) }, { px, py, ex: -width / 2, ey: -(disc + 12 + lineHeight) })
+      else extents.push({ px, py, ex: width / 2, ey: disc + 20 + lineHeight }, { px, py, ex: -width / 2, ey: disc + 20 + lineHeight })
     }
     return extents
   }
@@ -380,23 +389,43 @@ export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): Or
       radius: node.depth === 0 ? 0 : node.depth === 1 ? r1 : radius,
       size: discSize,
       label: '',
+      lines: [],
+      place: node.depth === 2 ? 'radial' : 'below',
       moreCount: node.data.moreCount ?? 0,
     }
   })
 
-  // Each name gets the room its own node has: a second-ring name runs outward along the radius until the stage's edge,
-  // so on the sides it can be long and at the top and bottom it is short; a first-ring name sits under its node and
-  // is no wider than the room beside it and the gap to the next node on the same line.
+  // Each name gets the room its own node has. A second-ring name runs outward along the radius to the stage's edge, so
+  // on the sides it can be long and at the top and bottom it is short; a first-ring name is no wider than the room
+  // beside it and the gap to the next node on the same line. A name that does not fit is wrapped into two lines at a
+  // word boundary where there is the room (the neighbours are far enough apart), and cut at a word only after that.
   const charWidth = textWidth(1)
   // The free part of the stage, in the drawing's own coordinates (the centre is at 0, 0).
   const boxLeft = side - origin.x
   const boxRight = size.width - side - origin.x
   const boxTop = top - origin.y
   const boxBottom = size.height - bottom - origin.y
+
+  const secondAngles = nodes.filter((node) => node.depth === 2).map((node) => node.angle).sort((a, b) => a - b)
+  const gapAt = (angle: number) => {
+    const turn = Math.PI * 2
+    let gap = turn
+    for (const other of secondAngles) {
+      if (other === angle) continue
+      const between = Math.abs(((other - angle + Math.PI) % turn + turn) % turn - Math.PI)
+      gap = Math.min(gap, between)
+    }
+    return gap * radius
+  }
+
+  // Where each first-ring name sits is known from the angle alone, so every node can look at its neighbours' places.
+  for (const node of nodes) if (node.depth === 1) node.place = placeFirst(node.angle)
+
   nodes.forEach((node, index) => {
     const full = described[index]!.full
     if (node.depth === 0 || full === '') return
     const [x, y] = polarToXY(node.radius, node.angle)
+
     if (node.depth === 2) {
       if (!ringNames) return
       const dx = Math.sin(node.angle)
@@ -405,21 +434,36 @@ export function layoutOrbit(ws: Workspace, centre: NodeRef, size: StageSize): Or
         Math.abs(dx) < 1e-6 ? Number.POSITIVE_INFINITY : ((dx > 0 ? boxRight : boxLeft) - x) / dx,
         Math.abs(dy) < 1e-6 ? Number.POSITIVE_INFINITY : ((dy > 0 ? boxBottom : boxTop) - y) / dy,
       )
-      const room = toEdge - node.size - 6 - 7
-      const chars = Math.min(28, Math.floor(room / charWidth))
-      node.label = chars < 4 ? '' : shortLabel(full, chars)
-      return
+      const cap = Math.min(40, Math.floor((toEdge - node.size - 6 - 7) / charWidth))
+      node.lines = fitName(full, cap, gapAt(node.angle) >= 2 * lineHeight + 4)
+    } else if (node.depth === 1) {
+      if (first > maxLabelledFirstRing) return
+      node.place = placeFirst(node.angle)
+      let room: number
+      if (node.place === 'start') room = boxRight - (x + node.size + 6) - 4
+      else if (node.place === 'end') room = x - node.size - 6 - boxLeft - 4
+      else {
+        room = 2 * Math.min(boxRight - x, x - boxLeft) - 8
+        for (const other of nodes) {
+          if (other === node || other.depth !== 1) continue
+          const [ox, oy] = polarToXY(other.radius, other.angle)
+          if (Math.abs(oy - y) < 2 * lineHeight + 10) room = Math.min(room, Math.abs(ox - x) - 8)
+        }
+      }
+      // Beside its node a name may take two lines only where the next name above or below it is far enough away.
+      let twoLines = true
+      if (node.place === 'start' || node.place === 'end') {
+        for (const other of nodes) {
+          if (other === node || other.depth !== 1 || other.place !== node.place) continue
+          const [, oy] = polarToXY(other.radius, other.angle)
+          if (Math.abs(oy - y) < 2 * lineHeight + 4) twoLines = false
+        }
+      }
+      node.lines = fitName(full, Math.min(30, Math.floor(room / charWidth)), twoLines)
+    } else {
+      node.lines = [full]
     }
-
-    if (first > maxLabelledFirstRing) return
-    let room = 2 * Math.min(boxRight - x, x - boxLeft) - 8
-    for (const other of nodes) {
-      if (other === node || other.depth !== 1) continue
-      const [ox, oy] = polarToXY(other.radius, other.angle)
-      if (Math.abs(oy - y) < 26) room = Math.min(room, Math.abs(ox - x) - 8)
-    }
-    const chars = Math.min(24, Math.floor(room / charWidth))
-    node.label = chars < 5 ? '' : shortLabel(full, chars)
+    node.label = node.lines.join(' ')
   })
 
   // The centre leaves room for the first ring (and, for a song, the role arcs inside it).

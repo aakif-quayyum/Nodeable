@@ -10,7 +10,14 @@ export const WORKER_NODE_THRESHOLD = 500
  */
 export interface LayoutEngine {
   readonly kind: 'inline' | 'worker'
-  update(input: LayoutInput): void
+  /**
+   * `rest` works the layout out to its resting place before the first positions are reported, for a person who asked
+   * for reduced motion: nothing then moves on screen.
+   */
+  update(input: LayoutInput, options?: { rest?: boolean }): void
+  /** Holds a node where the pointer has it while it is dragged (the others follow), and lets it go again. */
+  pin(id: string, x: number, y: number): void
+  release(id: string): void
   dispose(): void
 }
 
@@ -37,7 +44,15 @@ export function createInlineEngine(callbacks: LayoutCallbacks): LayoutEngine {
 
   return {
     kind: 'inline',
-    update: (input) => void layout.update(input),
+    update: (input, options) => {
+      layout.update(input)
+      if (options?.rest === true) {
+        layout.step(300)
+        callbacks.onSettled()
+      }
+    },
+    pin: (id, x, y) => layout.pin(id, x, y),
+    release: (id) => layout.release(id),
     dispose: () => layout.stop(),
   }
 }
@@ -68,10 +83,12 @@ export function createWorkerEngine(callbacks: LayoutCallbacks): LayoutEngine {
 
   return {
     kind: 'worker',
-    update: (input) => {
+    update: (input, options) => {
       generation += 1
-      send({ type: 'update', gen: generation, input })
+      send({ type: 'update', gen: generation, input, rest: options?.rest === true })
     },
+    pin: (id, x, y) => send({ type: 'pin', id, x, y }),
+    release: (id) => send({ type: 'release', id }),
     dispose: () => {
       send({ type: 'dispose' })
       worker.terminate()

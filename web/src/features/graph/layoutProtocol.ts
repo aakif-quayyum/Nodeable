@@ -1,7 +1,11 @@
 import { GraphLayout, type LayoutInput } from './forceLayout.ts'
 
 /** Messages from the page to the layout worker. */
-export type ToLayoutWorker = { type: 'update'; gen: number; input: LayoutInput } | { type: 'dispose' }
+export type ToLayoutWorker =
+  | { type: 'update'; gen: number; input: LayoutInput; rest?: boolean }
+  | { type: 'pin'; id: string; x: number; y: number }
+  | { type: 'release'; id: string }
+  | { type: 'dispose' }
 
 /**
  * Messages from the worker to the page. `layout` says which node each pair of numbers in the following `tick` messages
@@ -30,6 +34,15 @@ export function createLayoutWorkerHandler(post: Post): (message: ToLayoutWorker)
       return
     }
 
+    if (message.type === 'pin') {
+      layout?.pin(message.id, message.x, message.y)
+      return
+    }
+    if (message.type === 'release') {
+      layout?.release(message.id)
+      return
+    }
+
     generation = message.gen
     layout ??= new GraphLayout(
       (nodes) => {
@@ -46,5 +59,9 @@ export function createLayoutWorkerHandler(post: Post): (message: ToLayoutWorker)
 
     layout.update(message.input)
     post({ type: 'layout', gen: generation, ids: message.input.nodes.map((node) => node.id) })
+    if (message.rest === true) {
+      layout.step(300)
+      post({ type: 'settled', gen: generation })
+    }
   }
 }

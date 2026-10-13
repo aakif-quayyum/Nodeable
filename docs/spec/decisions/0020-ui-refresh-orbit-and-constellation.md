@@ -23,7 +23,7 @@ The prototype is a design reference, not code to port. It uses fake data, builds
 **SVG or canvas for the constellation (NFR-PERF-03).**
 
 - The **orbit is always SVG**: it is bounded (the centre, its direct neighbours and their neighbours, with the second level capped at 60 nodes and the rest shown as "+N more"), so it has at most about a hundred nodes however large the graph is, and SVG gives focusable nodes, real text and cheap CSS styling.
-- The **constellation is SVG up to a node threshold and canvas above it.** The graph can reach 50 songs and about 550 people, and an SVG with a few thousand elements whose attributes change on every simulation tick is where phones slow down. The canvas path is what M3 already built and measured: `GraphLayout` (with the Web Worker above 500 nodes), the quadtree hit test and `drawGraph`, restyled to the new tokens. The threshold starts at **250 nodes** and is a constant; the first pull request that builds the SVG constellation measures the largest SVG graph that holds NFR-PERF-03's frame rates on the development machine and with a CPU slowdown, and records the number in the spec.
+- The **constellation is SVG up to a node threshold and canvas above it.** The graph can reach 50 songs and about 550 people, and an SVG with a few thousand elements whose attributes change on every simulation tick is where phones slow down. The canvas path is what M3 already built and measured: `GraphLayout` (with the Web Worker above 500 nodes), the quadtree hit test and `drawGraph`, restyled to the new tokens. The threshold started at **250 nodes** and is a constant; the pull request that built the SVG constellation measured it, and it is **60** (see "Changes after the overview was built" below and spec section 12).
 - Above the threshold, nodes are not individually focusable (a canvas has no elements). The same data is reachable from the connector cards, the liner notes, the "Find in your graph" box and the Text view, and every node opens in the orbit, which is SVG; this is recorded as the known trade-off.
 
 **What is removed.** `GraphCanvas`'s old look and the left panel with `HubsPanel`/`HubBar` and `NodePanel` go; their code is not kept behind a flag. What stays and is reused: the live graph hook and the event reducer (`useLiveGraph`, `applyGraphEvent`), the layout engine and worker, the quadtree, `GraphListView`, the role filter store, and every API and hub contract.
@@ -111,3 +111,21 @@ Choices made inside these (open to change):
 - **Names get the room their own node has**: a second-ring name runs outward along the radius to the stage's edge, so it is long on the sides and short at the top and bottom, where the stage is shortest. A name is cut with an ellipsis; on a small stage the second ring has none (the tooltip and the accessible name give them).
 - **Adding a song still puts the orbit on that song**, so its crew can be watched arriving; "Your graph" is the first breadcrumb and one click away.
 - **Covers are the labels of the records** in the orbit, drawn as an SVG `<image>` with the same source chain as the cards. The no-referrer rule for cover images (NFR-PRIV-01) became a page-level `<meta name="referrer">`, because an SVG `<image>` has no `referrerPolicy` prop in React.
+
+## Changes after the overview was built (2026-10-13)
+
+The constellation, the toggle and "Find in your graph" were built in pull request 4. Two things differ from what this record planned, and two came from the developer's review of the workspace.
+
+| Planned or asked | Now | Why |
+| --- | --- | --- |
+| The SVG constellation up to **250 nodes**, a canvas above | SVG up to **60 nodes**, a canvas above | The measurement this record asked for: in the app's own browser pane an SVG of 100 nodes with a transform written on every frame took 17 to 114 ms a frame (a 144 Hz display allows 6.9) and 250 nodes took 165 ms, while a canvas took 6.9 ms from 100 to 500 nodes and 7.9 ms at 1000. SVG held 30 frames a second only to about 80 nodes. The table is in spec section 12 |
+| Zoom 0.45 to 3 times | 0.2 to 3 times | The fitted picture of a large graph can be smaller than 0.45, and the wheel would jump it up to the limit on the first tick |
+| Names cut to the room, chosen by the developer's first reading | Whole when they fit, wrapped at a word into two lines before any cut, cut at a word, whole on hover and focus | "William Ear…" and "Me and Y…" read as errors; a person should not have to hover to read a name that had room |
+| A chip is not in the plan | "n songs not connected · Your graph" on the stage while a song or person is the centre | After a song or a person is chosen the rest of the graph was out of sight, and the only way back was the first breadcrumb |
+
+Choices made inside these (open to change):
+
+- **The toggle and the find box are rendered into the app bar by the workspace through a portal** (a context carries the bar's element), not owned by the shell. The shell would otherwise need the graph's snapshot, the view and the centre, none of which it should know. The cost is that they exist only while the workspace is mounted, which is when they are wanted.
+- **One `LayoutController` holds the positions outside React** and both renderers subscribe to it, so SVG and canvas read the same layout and a settled graph that crosses the threshold keeps its places. Dragging is a `pin` and a `release` on the layout (a message to the worker above 500 nodes).
+- **The forces are the prototype's**, not M3's: M3's were tuned for squares and small discs, and the prototype's give records room and let a crew gather round its song.
+- **`d3-drag` is a direct dependency** (it was only a dependency of `d3-zoom`), with its types in the dev dependencies.

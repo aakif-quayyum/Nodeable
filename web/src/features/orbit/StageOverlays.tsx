@@ -8,7 +8,8 @@ import { creditRoles, creditRoleStyles } from '../../app/creditRoles.ts'
 import { useRoleFilters } from '../../stores/roleFilters.ts'
 import { AlbumArt } from '../art/AlbumArt.tsx'
 import type { Workspace, WorkspaceSong } from '../graph/workspaceModel.ts'
-import { nodeKey, type EmptyCentre as EmptyCentreReason, type NodeRef } from './orbitLayout.ts'
+import { songsNotConnected } from './connection.ts'
+import { nodeKey, rootRef, type EmptyCentre as EmptyCentreReason, type NodeRef } from './orbitLayout.ts'
 
 const swap = keyframes`from { opacity: 0; transform: translateY(8px); }`
 const blink = keyframes`50% { opacity: 0.25; }`
@@ -20,6 +21,32 @@ function nameOf(workspace: Workspace, ref: NodeRef): string {
 
 /** How many crumbs after "Your graph" are shown; earlier ones are folded into "…". */
 const crumbsAfterRoot = 3
+
+/**
+ * The top-left corner of the stage: the breadcrumbs and, under them, the caption, in one column. They were two
+ * absolutely positioned layers, and a trail that wrapped or a name that was long made them run into each other and
+ * into the chips on the right; in one column they only push each other down. The column stops short of the corner the
+ * chips stack in.
+ */
+export function StageHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        top: 12,
+        left: 12,
+        right: { xs: 12, md: 262 },
+        zIndex: 2,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
+        pointerEvents: 'none',
+      }}
+    >
+      {children}
+    </Box>
+  )
+}
 
 /**
  * The trail of centres (FR-VIEW-01, FR-VIEW-04): "Your graph" first, always, so there is a way back to the overview,
@@ -34,17 +61,7 @@ export function Breadcrumbs({ workspace, crumbs, onGo }: { workspace: Workspace;
     <Box
       component="nav"
       aria-label="Exploration path"
-      sx={{
-        position: 'absolute',
-        top: 12,
-        left: 12,
-        right: { xs: 12, md: 220 },
-        zIndex: 2,
-        display: 'flex',
-        flexWrap: 'wrap',
-        gap: 0.5,
-        alignItems: 'center',
-      }}
+      sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center', pointerEvents: 'auto' }}
     >
       {visible.map((ref, index) => {
         const current = ref === crumbs[crumbs.length - 1]
@@ -94,10 +111,13 @@ export function Breadcrumbs({ workspace, crumbs, onGo }: { workspace: Workspace;
 export function Caption({
   workspace,
   centre,
+  constellation = false,
   onHide,
 }: {
   workspace: Workspace
   centre: NodeRef
+  /** The constellation's caption (the prototype's): what it is, and what to do with it. */
+  constellation?: boolean
   /** "Hide from view" for the person at the centre (FR-VIEW-03). */
   onHide: (personMbid: string) => void
 }) {
@@ -110,19 +130,16 @@ export function Caption({
     <Box
       key={nodeKey(centre)}
       sx={{
-        position: 'absolute',
-        top: 48,
-        left: 14,
-        zIndex: 2,
         display: 'flex',
         flexDirection: 'column',
         gap: '4px',
-        maxWidth: 'min(340px, 60%)',
+        maxWidth: 'min(340px, 100%)',
+        px: '2px',
         pointerEvents: 'none',
         '@media (prefers-reduced-motion: no-preference)': { animation: `${swap} 450ms cubic-bezier(0.2, 0.8, 0.2, 1) both` },
       }}
     >
-      <Kicker>{overview ? 'The whole graph' : song !== undefined ? 'Now spinning' : 'Following'}</Kicker>
+      <Kicker>{constellation ? 'Constellation' : overview ? 'The whole graph' : song !== undefined ? 'Now spinning' : 'Following'}</Kicker>
       <Box
         component="p"
         sx={(theme) => ({
@@ -136,10 +153,16 @@ export function Caption({
           textWrap: 'balance',
         })}
       >
-        {overview ? 'Your graph' : (song?.title ?? person?.name ?? '')}
+        {constellation ? 'Your whole graph' : overview ? 'Your graph' : (song?.title ?? person?.name ?? '')}
       </Box>
 
-      {overview && (
+      {constellation && (
+        <Typography variant="body2" color="text.secondary" component="p" sx={{ m: 0, display: { xs: 'none', md: 'block' } }}>
+          Hover a node to light up its connections. Click one to explore it.
+        </Typography>
+      )}
+
+      {overview && !constellation && (
         // The strip above the stage has these numbers; on a phone the room is the orbit's.
         <Typography variant="body2" color="text.secondary" component="p" sx={{ m: 0, display: { xs: 'none', md: 'block' } }}>
           {workspace.songs.length} {workspace.songs.length === 1 ? 'song' : 'songs'} · {workspace.people.length}{' '}
@@ -296,15 +319,9 @@ export function LiveChip({ text, pulsing }: { text: string | null; pulsing: bool
     <Box
       role="status"
       sx={(theme) => ({
-        position: 'absolute',
-        top: { xs: 'auto', md: 12 },
-        bottom: { xs: 52, md: 'auto' },
-        right: 12,
-        zIndex: 2,
         display: 'flex',
         alignItems: 'center',
         gap: 1,
-        maxWidth: 'calc(100% - 24px)',
         px: '11px',
         py: '6px',
         borderRadius: '8px',
@@ -333,10 +350,83 @@ export function LiveChip({ text, pulsing }: { text: string | null; pulsing: bool
 }
 
 /**
+ * The chips in the stage's corner: the live chip (what is arriving) and, when a song or a person is the centre, where
+ * the rest of the graph is (FR-VIEW-04). They stack, top right on a desktop and above the legend on a phone.
+ */
+export function StageChips({ children }: { children: React.ReactNode }) {
+  return (
+    <Box
+      sx={{
+        position: 'absolute',
+        top: { xs: 'auto', md: 12 },
+        bottom: { xs: 104, md: 'auto' },
+        right: 12,
+        zIndex: 2,
+        display: 'flex',
+        flexDirection: { xs: 'column-reverse', md: 'column' },
+        alignItems: 'flex-end',
+        gap: '6px',
+        maxWidth: 'calc(100% - 24px)',
+        pointerEvents: 'none',
+        '& > *': { pointerEvents: 'auto' },
+      }}
+    >
+      {children}
+    </Box>
+  )
+}
+
+/**
+ * "2 songs not connected · Your graph" (FR-VIEW-04): shown while a song or a person is the centre, so the rest of the
+ * graph is never out of sight. It says how many songs share no credit with this part of the graph, and is a button
+ * that goes back to the whole graph.
+ */
+export function ConnectionChip({ workspace, centre, onGo }: { workspace: Workspace; centre: NodeRef; onGo: (ref: NodeRef) => void }) {
+  if (centre.type === 'graph') return null
+  const total = workspace.songs.length
+  const apart = songsNotConnected(workspace, centre)
+  const text =
+    apart > 0
+      ? `${apart} ${apart === 1 ? 'song' : 'songs'} not connected`
+      : total > 1
+        ? `All ${total} songs connected`
+        : null
+
+  return (
+    <Box
+      component="button"
+      type="button"
+      onClick={() => onGo(rootRef)}
+      aria-label={text === null ? 'Back to your whole graph' : `${text}. Back to your whole graph`}
+      sx={(theme) => ({
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '7px',
+        px: '11px',
+        py: '6px',
+        borderRadius: '8px',
+        border: `1px solid ${apart > 0 ? theme.vars.palette.secondary.main : theme.vars.palette.lineStrong}`,
+        backgroundColor: theme.vars.palette.background.default,
+        color: theme.vars.palette.text.primary,
+        fontFamily: theme.typography.kicker.fontFamily,
+        fontSize: 12,
+        fontWeight: 600,
+        '&:hover': { borderColor: theme.vars.palette.text.primary },
+      })}
+    >
+      {text !== null && <span>{text}</span>}
+      {text !== null && <span aria-hidden="true">·</span>}
+      <span>Your graph</span>
+    </Box>
+  )
+}
+
+/**
  * The role legend, and the role filters (FR-HUB-03): a chip with the role's icon and name, each a toggle with
  * `aria-pressed`. A chip that is off is outlined and struck through, so the state is not carried by colour alone.
  */
-export function LegendChips() {
+export function LegendChips({ hint = 'Click anyone to put them at the centre · scroll to zoom' }: { hint?: string }) {
   const active = useRoleFilters((state) => state.active)
   const toggle = useRoleFilters((state) => state.toggle)
   const reset = useRoleFilters((state) => state.reset)
@@ -407,7 +497,7 @@ export function LegendChips() {
         </li>
       )}
       <Box component="li" sx={{ ml: 'auto', display: { xs: 'none', md: 'block' }, fontSize: 12, color: 'text.secondary', textTransform: 'none' }}>
-        Click anyone to put them at the centre · scroll to zoom
+        {hint}
       </Box>
     </Box>
   )
