@@ -23,5 +23,8 @@ public class Preview
     /// <summary>How the track was found: by the recording's ISRC, or by a guarded title and artist match (FR-PREVIEW-01).</summary>
     public PreviewMatch MatchedBy { get; set; } = PreviewMatch.Isrc;
 
+    /// <summary>When a person picked the track (<see cref="PreviewMatch.UserPick"/>); null for every other way of matching.</summary>
+    public DateTimeOffset? PickedAt { get; set; }
+
     public DateTimeOffset FetchedAt { get; set; }
 }

@@ -11,4 +11,10 @@ public enum PreviewMatch
     /// length is within ten seconds (FR-PREVIEW-01). Stored apart so hit rates and wrong matches can be told from ISRC ones.
     /// </summary>
     TitleArtist,
+
+    /// <summary>
+    /// A person chose the track from Deezer's top results because no match was confident enough (FR-PREVIEW-01). It is
+    /// never replaced by a refresh, and <c>previews.picked_at</c> says when.
+    /// </summary>
+    UserPick,
 }

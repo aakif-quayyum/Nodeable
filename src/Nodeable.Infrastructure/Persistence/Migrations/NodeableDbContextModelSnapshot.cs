@@ -276,6 +276,10 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                         .HasColumnName("matched_by")
                         .HasDefaultValueSql("'isrc'");
 
+                    b.Property<DateTimeOffset?>("PickedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("picked_at");
+
                     b.Property<string>("ProviderTrackId")
                         .IsRequired()
                         .HasColumnType("text")
@@ -286,7 +290,7 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
 
                     b.ToTable("previews", null, t =>
                         {
-                            t.HasCheckConstraint("ck_previews_matched_by", "matched_by IN ('isrc', 'title_artist')");
+                            t.HasCheckConstraint("ck_previews_matched_by", "matched_by IN ('isrc', 'title_artist', 'user_pick')");
 
                             t.HasCheckConstraint("ck_previews_provider", "provider IN ('deezer')");
                         });

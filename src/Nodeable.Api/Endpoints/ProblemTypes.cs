@@ -31,4 +31,10 @@ public static class ProblemTypes
 
     /// <summary>The recording has no Deezer preview (404, FR-PREVIEW-01).</summary>
     public const string PreviewNotFound = "/errors/preview-not-found";
+
+    /// <summary>The recording has a preview already, so there is nothing to pick (409, FR-PREVIEW-01).</summary>
+    public const string PreviewAlreadyExists = "/errors/preview-already-exists";
+
+    /// <summary>The track is not among the results offered for the recording (422, FR-PREVIEW-01).</summary>
+    public const string PreviewNotOffered = "/errors/preview-not-offered";
 }

@@ -53,6 +53,7 @@ public static class DeezerServiceCollectionExtensions
         client.AddHttpMessageHandler(() => new ExternalRequestMetricsHandler(Source));
 
         services.AddScoped<PreviewLinkService>();
+        services.AddScoped<PreviewPickService>();
 
         return services;
     }

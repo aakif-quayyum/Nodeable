@@ -23,6 +23,8 @@ internal sealed class PreviewConfiguration : IEntityTypeConfiguration<Preview>
             .HasConversion<SnakeCaseEnumConverter<PreviewMatch>>()
             .HasDefaultValueSql("'isrc'");
 
+        builder.Property(p => p.PickedAt);
+
         builder.ToTable(t =>
         {
             t.HasCheckConstraint("ck_previews_provider", EnumColumn.CheckSql<PreviewProvider>("provider"));

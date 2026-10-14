@@ -4,10 +4,11 @@ import Box from '@mui/material/Box'
 import CircularProgress from '@mui/material/CircularProgress'
 import IconButton from '@mui/material/IconButton'
 import LinearProgress from '@mui/material/LinearProgress'
-import Link from '@mui/material/Link'
+import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
-import { useEffect } from 'react'
-import { clock, deezerSearchUrl } from './previewFormat.ts'
+import { useEffect, useState } from 'react'
+import { PickVersionDialog } from './PickVersionDialog.tsx'
+import { clock } from './previewFormat.ts'
 import { stopPreview, togglePreview, usePreviewPlayback } from './previewPlayback.ts'
 
 const visuallyHidden = {
@@ -33,12 +34,14 @@ export interface PreviewSong {
 /**
  * The 30-second preview of one song (FR-PREVIEW-01): a play button, the time and a bar. The audio itself is one shared
  * element (`previewPlayback.ts`), so starting this song stops any other. Without a preview the control says so and offers
- * a link to look for the song at Deezer, which the person opens themselves; the page makes no request to Deezer for it.
+ * "Pick the right version" (decision 0026); the link to look for the song at Deezer is the last resort inside that dialog,
+ * and the page makes no request to Deezer for it.
  */
 export function PreviewControl({ song, label = 'Preview' }: { song: PreviewSong; label?: string }) {
   const playback = usePreviewPlayback()
   const mine = playback.songMbid === song.mbid
   const phase = mine ? playback.phase : 'idle'
+  const [picking, setPicking] = useState(false)
 
   // A card that leaves the page (the song was removed) must not leave its audio playing.
   useEffect(() => () => stopPreview(song.mbid), [song.mbid])
@@ -46,12 +49,15 @@ export function PreviewControl({ song, label = 'Preview' }: { song: PreviewSong;
   if (!song.hasPreview) {
     if (song.creditsStatus === 'loading') return null
     return (
-      <Typography variant='caption' color='text.secondary' component='p' sx={{ m: 0 }}>
-        No preview here.{' '}
-        <Link href={deezerSearchUrl(song)} target='_blank' rel='noopener noreferrer' underline='always' color='inherit'>
-          Find it on Deezer<Box component='span' sx={visuallyHidden}> (opens in a new tab)</Box>
-        </Link>
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 1 }}>
+        <Typography variant='caption' color='text.secondary' component='p' sx={{ m: 0 }}>
+          No preview here.
+        </Typography>
+        <Button size='small' onClick={() => setPicking(true)} sx={{ py: 0, minHeight: 24 }}>
+          Pick the right version
+        </Button>
+        <PickVersionDialog open={picking} onClose={() => setPicking(false)} song={song} />
+      </Box>
     )
   }
 
