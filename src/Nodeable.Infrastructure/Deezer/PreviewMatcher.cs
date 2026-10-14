@@ -7,13 +7,13 @@ namespace Nodeable.Infrastructure.Deezer;
 /// <summary>
 /// The guard behind the title-and-artist fallback of FR-PREVIEW-01 (spec section 10, decision 0025). A wrong preview is
 /// worse than none (principle 5), so a Deezer track is accepted only when all of these hold: it has a preview, its
-/// artist and title equal the recording's after normalising, and its length is within five seconds of the recording's.
+/// artist and title equal the recording's after normalising, and its length is within ten seconds of the recording's.
 /// Nothing is scored or guessed: every candidate either passes every rule or is not used.
 /// </summary>
 public static partial class PreviewMatcher
 {
     /// <summary>How far, in seconds, the track's length may be from the recording's. Versions, edits and live takes differ by more.</summary>
-    public const int MaxLengthDifferenceSeconds = 5;
+    public const int MaxLengthDifferenceSeconds = 10;
 
     // Decoration that does not make a different recording, taken off both sides before they are compared: a featuring
     // credit in the title (MusicBrainz keeps it in the artist credit), and a remaster or "album version" label.
