@@ -32,6 +32,43 @@ public sealed class DeezerClientTests : IDisposable
     }
 
     [Fact]
+    public async Task FR_PREVIEW_01_a_search_returns_the_tracks_with_artist_and_whole_track_length()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        Serve("/search", "search-redbone.json");
+        await using var provider = DeezerTestHost.Build(_server);
+
+        var tracks = await provider.GetRequiredService<IDeezerClient>().SearchTracksAsync("Childish Gambino Redbone", ct);
+
+        tracks.Should().HaveCount(5);
+        var first = tracks[0];
+        first.Id.Should().Be("435821782");
+        first.Title.Should().Be("Redbone");
+        first.ArtistName.Should().Be("Childish Gambino");
+        first.DurationSeconds.Should().Be(326);
+        first.CoverMd5.Should().Be("964acadabc2b6e286ce5e8e5add495a0");
+        first.PreviewUrl.Should().StartWith("https://cdnt-preview.dzcdn.net/");
+
+        var request = _server.LogEntries.Single().RequestMessage!;
+        request.Query!.Should().ContainKey("q").WhoseValue.Should().Equal("Childish Gambino Redbone");
+        request.Query.Should().ContainKey("limit").WhoseValue.Should().Equal("25");
+    }
+
+    [Fact]
+    public async Task FR_PREVIEW_01_a_search_with_no_results_or_a_no_data_answer_is_an_empty_list()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        _server.Given(Request.Create().WithPath("/search").WithParam("q", "nothing here").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody("""{"data":[],"total":0}"""));
+        Serve("/search", "no-data.json");
+        await using var provider = DeezerTestHost.Build(_server);
+        var client = provider.GetRequiredService<IDeezerClient>();
+
+        (await client.SearchTracksAsync("nothing here", ct)).Should().BeEmpty();
+        (await client.SearchTracksAsync("something else", ct)).Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task FR_PREVIEW_01_deezers_no_data_answer_is_null_and_not_an_error()
     {
         // Deezer reports a miss as HTTP 200 with {"error":{"code":800}}: the quirk is the client's, not the caller's.

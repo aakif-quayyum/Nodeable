@@ -133,9 +133,10 @@ public sealed class RecordingJobHandler(
             }
         }
 
-        if (options.Value.QueuePreviewJobs && recording.Isrcs is { Count: > 0 })
+        if (options.Value.QueuePreviewJobs)
         {
-            // The preview is looked up by ISRC, and stored per recording, so the recording is the target.
+            // Every recording gets a preview job: by ISRC when it has one, and by title and artist when it has none or Deezer does
+            // not know it (decision 0025). The preview is stored per recording, so the recording is the target.
             await queue.EnqueueAsync(CrawlJobKind.Preview, recording.Id, job.Priority, cancellationToken);
         }
     }

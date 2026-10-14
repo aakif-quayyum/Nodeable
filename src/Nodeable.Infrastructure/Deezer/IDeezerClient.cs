@@ -10,17 +10,35 @@ namespace Nodeable.Infrastructure.Deezer;
 /// has no preview. Never store it.
 /// </param>
 /// <param name="CoverMd5">The ID of the album cover image (<c>album.md5_image</c>), or null when there is none.</param>
-public sealed record DeezerTrack(string Id, string Title, string? PreviewUrl, string? CoverMd5);
+/// <param name="ArtistName">The artist's name at Deezer (<c>artist.name</c>), or null when it is not given.</param>
+/// <param name="DurationSeconds">
+/// The length of the <b>whole track</b> in seconds, not of the 30-second preview; null when Deezer sends none.
+/// </param>
+public sealed record DeezerTrack(
+    string Id,
+    string Title,
+    string? PreviewUrl,
+    string? CoverMd5,
+    string? ArtistName = null,
+    int? DurationSeconds = null);
 
 /// <summary>
-/// The Deezer calls of FR-PREVIEW-01 (spec section 10). Both return null when Deezer has no such track: Deezer
-/// reports that as an HTTP 200 with an error body, which the client turns into null so callers never see the quirk.
+/// The Deezer calls of FR-PREVIEW-01 (spec section 10). A lookup returns null, and a search an empty list, when Deezer
+/// has nothing: Deezer reports that as an HTTP 200 with an error body, which the client turns into null so callers
+/// never see the quirk.
 /// </summary>
 public interface IDeezerClient
 {
     /// <summary>The track Deezer has for an ISRC, or null.</summary>
     /// <exception cref="DeezerException">Deezer could not answer; <see cref="DeezerException.IsTransient"/> says whether trying again may help.</exception>
     Task<DeezerTrack?> GetTrackByIsrcAsync(string isrc, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// The tracks Deezer's plain-text search finds for a query, best first (at most 25). Deezer's field syntax
+    /// (<c>artist:"x" track:"y"</c>) found nothing when checked (decision 0025), so the query is the words.
+    /// </summary>
+    /// <exception cref="DeezerException">Deezer could not answer.</exception>
+    Task<IReadOnlyList<DeezerTrack>> SearchTracksAsync(string query, CancellationToken cancellationToken = default);
 
     /// <summary>The track with a Deezer ID, with a freshly signed preview URL, or null.</summary>
     /// <exception cref="DeezerException">Deezer could not answer.</exception>

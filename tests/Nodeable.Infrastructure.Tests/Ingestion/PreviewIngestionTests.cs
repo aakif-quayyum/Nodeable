@@ -1,3 +1,5 @@
+using System.Collections.Concurrent;
+using System.Diagnostics.Metrics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Nodeable.Domain.Crawling;
@@ -70,6 +72,7 @@ public sealed class PreviewIngestionTests(PostgresFixture postgres) : IDisposabl
         preview.Provider.Should().Be(PreviewProvider.Deezer);
         preview.ProviderTrackId.Should().Be("350320101");
         preview.CoverMd5.Should().Be("52a01335022b31b52b96106583ead686");
+        preview.MatchedBy.Should().Be(PreviewMatch.Isrc);
 
         // The signed address must not be in any column of the row: it expires in minutes (decision 0022).
         var columns = await db.Database
@@ -147,6 +150,129 @@ public sealed class PreviewIngestionTests(PostgresFixture postgres) : IDisposabl
         (await db.Previews.CountAsync(ct)).Should().Be(1);
     }
 
+    [Fact]
+    public async Task FR_PREVIEW_01_a_recording_found_by_isrc_is_stored_as_isrc_and_deezer_is_not_searched()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        ServeRecording();
+        ServeDeezer($"/track/isrc:{Isrc}", "track-by-isrc.json");
+        ServeDeezer("/search", "search-redbone.json");
+        using var lookups = new LookupRecorder();
+        await using var world = await WorldAsync();
+        await world.Queue(CrawlJobKind.Recording, _recordingMbid, CrawlPriority.Interactive);
+
+        await world.DrainAsync();
+
+        await using var db = Context(world.ConnectionString);
+        (await db.Previews.AsNoTracking().SingleAsync(ct)).MatchedBy.Should().Be(PreviewMatch.Isrc);
+        _deezer.LogEntries.Should().NotContain(e => e.RequestMessage!.Path == "/search");
+        lookups.Results.Should().Equal(("found", "isrc"));
+    }
+
+    [Fact]
+    public async Task FR_PREVIEW_01_when_no_isrc_has_a_preview_a_guarded_title_and_artist_match_is_stored_and_says_so()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        ServeRecording();
+        ServeDeezer($"/track/isrc:{Isrc}", "no-data.json");
+        ServeDeezer("/search", "search-redbone.json");
+        using var lookups = new LookupRecorder();
+        await using var world = await WorldAsync();
+        await world.Queue(CrawlJobKind.Recording, _recordingMbid, CrawlPriority.Interactive);
+
+        await world.DrainAsync();
+
+        await using var db = Context(world.ConnectionString);
+        var preview = await db.Previews.AsNoTracking().SingleAsync(ct);
+        preview.ProviderTrackId.Should().Be("435821782");
+        preview.CoverMd5.Should().Be("964acadabc2b6e286ce5e8e5add495a0");
+        preview.MatchedBy.Should().Be(PreviewMatch.TitleArtist);
+
+        var search = _deezer.LogEntries.Single(e => e.RequestMessage!.Path == "/search").RequestMessage!;
+        search.Query.Should().ContainKey("q").WhoseValue.Should().Equal("Childish Gambino Redbone");
+        lookups.Results.Should().Equal(("found", "title_artist"));
+    }
+
+    [Fact]
+    public async Task FR_PREVIEW_01_a_recording_with_no_isrc_at_all_still_gets_a_preview_job_and_is_matched_by_title_and_artist()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        ServeRecording(json => System.Text.RegularExpressions.Regex.Replace(json, "\"isrcs\":\\[[^\\]]*\\]", "\"isrcs\":[]"));
+        ServeDeezer("/search", "search-redbone.json");
+        await using var world = await WorldAsync();
+        await world.Queue(CrawlJobKind.Recording, _recordingMbid, CrawlPriority.Interactive);
+
+        await world.DrainAsync();
+
+        await using var db = Context(world.ConnectionString);
+        (await db.Recordings.AsNoTracking().SingleAsync(ct)).Isrcs.Should().BeEmpty();
+        (await db.Previews.AsNoTracking().SingleAsync(ct)).MatchedBy.Should().Be(PreviewMatch.TitleArtist);
+        _deezer.LogEntries.Should().NotContain(e => e.RequestMessage!.Path.StartsWith("/track/isrc:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task FR_PREVIEW_01_a_search_result_of_a_different_length_is_rejected_and_counted_as_rejected()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        ServeRecording();
+        ServeDeezer($"/track/isrc:{Isrc}", "no-data.json");
+        // The recorded results with every length moved 14 seconds: the title and artist still match, the length does not.
+        ServeDeezerBody("/search", System.Text.RegularExpressions.Regex.Replace(
+            DeezerTestHost.FixtureText("search-redbone.json"),
+            "\"duration\":326",
+            "\"duration\":340"));
+        using var lookups = new LookupRecorder();
+        await using var world = await WorldAsync();
+        await world.Queue(CrawlJobKind.Recording, _recordingMbid, CrawlPriority.Interactive);
+
+        await world.DrainAsync();
+
+        (await JobsAsync(world.ConnectionString)).Should().OnlyContain(j => j.Status == CrawlJobStatus.Done);
+        await using var db = Context(world.ConnectionString);
+        (await db.Previews.CountAsync(ct)).Should().Be(0, "a wrong preview is worse than none");
+        lookups.Results.Should().Equal(("rejected", null));
+    }
+
+    [Fact]
+    public async Task FR_PREVIEW_01_a_search_that_finds_nothing_is_counted_as_none()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        ServeRecording();
+        ServeDeezer($"/track/isrc:{Isrc}", "no-data.json");
+        ServeDeezerBody("/search", """{"data":[],"total":0}""");
+        using var lookups = new LookupRecorder();
+        await using var world = await WorldAsync();
+        await world.Queue(CrawlJobKind.Recording, _recordingMbid, CrawlPriority.Interactive);
+
+        await world.DrainAsync();
+
+        await using var db = Context(world.ConnectionString);
+        (await db.Previews.CountAsync(ct)).Should().Be(0);
+        lookups.Results.Should().Equal(("none", null));
+    }
+
+    [Fact]
+    public async Task FR_PREVIEW_01_a_title_and_artist_match_replaces_nothing_the_isrc_found_before_it()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        ServeRecording();
+        ServeDeezer($"/track/isrc:{Isrc}", "track-by-isrc.json");
+        await using var world = await WorldAsync();
+        await world.Queue(CrawlJobKind.Recording, _recordingMbid, CrawlPriority.Interactive);
+        await world.DrainAsync();
+
+        // Deezer later stops knowing the ISRC; the stored row is only replaced by a newer answer, never emptied by a miss.
+        ServeDeezer($"/track/isrc:{Isrc}", "no-data.json");
+        ServeDeezer("/search", "search-redbone.json");
+        await world.Queue(CrawlJobKind.Preview, _recordingMbid, CrawlPriority.Scheduled);
+        await world.DrainAsync();
+
+        await using var db = Context(world.ConnectionString);
+        var preview = await db.Previews.AsNoTracking().SingleAsync(ct);
+        preview.ProviderTrackId.Should().Be("435821782");
+        preview.MatchedBy.Should().Be(PreviewMatch.TitleArtist);
+    }
+
     // ---- helpers ----
 
     private async Task<World> WorldAsync()
@@ -164,12 +290,56 @@ public sealed class PreviewIngestionTests(PostgresFixture postgres) : IDisposabl
         return new World(services.BuildServiceProvider(), connectionString);
     }
 
-    private void ServeRecording()
+    // The recorded recording and work; `edit` changes the recording's JSON for a case the recording did not have.
+    private void ServeRecording(Func<string, string>? edit = null)
     {
+        var recording = MusicBrainzTestHost.FixtureText("recording-lookup.json");
         _musicBrainz.Given(Request.Create().WithPath($"/ws/2/recording/{_recordingMbid:D}").UsingGet())
-            .RespondWith(Response.Create().WithStatusCode(200).WithBody(MusicBrainzTestHost.FixtureText("recording-lookup.json")));
+            .RespondWith(Response.Create().WithStatusCode(200).WithBody(edit is null ? recording : edit(recording)));
         _musicBrainz.Given(Request.Create().WithPath($"/ws/2/work/{_workMbid:D}").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200).WithBody(MusicBrainzTestHost.FixtureText("work-lookup.json")));
+    }
+
+    private void ServeDeezerBody(string path, string body) =>
+        _deezer.Given(Request.Create().WithPath(path).UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json; charset=utf-8")
+                .WithBody(body));
+
+    // Records what the preview job counted: (result, method). The instrument is process-wide, so the class is in the
+    // span-listener collection, which keeps the tests that listen from running at the same time.
+    private sealed class LookupRecorder : IDisposable
+    {
+        private readonly MeterListener _listener = new();
+        private readonly ConcurrentQueue<(string Result, string? Method)> _results = new();
+
+        public LookupRecorder()
+        {
+            _listener.InstrumentPublished = (instrument, listener) =>
+            {
+                if (instrument.Meter.Name == "Nodeable.Infrastructure" && instrument.Name == "preview.lookups")
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            };
+            _listener.SetMeasurementEventCallback<long>((_, _, tags, _) =>
+            {
+                string? result = null;
+                string? method = null;
+                foreach (var tag in tags)
+                {
+                    if (tag.Key == "result") { result = tag.Value as string; }
+                    if (tag.Key == "method") { method = tag.Value as string; }
+                }
+
+                _results.Enqueue((result ?? "", method));
+            });
+            _listener.Start();
+        }
+
+        public IReadOnlyList<(string Result, string? Method)> Results => [.. _results];
+
+        public void Dispose() => _listener.Dispose();
     }
 
     private void ServeDeezer(string path, string fixture) =>

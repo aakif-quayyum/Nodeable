@@ -269,6 +269,13 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                         .HasColumnName("fetched_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<string>("MatchedBy")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("matched_by")
+                        .HasDefaultValueSql("'isrc'");
+
                     b.Property<string>("ProviderTrackId")
                         .IsRequired()
                         .HasColumnType("text")
@@ -279,6 +286,8 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
 
                     b.ToTable("previews", null, t =>
                         {
+                            t.HasCheckConstraint("ck_previews_matched_by", "matched_by IN ('isrc', 'title_artist')");
+
                             t.HasCheckConstraint("ck_previews_provider", "provider IN ('deezer')");
                         });
                 });

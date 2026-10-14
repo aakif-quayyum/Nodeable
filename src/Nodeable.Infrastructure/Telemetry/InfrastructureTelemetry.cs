@@ -32,11 +32,14 @@ internal static class InfrastructureTelemetry
         unit: "{lookup}",
         description: "Lookups served from the cache or sent to an external API, by entity and result (hit, miss).");
 
-    /// <summary>Deezer lookups made by preview jobs, by result: found (a preview exists) or none (FR-PREVIEW-01).</summary>
+    /// <summary>
+    /// Preview jobs, by result: found (with method isrc or title_artist), rejected (Deezer had candidates and the guard refused
+    /// them all) or none (Deezer had nothing). Hit rate is found over the three (FR-PREVIEW-01).
+    /// </summary>
     public static readonly Counter<long> PreviewLookups = _meter.CreateCounter<long>(
         "preview.lookups",
         unit: "{lookup}",
-        description: "Preview jobs that looked a recording up at Deezer, by result (found, none).");
+        description: "Preview jobs that looked a recording up at Deezer, by result (found, rejected, none) and, for found, the method (isrc, title_artist).");
 
     /// <summary>Browsers connected to the graph hub right now: live users (spec section 11).</summary>
     public static readonly UpDownCounter<long> SignalRConnections = _meter.CreateUpDownCounter<long>(

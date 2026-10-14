@@ -283,7 +283,7 @@ public sealed class CreditIngestionTests(PostgresFixture postgres) : IDisposable
     }
 
     [Fact]
-    public async Task FR_PREVIEW_01_a_preview_job_is_queued_for_a_recording_with_an_isrc_only_when_enabled()
+    public async Task FR_PREVIEW_01_a_preview_job_is_queued_for_a_recording_only_when_enabled()
     {
         Serve($"/ws/2/recording/{_recordingMbid:D}", "recording-lookup.json");
 

@@ -18,6 +18,15 @@ internal sealed class PreviewConfiguration : IEntityTypeConfiguration<Preview>
 
         builder.HasOne<Recording>().WithMany().HasForeignKey(p => p.RecordingMbid).OnDelete(DeleteBehavior.Cascade);
 
-        builder.ToTable(t => t.HasCheckConstraint("ck_previews_provider", EnumColumn.CheckSql<PreviewProvider>("provider")));
+        // Rows from before the fallback existed were all found by ISRC, which is what the default says.
+        builder.Property(p => p.MatchedBy)
+            .HasConversion<SnakeCaseEnumConverter<PreviewMatch>>()
+            .HasDefaultValueSql("'isrc'");
+
+        builder.ToTable(t =>
+        {
+            t.HasCheckConstraint("ck_previews_provider", EnumColumn.CheckSql<PreviewProvider>("provider"));
+            t.HasCheckConstraint("ck_previews_matched_by", EnumColumn.CheckSql<PreviewMatch>("matched_by", snakeCase: true));
+        });
     }
 }

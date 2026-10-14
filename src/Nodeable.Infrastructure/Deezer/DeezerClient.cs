@@ -20,23 +20,37 @@ public sealed class DeezerClient(HttpClient http) : IDeezerClient
     private const int ServiceBusy = 700;
     private const int DataNotFound = 800;
 
+    /// <summary>One page of search results. Versions, live takes and covers crowd the top, so the match reads the whole page.</summary>
+    private const int SearchLimit = 25;
+
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
 
-    public Task<DeezerTrack?> GetTrackByIsrcAsync(string isrc, CancellationToken cancellationToken = default)
+    public async Task<DeezerTrack?> GetTrackByIsrcAsync(string isrc, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(isrc);
 
         // "isrc:" is part of Deezer's path, so it is not escaped; the code itself is.
-        return FetchAsync($"track/isrc:{Uri.EscapeDataString(isrc)}", "isrc", cancellationToken);
+        var body = await FetchAsync($"track/isrc:{Uri.EscapeDataString(isrc)}", "isrc", cancellationToken);
+        return body is null ? null : ToTrack(body);
     }
 
-    public Task<DeezerTrack?> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
+    public async Task<DeezerTrack?> GetTrackAsync(string trackId, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(trackId);
-        return FetchAsync($"track/{Uri.EscapeDataString(trackId)}", "id", cancellationToken);
+
+        var body = await FetchAsync($"track/{Uri.EscapeDataString(trackId)}", "id", cancellationToken);
+        return body is null ? null : ToTrack(body);
     }
 
-    private async Task<DeezerTrack?> FetchAsync(string uri, string lookup, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<DeezerTrack>> SearchTracksAsync(string query, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(query);
+
+        var body = await FetchAsync($"search?q={Uri.EscapeDataString(query)}&limit={SearchLimit}", "search", cancellationToken);
+        return body?.Data?.Select(ToTrack).OfType<DeezerTrack>().ToList() ?? [];
+    }
+
+    private async Task<TrackResponse?> FetchAsync(string uri, string lookup, CancellationToken cancellationToken)
     {
         using var activity = InfrastructureTelemetry.ActivitySource.StartActivity("deezer.lookup", ActivityKind.Client);
         activity?.SetTag("deezer.lookup", lookup);
@@ -80,18 +94,26 @@ public sealed class DeezerClient(HttpClient http) : IDeezerClient
             throw new DeezerException(message, transient);
         }
 
-        if (body?.Id is not { } id)
+        if (body is null || (body.Id is null && body.Data is null))
         {
-            throw new DeezerException("Deezer's answer had no track ID.", isTransient: false);
+            throw new DeezerException("Deezer's answer was neither a track nor a list of tracks.", isTransient: false);
         }
 
-        activity?.SetTag("deezer.found", true);
-        return new DeezerTrack(
-            id.ToString(CultureInfo.InvariantCulture),
-            body.Title ?? string.Empty,
-            NullIfEmpty(body.Preview),
-            NullIfEmpty(body.Album?.Md5Image));
+        activity?.SetTag("deezer.found", body.Id is not null || body.Data is { Count: > 0 });
+        return body;
     }
+
+    // A search answers { "data": [track, ...] } and a lookup answers the track itself; both use the same track shape.
+    private static DeezerTrack? ToTrack(TrackResponse track) =>
+        track.Id is { } id
+            ? new DeezerTrack(
+                id.ToString(CultureInfo.InvariantCulture),
+                track.Title ?? string.Empty,
+                NullIfEmpty(track.Preview),
+                NullIfEmpty(track.Album?.Md5Image ?? track.Md5Image),
+                NullIfEmpty(track.Artist?.Name),
+                track.Duration is > 0 ? track.Duration : null)
+            : null;
 
     // Deezer sends "" for a missing preview or cover, which would otherwise read as a URL that is present.
     private static string? NullIfEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
@@ -100,8 +122,14 @@ public sealed class DeezerClient(HttpClient http) : IDeezerClient
         long? Id,
         string? Title,
         string? Preview,
+        [property: JsonPropertyName("md5_image")] string? Md5Image,
+        int? Duration,
+        ArtistResponse? Artist,
         AlbumResponse? Album,
+        List<TrackResponse>? Data,
         ErrorResponse? Error);
+
+    private sealed record ArtistResponse(string? Name);
 
     private sealed record AlbumResponse([property: JsonPropertyName("md5_image")] string? Md5Image);
 

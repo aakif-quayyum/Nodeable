@@ -20,5 +20,8 @@ public class Preview
     /// </summary>
     public string? CoverMd5 { get; set; }
 
+    /// <summary>How the track was found: by the recording's ISRC, or by a guarded title and artist match (FR-PREVIEW-01).</summary>
+    public PreviewMatch MatchedBy { get; set; } = PreviewMatch.Isrc;
+
     public DateTimeOffset FetchedAt { get; set; }
 }
