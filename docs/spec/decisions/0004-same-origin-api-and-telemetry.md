@@ -28,3 +28,7 @@ The browser calls the Api and, for tracing, sends spans to an OpenTelemetry endp
 - The browser never learns where telemetry is collected, so production can change the backend without a frontend release.
 - A client created before tracing starts must not capture `globalThis.fetch` early. `openapi-fetch` does by default, so the wrapper in `web/src/api/client.ts` is load-bearing and is covered by a test.
 - Vite's proxy only exists in development; the production proxy rules must be added to the Caddyfile in M4.
+
+## Update (2026-10-14)
+
+The production target of `/otlp` is no longer an OpenTelemetry Collector: decision [0023](0023-monitoring-is-built-in-rollup-and-echarts.md) drops the Collector, and Caddy proxies `/otlp` to the OTLP/HTTP port of the standalone Aspire Dashboard container, as Vite does to the AppHost's dashboard in development. The rule of this decision (the browser talks to its own origin) is unchanged.
