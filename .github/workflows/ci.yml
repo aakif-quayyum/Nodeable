@@ -173,6 +173,31 @@ jobs:
       - name: Check anchors
         run: node tools/learning/collect-anchors.mjs --check
 
+  # NFR-SEC-01: a secret is caught before it is merged, and the repository is public (decision log, D6). The scan reads
+  # the whole history, not only the pull request's commits, so a secret already in a branch's history is found too.
+  # gitleaks runs from its official image at a fixed version instead of a third-party action: there is no licence key and
+  # no action to trust. git is told the mounted checkout is safe (the image runs as root over a runner-owned directory), and the report redacts matches.
+  secret-scan:
+    name: Secrets (gitleaks over the whole history)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # gitleaks exits 0 and says "0 commits scanned" when git itself fails (for example on an ownership check), which would
+      # be a green build that scanned nothing. So the step also fails on any error line and on an empty scan.
+      - name: Scan the history
+        run: |
+          set +e
+          docker run --rm -e GIT_CONFIG_COUNT=1 -e GIT_CONFIG_KEY_0=safe.directory -e GIT_CONFIG_VALUE_0=/repo -v "$GITHUB_WORKSPACE:/repo:ro" zricethezav/gitleaks:v8.30.1 git /repo --log-opts="--all" --redact --no-color --verbose > scan.log 2>&1
+          status=$?
+          cat scan.log
+          if [ "$status" -ne 0 ]; then exit "$status"; fi
+          if grep -q " ERR " scan.log; then echo "::error::gitleaks reported an error"; exit 1; fi
+          if ! grep -qE "INF [1-9][0-9]* commits scanned" scan.log; then echo "::error::gitleaks scanned no commits"; exit 1; fi
+
   api-contract:
     name: API contract (generated types are current)
     runs-on: ubuntu-24.04
