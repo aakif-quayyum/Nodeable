@@ -190,7 +190,7 @@ The hardest non-functional constraint is the MusicBrainz limit of about one requ
 | NFR-REL-03 | Reliability | Cached credits are refreshed when older than 30 days, in the background |
 | NFR-CACHE-01 | Caching | Every recording added to a graph is persisted with its releases, works, people and credits and is reused, never fetched twice (until NFR-REL-03's refresh): search reads the stored recordings first, and adding a stored recording with credits makes no MusicBrainz request. This states what M2 and M3 already do (section 10, "Persist, then reuse"); it adds no behaviour |
 | NFR-SEC-01 | Security | Secrets are never committed; local development uses user secrets, production uses the host's secret store |
-| NFR-SEC-02 | Security | Public endpoints are rate limited per IP: 60 searches per minute, 20 song additions per minute |
+| NFR-SEC-02 | Security | Public endpoints are rate limited per IP: 60 searches per minute, 20 song additions per minute, 60 preview lookups per minute |
 | NFR-SEC-03 | Security | OAuth tokens for Spotify are encrypted at rest and never sent to the browser |
 | NFR-SEC-04 | Security | Dependencies are scanned on every pull request |
 | NFR-SEC-05 | Security | Community credits are written only by their signed-in author and moderated only by the `admin` role, both checked by the Api on every request, never by what the browser sends; there is a per-person daily submission limit (10 a day, a configuration value); `detail` is length-limited and rendered as text, never as markup; review decisions are kept in an append-only audit trail |
@@ -301,14 +301,14 @@ All music data is keyed by MusicBrainz IDs (MBIDs), and every credit is stored o
 
 | Table | Purpose | Key columns |
 | --- | --- | --- |
-| `recordings` | A specific performance of a song | `mbid` PK, `title`, `artist_credit`, `first_release_date`, `first_release_date_precision` (year, month, day), `length_ms`, `credits_status` (complete, partial, none), `fetched_at` |
+| `recordings` | A specific performance of a song | `mbid` PK, `title`, `artist_credit`, `first_release_date`, `first_release_date_precision` (year, month, day), `length_ms`, `isrcs` (text array, empty by default; M4, decision 0025), `credits_status` (complete, partial, none), `fetched_at` |
 | `works` | The underlying composition | `mbid` PK, `title`, `fetched_at` |
 | `releases` | Albums and singles | `mbid` PK, `title`, `date`, `date_precision` (year, month, day), `status` (nullable), `release_group_mbid` (nullable), `release_group_type` (nullable), `release_group_secondary_types` (text array, empty by default), `fetched_at` |
 | `recording_works` | Recording to work links | (`recording_mbid`, `work_mbid`) PK |
 | `recording_releases` | Recording to release links | (`recording_mbid`, `release_mbid`) PK |
 | `people` | Artists, producers, engineers, musicians | `mbid` PK, `name`, `sort_name`, `type`, `disambiguation`, `fetched_at` |
 | `credits` | One person, one role, on one subject | `id` PK, `person_mbid`, `subject_type` (recording, work, release), `subject_mbid`, `role`, `detail` (never null, empty string when there is none), `source` (musicbrainz, discogs) |
-| `previews` | A recording's track at a preview provider; only the track ID is stored | (`recording_mbid`, `provider`) PK, `provider_track_id`, `fetched_at` |
+| `previews` | A recording's track at a preview provider; only IDs are stored, never the expiring preview URL. A row exists only when the provider had a preview | (`recording_mbid`, `provider`) PK, `provider_track_id`, `cover_md5` (nullable; the provider's album image ID, M4), `fetched_at` |
 | `graphs` | A user's set of songs | `id` PK, `owner_id` (nullable), `anon_token_hash` (SHA-256 of the token, decision 0007), `name`, `is_public`, `share_slug` |
 | `graph_songs` | Songs in a graph | (`graph_id`, `recording_mbid`) PK, `added_at` |
 | `crawl_jobs` | Durable queue of external fetches | `id` PK, `kind` (recording, work, release, preview, artist), `target_mbid`, `priority`, `status` (pending, running, done, failed), `attempts`, `run_after`, `locked_by`, `locked_at`, `last_error`, `traceparent` |
@@ -415,7 +415,7 @@ The OpenAPI document is written on every build and the frontend's `web/src/api/s
 
 | Method | Path | Purpose | Requirement |
 | --- | --- | --- | --- |
-| GET | `/api/v1/recordings/{mbid}/preview` | Unchanged route; the answer gains `durationSeconds` and says the URL is short-lived: it is resolved from the stored track id at the time of the request and expires within about 15 minutes (decision 0022) | FR-PREVIEW-01, FR-WAVE-01 |
+| GET | `/api/v1/recordings/{mbid}/preview` | Unchanged route; the answer is `{ url, expiresAt }` and the URL is short-lived: it is resolved from the stored track id at the time of the request and expires within about 15 minutes (decisions 0022 and 0025). There is no `durationSeconds`: Deezer's `duration` is the whole song, so the player reads the preview's length from the audio. 404 means no preview, 503 with `Retry-After` means Deezer did not answer; `Cache-Control: no-store`; 60 a minute per address | FR-PREVIEW-01, FR-WAVE-01 |
 | GET | `/api/v1/me/credits?recording=` | The signed-in person's own community credits, with status and any rejection reason (v2) | FR-CREDIT-USER-01 |
 | POST | `/api/v1/me/credits` | Add a credit `{ recordingMbid, personMbid, role, detail }` to a song in one of the person's graphs; answers `201` with status `private` (v2) | FR-CREDIT-USER-01 |
 | DELETE | `/api/v1/me/credits/{id}` | Delete a `private` or `rejected` credit, or withdraw a `submitted` one (v2) | FR-CREDIT-USER-01 |
@@ -539,17 +539,19 @@ MusicBrainz is the primary source for all credit data; Discogs fills gaps, Deeze
 | --- | --- | --- | --- | --- |
 | MusicBrainz | Search, recordings, works, releases, people, credits | None; descriptive User-Agent required | About 1 request per second per IP; excess returns 503 | Primary source ([rate limiting](https://musicbrainz.org/doc/MusicBrainz_API/Rate_Limiting)) |
 | Discogs | Credit enrichment when MusicBrainz has none (v2) | Personal access token | 60 per minute authenticated, 25 unauthenticated | Release `extraartists` carries roles ([API docs](https://www.discogs.com/developers)) |
-| Deezer | 30-second previews | None | Public API; preview URLs expire | Match by ISRC first, then title and artist. Checked 2026-10-14: the preview URL is signed and expires 15 minutes after it is issued, so only the track id is stored; the audio host (`cdnt-preview.dzcdn.net`) sends `Access-Control-Allow-Origin: *`, the API host does not (decision 0022) |
+| Deezer | 30-second previews | None | Public API; preview URLs expire | Matched by ISRC (`GET /track/isrc:{isrc}`); the title-and-artist fallback is not built, because a wrong preview is worse than none (decision 0025). **A miss is HTTP 200 with `{"error":{"code":800}}`.** Own shared gate at 200 ms (Deezer documents 50 requests every 5 seconds; not re-verified). Checked 2026-10-14: the preview URL is signed and expires 15 minutes after it is issued, so only the track id is stored; the audio host (`cdnt-preview.dzcdn.net`) sends `Access-Control-Allow-Origin: *`, the API host does not (decision 0022) |
 | Cover Art Archive | Album art (FR-ART-01, M3R) | None | Public images; fair use | Loaded by the browser from `coverartarchive.org`, which redirects to `archive.org` and on to a data node; not an API call and never through the MusicBrainz gate |
 | Spotify | Optional playlist export (v2) | OAuth with PKCE | Development Mode only | See constraints below |
 
 ### MusicBrainz fetch plan per song
 
 1. `GET /ws/2/recording?query=+recording:"{title}" +artist:"{artist}" status:official^10` for search: title and artist are required, and a recording on an official release is boosted, so the original is in the first results of a song that has hundreds of bootleg recordings. The Api makes this call itself, because a search must answer in the same request (decision 0018).
-2. `GET /ws/2/recording/{mbid}?inc=artist-credits+artist-rels+work-rels+releases+isrcs` for recording-level credits, the linked work, releases and the ISRC used for preview matching.
+2. `GET /ws/2/recording/{mbid}?inc=artist-credits+artist-rels+work-rels+releases+isrcs` for recording-level credits, the linked work, releases and the ISRCs, which are stored on the recording (`recordings.isrcs`) for the preview job.
 3. `GET /ws/2/work/{workMbid}?inc=artist-rels` for composer, lyricist and writer credits.
 4. `GET /ws/2/release/{releaseMbid}?inc=artist-rels` only when steps 2 and 3 found no producer.
 5. `GET /ws/2/artist/{mbid}?inc=recording-rels+work-rels` when a user opens a person drawer.
+
+The preview job (kind `preview`) is not a MusicBrainz step: it reads the recording's stored ISRCs, asks Deezer (`GET /track/isrc:{isrc}`, at most three ISRCs), and stores the track ID and the album image ID when Deezer has a preview. A recording Deezer does not know, or knows without a preview, ends the job with no row. A quota or busy answer leaves the job to retry.
 
 Each step is a separate `crawl_jobs` row, so a failure retries only that step. The Api queues only the recording job: the work and release IDs and the ISRC are only known from its response, and the release step is conditional, so the Worker queues steps 3 and 4 and the preview job itself (decision 0009). The User-Agent is `Nodeable/{version} ( {contact} )`, the format MusicBrainz asks for. The contact is a URL or an email address and comes from configuration (`MusicBrainz:ContactUrl`); it is the repository URL, so no personal address is published, and the app refuses to start without one.
 
@@ -1000,7 +1002,7 @@ Reordered after the first screens were reviewed (2026-10-13): the `/graph` page 
 
 - [ ] Person drawer with credited recordings (FR-PERSON-01)
 - [ ] Recommendation scoring with reasons (FR-REC-01, FR-REC-02)
-- [ ] Deezer previews by ISRC (FR-PREVIEW-01), including turning on `Ingestion:QueuePreviewJobs` with the handler
+- [x] Deezer previews by ISRC (FR-PREVIEW-01), including turning on `Ingestion:QueuePreviewJobs` with the handler (M4 pull request 1, decision 0025). The preview is looked up and stored and `GET /recordings/{mbid}/preview` answers; playing it in the app is the next task
 - [ ] Before the preview work starts, re-check that the preview audio host still sends `Access-Control-Allow-Origin` (decision 0022); then the waveform player: fetch and decode in the browser, peaks drawn with D3 with a playhead, seeking, the spinning record, reduced motion, and the player working without a waveform (FR-WAVE-01, FR-PREVIEW-01, NFR-MOTION-01, NFR-A11Y-01)
 - [ ] The 30-day refresh (NFR-REL-03), which is specified but not built: a scheduled job (Hangfire, section 7) at the scheduled priority that refetches stored recordings, works, releases and people whose `fetched_at` is over 30 days old through the same crawl queue and rate gate, at random times across the day (section 10, constraints), and so also fills what rows fetched earlier lack (the `releases` release-group columns of M3R); `cache.lookups` counts `stale`, and a test shows a refresh changes nothing when MusicBrainz has not
 - [ ] About page with architecture and live crawl status (FR-ABOUT-01)
@@ -1104,6 +1106,7 @@ Raised on 2026-10-14 with the community-credit and waveform proposals (decisions
 | 2026-10-14 | Community credits are stored apart from MusicBrainz's, reviewed by an admin before anyone else sees them, and released as CC0 (FR-CREDIT-USER-01, FR-CREDIT-REVIEW-01 in v2; FR-CREDIT-VOTE-01 in v3) ([0021](decisions/0021-community-credits-data-model-and-licensing.md)) | Sparse credits are the spec's biggest data risk; MusicBrainz's core data is CC0, so a CC0 contribution has the same terms; mixing the tables would lose the licence boundary and expose MusicBrainz's idempotent upserts to user data |
 | 2026-10-14 | The preview waveform is decoded in the browser because Deezer's preview audio sends `Access-Control-Allow-Origin: *`; nothing is stored for FR-WAVE-01, and FR-WAVE-02's analysis is the Worker's (v3) ([0022](decisions/0022-preview-waveform-is-decoded-in-the-browser.md)) | Checked on 2026-10-14; no new table or job in M4; the preview URL expires after about 15 minutes, so only the track id is stored |
 | 2026-10-14 | **Stated, not changed:** every added recording and what it leads to is persisted and read before MusicBrainz is asked; search results nobody added are not stored (NFR-CACHE-01, section 10 "Persist, then reuse") | The developer asked for the rule to be explicit; it describes M2 and M3 as built, and notes that the 30-day refresh (NFR-REL-03) is not built yet |
+| 2026-10-14 | Previews are matched by ISRC only; the recording stores its ISRCs and the preview its album image ID; the preview answer is `{ url, expiresAt }` with no duration, and Deezer's miss is an HTTP 200 the client reads from the body ([0025](decisions/0025-deezer-lookup-by-isrc.md)) | Checked against real responses on 2026-10-14; no second MusicBrainz request; a wrong-song preview is worse than none; a false `durationSeconds` would be the song's length, not the preview's |
 | 2026-10-14 | The 30-day refresh (NFR-REL-03) is a task in M4; people need an MBID to be credited; search results stay unpersisted; the proposed numbers (10 submissions a day, 160 peaks, trust at 5 approved credits with none rejected in 90 days, a vote gate of 100 active users in 30 days) and the reduced-motion rule for FR-WAVE-01 are approved ([0021](decisions/0021-community-credits-data-model-and-licensing.md), [0022](decisions/0022-preview-waveform-is-decoded-in-the-browser.md)) | The developer reviewed the proposals; the spec must not promise a refresh that does not exist |
 
 ## 16. Learning guides

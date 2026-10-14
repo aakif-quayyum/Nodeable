@@ -394,6 +394,10 @@ public sealed class CreditIngestionTests(PostgresFixture postgres) : IDisposable
     {
         connectionString ??= await NewDatabaseAsync(postgres);
 
+        // The tests here are about credits; previews have their own (PreviewIngestionTests).
+        settings = new Dictionary<string, string?>(settings ?? []);
+        settings.TryAdd("Ingestion:QueuePreviewJobs", "false");
+
         var services = new ServiceCollection();
         services.AddLogging();
         MusicBrainzTestHost.AddTo(services, _server, settings: settings);
@@ -446,45 +450,4 @@ public sealed class CreditIngestionTests(PostgresFixture postgres) : IDisposable
     }
 
     public sealed record CreditRow(string Level, string Person, string Role, string Detail);
-
-    /// <summary>One Worker process's worth of services over one database.</summary>
-    private sealed class World(ServiceProvider provider, string connectionString) : IAsyncDisposable
-    {
-        public ServiceProvider Provider { get; } = provider;
-
-        public string ConnectionString { get; } = connectionString;
-
-        public async Task<IngestionRequestResult> RequestSongAsync(Guid mbid, string title, string artist)
-        {
-            await using var scope = Provider.CreateAsyncScope();
-            return await scope.ServiceProvider.GetRequiredService<SongIngestionService>()
-                .RequestAsync(mbid, title, artist, TestContext.Current.CancellationToken);
-        }
-
-        public async Task Queue(CrawlJobKind kind, Guid mbid, int priority)
-        {
-            await using var scope = Provider.CreateAsyncScope();
-            await scope.ServiceProvider.GetRequiredService<ICrawlQueue>()
-                .EnqueueAsync(kind, mbid, priority, TestContext.Current.CancellationToken);
-        }
-
-        public Task<bool> RunOnceAsync() =>
-            Provider.GetRequiredService<ICrawlJobRunner>().RunOnceAsync(TestContext.Current.CancellationToken);
-
-        /// <summary>Runs jobs until nothing is ready, as the Worker loop would.</summary>
-        public async Task DrainAsync()
-        {
-            for (var i = 0; i < 20; i++)
-            {
-                if (!await RunOnceAsync())
-                {
-                    return;
-                }
-            }
-
-            throw new InvalidOperationException("The queue did not drain in 20 jobs; a job is queuing itself.");
-        }
-
-        public ValueTask DisposeAsync() => Provider.DisposeAsync();
-    }
 }

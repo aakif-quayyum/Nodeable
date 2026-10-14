@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Nodeable.Infrastructure.Crawling;
+using Nodeable.Infrastructure.Deezer;
 using Nodeable.Infrastructure.Graphs;
 using Nodeable.Infrastructure.Ingestion;
 using Nodeable.Infrastructure.MusicBrainz;
@@ -23,6 +24,9 @@ builder.AddRedisClient("redis");
 
 // Only the Worker talks to MusicBrainz (spec section 7), so the client and its shared rate gate are registered here.
 builder.Services.AddMusicBrainz();
+
+// Deezer previews (FR-PREVIEW-01): the preview job looks a recording up by ISRC through Deezer's own shared gate.
+builder.Services.AddDeezer();
 
 // The queue, its runner and its settings, and the handlers that turn recording, work and release jobs into credits.
 builder.Services.AddCrawling();

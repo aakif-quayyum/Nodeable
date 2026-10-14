@@ -20,6 +20,7 @@ internal sealed class RecordingConfiguration : IEntityTypeConfiguration<Recordin
 
         builder.Property(r => r.CreditsStatus).HasConversion<LowerCaseEnumConverter<CreditsStatus>>();
         builder.Property(r => r.FirstReleaseDatePrecision).HasConversion<LowerCaseEnumConverter<DatePrecision>>();
+        builder.Property(r => r.Isrcs).HasDefaultValueSql("'{}'");
         builder.Property(r => r.FetchedAt).HasDefaultValueSql("now()");
 
         builder.HasIndex(r => r.Title).HasMethod("gin").HasOperators("gin_trgm_ops");

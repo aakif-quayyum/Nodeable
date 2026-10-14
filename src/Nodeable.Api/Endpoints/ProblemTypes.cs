@@ -28,4 +28,7 @@ public static class ProblemTypes
     public const string RecordingNotFound = "/errors/recording-not-found";
 
     public const string InvalidRequest = "/errors/invalid-request";
+
+    /// <summary>The recording has no Deezer preview (404, FR-PREVIEW-01).</summary>
+    public const string PreviewNotFound = "/errors/preview-not-found";
 }

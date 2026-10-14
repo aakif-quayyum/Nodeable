@@ -259,6 +259,10 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("provider");
 
+                    b.Property<string>("CoverMd5")
+                        .HasColumnType("text")
+                        .HasColumnName("cover_md5");
+
                     b.Property<DateTimeOffset>("FetchedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -308,6 +312,13 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                     b.Property<string>("FirstReleaseDatePrecision")
                         .HasColumnType("text")
                         .HasColumnName("first_release_date_precision");
+
+                    b.PrimitiveCollection<string[]>("Isrcs")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("isrcs")
+                        .HasDefaultValueSql("'{}'");
 
                     b.Property<int?>("LengthMs")
                         .HasColumnType("integer")
