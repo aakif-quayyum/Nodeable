@@ -198,14 +198,17 @@ The hardest non-functional constraint is the MusicBrainz limit of about one requ
 | NFR-A11Y-02 | Accessibility | Colour is never the only carrier of meaning; role colours also use icons or patterns (the legend and filter chips carry an icon and the name; arcs and notes carry the role's name) |
 | NFR-MOTION-01 | Accessibility | List and graph animations (staggered rise, match bars, add pop, version expand, FLIP reorder, count-up, new-credit highlight, streaming bloom, polar transitions and, from M4, the record's spin while a preview plays and the waveform's draw-in) respect `prefers-reduced-motion`, including a change made while the page is open; CSS animations change only `transform` and `opacity` |
 | NFR-OBS-01 | Observability | Every request and job is traced end to end, from browser click to external API call |
+| NFR-OBS-02 | Observability | A metrics rollup in PostgreSQL, updated every minute, records jobs done and failed, MusicBrainz requests, 503s and latency buckets, cache hits, misses and stale reads, queue depth and the Api's requests and latency; 1-minute rows are kept for 7 days and 5-minute rows for 90 days (section 11, decision 0023) |
+| NFR-OBS-03 | Observability | A password-protected `/status` page draws the rollup as time-range, auto-refreshing charts with the SLO thresholds; the About page shows a read-only slice of the same charts, without a password (section 11) |
+| NFR-OBS-04 | Observability | Availability is watched from outside the host by a free uptime monitor on a health endpoint, and a daily job checks every SLO of section 11, logs each breach and shows it on `/status` (there are no alert rules to run) |
 | NFR-PRIV-01 | Privacy | No tracking cookies; analytics are first-party and anonymous |
 | NFR-PRIV-02 | Privacy | A privacy notice is published before accounts exist (FR-AUTH-01) and is updated by FR-CREDIT-USER-01. It says what is stored about a person (an email address and account id; for a community credit the account id, the credit and timestamps, and the accepted CC0 terms' version and time), that a credit's author is never shown, that a CC0 submission is public and cannot be withdrawn once approved, how long data is kept, and what deleting the account does (private and rejected credits are deleted, submitted ones withdrawn, approved ones kept without the author id). Legal review of the text is the developer's to arrange |
-| NFR-COST-01 | Cost | The production stack runs for under USD 25 per month at portfolio traffic |
+| NFR-COST-01 | Cost | Hosting costs USD 0 per month at portfolio traffic: the production stack runs inside free tiers (Oracle Cloud Always Free for compute and storage, a free subdomain, Let's Encrypt certificates and a free uptime monitor). A registered domain name is the only optional cost (decision 0024) |
 | NFR-LIC-01 | Licensing | Nodeable uses only MusicBrainz's core data (CC0, section 10) and community credits submitted under CC0; no supplementary (CC BY-NC-SA) data is stored; every credit shown carries its origin, so MusicBrainz's data and the community's are never presented as one thing |
 
 ## 6. Tech stack and learning goals
 
-The stack keeps React, MUI and D3 at the centre and deliberately adds tools outside a JavaScript and Node.js comfort zone: C# and .NET 10, TypeScript, Aspire, the Grafana observability stack, Terraform and k6. Items marked **New** are the main learning targets.
+The stack keeps React, MUI and D3 at the centre and deliberately adds tools outside a JavaScript and Node.js comfort zone: C# and .NET 10, TypeScript, Aspire, a self-built metrics rollup and status page, Terraform and k6. Items marked **New** are the main learning targets.
 
 ### Frontend
 
@@ -215,6 +218,7 @@ The stack keeps React, MUI and D3 at the centre and deliberately adds tools outs
 | TypeScript (**New**) | Typed components and API client | Static typing, generics, discriminated unions |
 | Material UI v9 | Inputs, buttons, dialogs and sheets, restyled through the theme | Design tokens, dark theme, accessible components |
 | D3 v7 (modules) | Radial tree, force graph, zoom, drag, timelines, maps | Hierarchy and radial layout, polar transitions, force simulation, scales, canvas rendering |
+| Apache ECharts (**New**, M4) | The `/status` page and the About page's crawl panel: time series, stat sparklines, a gauge and a heatmap, tree-shaken, in a lazy chunk (decision 0023) | Charts as option objects, tree-shaking, synced crosshairs and zoom, theming from tokens |
 | `@fontsource-variable` | Archivo (width axis) and JetBrains Mono, self-hosted | Variable fonts, `font-display`, preloading, font budgets |
 | TanStack Query (**New**) | Server state, caching, background refetch | Separating server state from UI state |
 | Zustand (**New**) | Graph UI state: selection, filters | Lightweight state as an alternative to Redux |
@@ -246,14 +250,16 @@ The stack keeps React, MUI and D3 at the centre and deliberately adds tools outs
 
 | Tool | Role in the app | What it teaches |
 | --- | --- | --- |
-| OpenTelemetry .NET | Traces, metrics, logs from every component | Custom spans, meters, semantic conventions |
+| OpenTelemetry .NET | Traces, metrics, logs from every component, over OTLP | Custom spans, meters, semantic conventions |
 | Aspire 13 (**New**) | One-command local stack and telemetry dashboard | Orchestration as code, service defaults |
-| OpenTelemetry Collector + Grafana Cloud (**New**) | Production traces (Tempo), metrics (Prometheus), logs (Loki) | TraceQL, PromQL, dashboards, alerts |
+| Aspire Dashboard, standalone (**New**) | Production traces, logs and metrics viewer on the host, behind basic authentication; receives OTLP itself, so there is no Collector (decision 0023) | OTLP receivers, in-memory telemetry and its limits |
+| Metrics rollup and status page (**New**) | Numbers that outlive a restart: `MeterListener`, a rollup table, `/status`, the daily SLO check (decision 0023) | Listening to meters in-process, SQL time bucketing with `date_bin`, retention, SLO arithmetic |
+| External uptime monitor (free plan) | Availability seen from outside the host, on a health endpoint | Health endpoints, what an outside check can and cannot see |
 | xUnit + Testcontainers + WireMock.Net (**New**) | Unit and integration tests with real Postgres and a fake MusicBrainz | Testing against real infrastructure |
 | Vitest + React Testing Library + Playwright | Frontend unit and end-to-end tests | Component and browser testing |
 | k6 (**New**) | Load tests for search and graph endpoints | Performance budgets in CI |
 | Docker + GitHub Actions | Build, test, publish images | CI pipelines, image scanning |
-| Terraform + a small VPS with Caddy (**New**) | Production infrastructure | Infrastructure as code, TLS, Linux ops |
+| Terraform + an Oracle Cloud Always Free VM with Caddy (**New**) | Production infrastructure at USD 0 (decision 0024) | Infrastructure as code, remote state, arm64 images, TLS, Linux ops |
 
 Version notes: [.NET 10 is the current LTS release, supported until November 14, 2028](https://dotnet.microsoft.com/en-US/platform/support/policy). [Material UI jumped from v7 straight to v9 in April 2026 to align with MUI X](https://mui.com/blog/introducing-mui-v9/). [The Aspire dashboard shows logs, traces and metrics from OpenTelemetry-instrumented apps](https://aspire.dev/hub/glossary/aspire-dashboard/).
 
@@ -265,7 +271,7 @@ The system is two .NET processes, an API and a Worker, sharing PostgreSQL and Re
 
 &#91;embedded content: system architecture · 8 components\]
 
-Solid arrows carry requests and data; dashed arrows carry telemetry to the Collector, which forwards it to Grafana Cloud in production and the Aspire dashboard locally.
+Solid arrows carry requests and data; dashed arrows carry telemetry to the Aspire Dashboard (the AppHost's locally, the standalone container in production). The diagram above still draws the Collector and Grafana Cloud of the first plan; neither exists any more (decision 0023), and the diagram is redrawn for the About page in M4.
 
 ### Flow: adding a song
 
@@ -292,6 +298,7 @@ Solid arrows carry requests and data; dashed arrows carry telemetry to the Colle
 
 - Hangfire runs producer radar checks and stale-cache refreshes, spreading individual checks at random times across the day as MusicBrainz asks.
 - Scheduled jobs use the same `crawl_jobs` queue at a lower priority, so interactive users always go first.
+- The Worker also runs the housekeeping of the metrics rollup every minute (queue depth sampled, 1-minute rows folded into 5-minute rows, expired rows deleted) and the daily SLO check (section 11, decision 0023). They write to PostgreSQL only and make no external request.
 
 ## 8. Data model
 
@@ -315,8 +322,12 @@ All music data is keyed by MusicBrainz IDs (MBIDs), and every credit is stored o
 | `saved_recordings` | Discovery list (v2) | (`user_id`, `recording_mbid`) PK, `saved_at`, `reason` |
 | `follows` | Producer radar (v2) | (`user_id`, `person_mbid`) PK, `last_checked_at` |
 | `notifications` | In-app alerts (v2) | `id` PK, `user_id`, `kind`, `payload` jsonb, `read_at` |
+| `metric_rollups` | One number per metric, dimension and time bucket, for `/status` and the About page (M4, decision 0023) | (`resolution` (`1m` or `5m`), `bucket_start`, `metric`, `dimension`) PK, `count` (bigint), `sum`, `min`, `max`, `last` (double precision, nullable) |
+| `slo_checks` | One row per SLO per daily check (M4, decision 0023) | (`checked_at`, `slo`) PK, `window_days`, `observed`, `target`, `breached` |
 
 User accounts use the standard ASP.NET Core Identity tables. The `traceparent` column on `crawl_jobs` stores the W3C trace context of the request that queued the job, so a background fetch appears in the same trace as the click that caused it.
+
+`metric_rollups` is a long, narrow table: a counter is a `count` in a bucket, a histogram is one row for each upper bound (`dimension` holds the bound in milliseconds, or seconds for the queue, and `count` the observations in it), and a gauge keeps its sample in `last`. A row is added to by every writer (`count = count + excluded.count`), so any number of instances can flush into it. A missing row means unmeasured, never zero. Rows of resolution `1m` are deleted after 7 days and rows of `5m` after 90 days. It holds aggregates of the app's own work only: no graph, token, address or person.
 
 ### Tables for community credits and previews (v2 and v3; approved 2026-10-14)
 
@@ -396,7 +407,10 @@ The API is REST over JSON under `/api/v1`, described by an OpenAPI document gene
 | GET | `/api/v1/people/{mbid}/recordings?page=` | Paged credited recordings | FR-PERSON-01 |
 | GET | `/api/v1/graphs/{id}/recommendations?limit=20` | Ranked recommendations with reasons | FR-REC-01, 02 |
 | GET | `/api/v1/recordings/{mbid}/preview` | Preview URL or 404 | FR-PREVIEW-01 |
-| GET | `/api/v1/status/crawl` | Queue depth, fetch rate, cache hit ratio for the About page | FR-ABOUT-01 |
+| GET | `/api/v1/status/crawl` | Queue depth, fetch rate, cache hit ratio (from the rollup from M4; `null` while a figure is unmeasured) | FR-ABOUT-01 |
+| GET | `/api/v1/status/health` | For the uptime monitor: 200 when PostgreSQL and Redis answer, 503 when one does not, and nothing else in the body | NFR-OBS-04 |
+| GET | `/api/v1/status/public/metrics?range=&width=` | The crawler's series for the About page, no password (M4) | FR-ABOUT-01, NFR-OBS-03 |
+| GET | `/api/v1/status/private/metrics?range=&from=&to=&width=` | Every panel of `/status`, with the SLO thresholds and the breach annotations; HTTP Basic (M4; the mechanism is proposed in decision 0023) | NFR-OBS-03 |
 | GET | `/api/v1/paths?from=&to=` | Shortest collaborator path (v2) | FR-PATH-01 |
 | POST, DELETE | `/api/v1/me/saved/{mbid}` | Save or unsave a recording (v2) | FR-SAVE-01 |
 | POST | `/api/v1/me/exports/spotify` | Export the Discovery list (v2) | FR-EXPORT-01 |
@@ -408,6 +422,8 @@ Anonymous graphs are authorised by an `X-Graph-Token` header holding the `anonTo
 The OpenAPI document is written on every build and the frontend's `web/src/api/schema.d.ts` is generated from it, committed, and checked for drift in CI (decision 0005). JSON numbers are strict, so the contract says `integer` or `number`, and a value that is not measured yet is `null`, never `0`.
 
 `GET /api/v1/status/crawl` returns `{ queueDepth, fetchRatePerMinute, cacheHitRatio }`. `queueDepth` is the number of pending `crawl_jobs`; the other two are `null` until the Worker records the telemetry behind them (M2).
+
+The two metrics endpoints answer with series **already bucketed to the chart**: `range` is `1h`, `6h`, `24h` or `7d` (or `from` and `to` for a zoomed window), `width` is the chart's width in CSS pixels, and the Api returns at most one point for every 4 px, from the 1-minute rows (or the 5-minute rows when the window is longer than they are kept), re-bucketed in SQL with `date_bin`. Each series is `[{ t, v }]` with `v: null` for a bucket nobody measured; a histogram is a matrix of time buckets by latency bound; the gauge and the tiles carry the latest value and a sparkline. The public endpoint serves only the crawler's aggregates (queue depth, jobs, MusicBrainz requests, cache results).
 
 `creditsStatus` in the API takes the stored values `complete`, `partial` and `none`, plus `loading`. `loading` is not stored: the Api reports it while crawl jobs for the song are still pending or running.
 
@@ -658,7 +674,7 @@ Unmapped relationship types are stored with role `Other` and their raw type in `
 
 ## 11. Observability
 
-One trace follows a user's click from the browser, through the API, into the queued background jobs and out to MusicBrainz, so any slow graph can be explained by opening a single trace. Locally everything flows to the Aspire dashboard; in production an OpenTelemetry Collector forwards to Grafana Cloud.
+One trace follows a user's click from the browser, through the API, into the queued background jobs and out to MusicBrainz, so any slow graph can be explained by opening a single trace. Locally everything flows to the Aspire dashboard; in production the same OTLP goes to the standalone Aspire Dashboard container on the host, behind basic authentication, with no Collector and no Grafana (decision 0023). Numbers that must outlive a restart are kept in a rollup table and drawn on a status page (below).
 
 ### Trace design
 
@@ -680,12 +696,13 @@ The browser SDK starts traces for searches and song additions and sends `tracepa
 
 | Metric | Type | Labels | Used for |
 | --- | --- | --- | --- |
-| `crawl.queue.depth` | Gauge | `kind`, `status` | Backlog alerting and the About page |
+| `crawl.queue.depth` | Gauge | `kind`, `status` | The backlog on `/status` and the About page |
 | `crawl.job.duration` | Histogram | `kind`, `outcome` | Job latency |
 | `crawl.queue.wait` | Histogram | `kind` | Time a job was ready to run before a worker claimed it |
 | `ratelimit.wait` | Histogram | `source` | Time a request waited for its slot in the shared rate gate |
 | `external.requests` | Counter | `source`, `status_code` | Rate limit and error tracking |
 | `cache.lookups` | Counter | `entity`, `result` (hit, miss, stale) | Cache hit ratio |
+| `external.request.duration` | Histogram | `source`, `status_code` | Latency of calls to MusicBrainz (and Deezer); the heatmap on `/status`. Added in M4 if the existing instruments do not already give it |
 | `graph.time_to_first_hub` | Histogram | `cached` (true, false) | The headline user-facing metric |
 | `signalr.connections` | UpDownCounter | none | Live users (implemented in M3) |
 | Standard ASP.NET Core, runtime and Npgsql metrics | Various | Automatic | Platform health |
@@ -696,21 +713,45 @@ Structured logs through `ILogger` with OpenTelemetry export, correlated to trace
 
 ### Service level objectives
 
-| SLO | Target | Alert |
+| SLO | Target | Checked by |
 | --- | --- | --- |
-| API availability (non-5xx responses) | 99.5% over 30 days | Burn rate above 14x for 1 hour |
-| Search latency | 95% under 1 s | p95 above 1 s for 15 minutes |
-| Cached graph load | 95% under 300 ms | p95 above 300 ms for 15 minutes |
-| Crawl freshness | 99% of jobs done within 10 minutes of enqueue | Oldest pending job older than 10 minutes |
-| MusicBrainz 503 rate | Under 1% of requests | Above 1% for 10 minutes |
+| API availability (non-5xx responses) | 99.5% over 30 days | The daily check, from the Api's request counts; the uptime monitor sees the whole host being down, which the check cannot |
+| Search latency | 95% under 1 s | The daily check, from a latency histogram with a bound at 1 s |
+| Cached graph load | 95% under 300 ms | The daily check, from a histogram with a bound at 300 ms |
+| Crawl freshness | 99% of jobs done within 10 minutes of enqueue | The daily check, from a bound at 10 minutes; the age of the oldest pending job is also a tile on `/status` |
+| MusicBrainz 503 rate | Under 1% of requests | The daily check, from `external.requests` |
 
-### Dashboards
+### Metrics rollup (NFR-OBS-02; decision 0023)
 
-1. **Product health:** requests, errors, latency by endpoint, live connections, time to first hub.
-2. **Crawler:** queue depth by kind, rate gate wait, external status codes, cache hit ratio, retries.
-3. **SLO overview:** error budget remaining per SLO.
+- **What it is.** The table `metric_rollups` (section 8): the numbers of the table above, kept at 1-minute resolution for 7 days and folded into 5-minute rows kept for 90 days, so the 30-day SLO windows can be answered. Traces and logs are not rolled up; they stay in the Aspire Dashboard.
+- **Who writes it (proposed, to confirm in decision 0023).** Each of the Api and the Worker listens to its own meters with `MeterListener`, aggregates in memory and adds its deltas once a minute, so a crash loses at most the last minute of that process. The Worker, in a recurring Hangfire job, also samples the gauges (queue depth from `crawl_jobs`), folds minutes into 5-minute rows and deletes what has expired.
+- **Latency is histogram buckets with bounds chosen for the SLOs** (300 ms and 1 s for the Api, 10 minutes for the queue), so an SLO is a sum of buckets and not an estimate from a percentile.
+- **A gap is `null`.** A minute in which a process was not running has no row, and a chart draws a break (principle 5).
 
-A read-only slice of the crawler dashboard is exposed on the About page through `/api/v1/status/crawl`, so reviewers see real telemetry without a Grafana login.
+### The status page (NFR-OBS-03)
+
+`/status` is a lazy route that mimics a Grafana dashboard with Apache ECharts (section 12):
+
+- **Controls (MUI):** a time-range picker (1 h, 6 h, 24 h, 7 d) and an auto-refresh selector (off, 10 s, 30 s, 1 min; paused while a zoomed window is set).
+- **Stat tiles with sparklines:** queue depth, oldest pending job, jobs done per minute, jobs failed, MusicBrainz requests per minute, 503 rate, cache hit ratio, Api request rate, Api errors and the Api's p95 latency (the bound of the bucket that holds it).
+- **Time-series panels:** jobs done and failed; MusicBrainz requests by status class with the 1% line for 503s; cache hit, miss and stale; Api requests with the 300 ms and 1 s latency lines; queue depth. Every panel shares one crosshair, and dragging across any of them zooms all of them (the window becomes `from` and `to`, and the Api re-buckets for it); a button resets.
+- **Gauge:** the queue's depth now, with the freshness SLO's thresholds as its bands.
+- **Heatmap:** MusicBrainz request latency, time by latency bound, darker for more requests.
+- **Annotations:** each breach recorded by the daily check is a marker on the time axis with its text ("Search latency 93%, target 95%").
+- **Accessible:** each panel has a text summary and a "View as table" toggle with the same numbers; series differ by dash and marker as well as colour; with reduced motion the charts do not animate (NFR-A11Y-01, NFR-A11Y-02, NFR-MOTION-01).
+- **Protected.** The private endpoints answer `401` without the operator password (decision 0023 proposes HTTP Basic, enforced by the Api). The page holds no data of its own. No account system is involved.
+- **The About page** shows the crawler's tiles, queue depth, jobs and cache panels from `/api/v1/status/public/metrics`, with the same components and no controls beyond the range.
+
+### Uptime and SLO checks (NFR-OBS-04)
+
+- **Health endpoint.** `GET /api/v1/status/health` answers 200 only when PostgreSQL and Redis do. (ServiceDefaults' `/health` is mapped in Development only, and `/alive` says only that the process runs.)
+- **External monitor.** A free uptime monitor calls the health endpoint every few minutes from outside the host and emails the developer on failure. Better Stack's free plan is proposed (decision 0023); it is configured by hand and recorded in the runbook.
+- **Daily SLO check.** A Hangfire recurring job on the Worker computes each SLO of the table above from the rollup, writes a row to `slo_checks`, and logs each breach at Warning with the SLO, the observed figure and the target. It runs on the host it judges, so it cannot see the host being down; the external monitor covers that.
+- **There are no alert rules** and no pager. A breach is a log line, a marker on `/status` and, for the host being down, an email.
+
+### Traces in production
+
+The standalone Aspire Dashboard container receives the OTLP of every process and of the browser (Caddy proxies `/otlp`, decision 0004) and is read behind Caddy basic authentication on a hostname of its own. It keeps telemetry in memory: it is for looking at a trace, not for keeping one.
 
 ## 12. Frontend
 
@@ -736,7 +777,9 @@ web/
       art/          Sleeve (generated), AlbumArt (the fallback chain)
       person/       person drawer (M4)
       recs/         recommendations list, preview player (M4)
-      about/        architecture, live crawl status
+      about/        architecture, live crawl status (uses the shared charts)
+      status/       the password-protected `/status` page: panels, range and refresh controls (M4)
+      charts/       the ECharts wrapper, the theme from the tokens, tiles, sparkline, gauge, heatmap (M4, lazy)
     motion/         useReducedMotion, FLIP, count-up
     stores/         Zustand stores (view and trail, role filters)
     telemetry/      OpenTelemetry web setup
@@ -844,6 +887,10 @@ Only what is used is imported, in the lazy chunk of the workspace: `d3-hierarchy
 | `StudioMap` (v3) | `d3-geo` | Recording locations on a world map |
 | `FamilyTree` (v3) | `d3-hierarchy` | Covers, samples and remixes |
 
+### Status charts (M4; decision 0023)
+
+The `/status` page and the About page's crawl panel are drawn with **Apache ECharts**, not D3: they need a heatmap, a gauge, a synced crosshair and zoom across panels, and those are built into it. Only what is used is imported from `echarts/core` (the line, bar, heatmap and gauge series; the grid, tooltip, axis pointer, data zoom, visual map, mark line, mark area and aria components; the canvas renderer), so the chunk holds nothing else. A wrapper of our own (about forty lines: create on mount, `setOption` on data, resize with the container, dispose on unmount, `connect` to a group) is used instead of a package. The theme is registered from `theme.ts`'s tokens for each scheme and registered again when the scheme changes. The chunk is lazy and reached only from `/status` and `/about`, so first-load JavaScript does not change; its size is measured when it is built and is given a budget then.
+
 ### Performance budgets
 
 - JavaScript under 250 KB gzipped on first load; D3 visualisations load lazily. "First load" means the scripts `index.html` loads or preloads. Lazy route chunks and the OpenTelemetry web SDK, which loads after first paint, are reported separately and do not count (decision 0002). CI enforces the 250 KB limit on first-load scripts and prints the full table on each run.
@@ -906,7 +953,7 @@ nodeable/
     Shared/                        Source files compiled into several test projects (PostgreSQL fixture)
   e2e/                             Playwright tests
   load/                            k6 scripts
-  infra/                           Terraform, Docker Compose, Caddyfile, Collector config
+  infra/                           Terraform, Docker Compose, Caddyfile, runbook (no Collector)
   docs/
     spec/nodeable-spec.md          This specification (source of truth)
     spec/decisions/                Architecture decision records
@@ -920,7 +967,7 @@ nodeable/
 1. Restore, build and lint backend and frontend in parallel.
 2. Run unit and integration tests; publish coverage and fail under 80% on `Domain`.
 3. Generate the OpenAPI document and diff it against `main`.
-4. Build Docker images for Api, Worker and Web; scan them for vulnerabilities.
+4. Build Docker images for Api, Worker and Web for `linux/arm64` (the production host's architecture, decision 0024) and `linux/amd64`; scan them for vulnerabilities.
 5. Run Playwright end-to-end tests against the composed stack.
 6. On `main`, push images to GitHub Container Registry and deploy.
 
@@ -929,11 +976,13 @@ Implemented in M1 (`.github/workflows/ci.yml`, four parallel jobs): **backend** 
 ### Deployment
 
 - **Local:** `dotnet run --project src/Nodeable.AppHost` starts PostgreSQL, Redis, Api, Worker, the Vite dev server and the Aspire dashboard together. Docker must be running. The dashboard is at `http://localhost:15180` and the web app at `http://localhost:5173`: the AppHost fixes the proxy's port at 5173, so a bookmark keeps working (Vite itself is given another port by Aspire). Running `npm run dev` on its own serves the web app on port 5173 and proxies `/api` to the Api's launch-profile port 5029. PostgreSQL keeps its data in a named Docker volume (`nodeable-postgres-data`) with its generated password remembered in the AppHost's user secrets, so graphs and crawled data survive a restart; `node tools/dev/reset-local-db.mjs --yes` resets it (decision 0011).
-- **Production:** one small VPS provisioned by Terraform, running Docker Compose with Caddy for HTTPS, Api, Worker, Web (static files served by Caddy), PostgreSQL, Redis and the OpenTelemetry Collector.
+- **Production:** one **Oracle Cloud Always Free** Ampere A1 VM (2 OCPU, 12 GB, arm64) provisioned by Terraform (decision 0024), running Docker Compose with Caddy for HTTPS, Api, Worker, Web (static files served by Caddy), PostgreSQL, Redis and the standalone Aspire Dashboard (traces and logs, behind Caddy basic authentication on its own hostname; there is no Collector, decision 0023). The monthly cost is USD 0; a registered domain is the only optional cost (NFR-COST-01).
+- **Domain.** A free subdomain to begin with. The name is one variable (`NODEABLE_DOMAIN`) read by Terraform, the Caddyfile, the CSP and the links in the app, so buying a domain later is a change of value and of DNS.
+- **Limits read from Oracle on 2026-10-14 (and read again when the deployment pull request starts):** 2 OCPU and 12 GB of A1 memory, 200 GB of block storage for boot and data volumes together, 20 GB of Object Storage with 50,000 API requests a month, 10 TB of outbound data a month. **Idle reclamation:** an instance whose 95th-percentile CPU, network and (A1) memory are all below 20% for 7 days may be reclaimed. At portfolio traffic that is likely, so the plan is to upgrade the account to Pay As You Go while staying inside the free limits, with a USD 1 budget alert, and to rebuild from Terraform and a backup if an instance is lost (decision 0024).
 - **Releases:** images tagged by commit SHA; deploys pull new images and restart with health checks; EF Core migrations run as a separate one-off step before the Api starts.
 - **Content-Security-Policy:** the app sets none today (neither the Api, Vite nor any file in the repository). When Caddy is configured in M4, a policy is added and its `img-src` must allow the album art hosts: `'self' data: https://coverartarchive.org https://archive.org https://*.archive.org https://cdn-images.dzcdn.net` (the data nodes are `dn<digits>.<country>.archive.org`, so a wildcard is needed; each hop of a redirect is checked). `font-src 'self'` is enough because the fonts are self-hosted, and `connect-src` needs the same origin, including its `wss:` address for the hub.
-- **Backups:** nightly `pg_dump` to object storage, keeping 14 days; a restore drill runs monthly.
-- **Secrets:** GitHub Actions secrets for CI, an environment file with restricted permissions on the server.
+- **Terraform state and backups:** the state is in an Always Free Object Storage bucket through Terraform's native `oci` backend (with locking and bucket versioning); the nightly `pg_dump`, compressed, goes to another bucket and 14 days are kept, inside the shared 20 GB; a restore drill runs monthly.
+- **Secrets:** GitHub Actions secrets for CI, an environment file with restricted permissions on the server. The Oracle API signing key and the `/status` password never enter the repository (NFR-SEC-01).
 
 ## 14. Roadmap and tasks
 
@@ -1003,9 +1052,10 @@ Reordered after the first screens were reviewed (2026-10-13): the `/graph` page 
 - [ ] Deezer previews by ISRC (FR-PREVIEW-01), including turning on `Ingestion:QueuePreviewJobs` with the handler
 - [ ] Before the preview work starts, re-check that the preview audio host still sends `Access-Control-Allow-Origin` (decision 0022); then the waveform player: fetch and decode in the browser, peaks drawn with D3 with a playhead, seeking, the spinning record, reduced motion, and the player working without a waveform (FR-WAVE-01, FR-PREVIEW-01, NFR-MOTION-01, NFR-A11Y-01)
 - [ ] The 30-day refresh (NFR-REL-03), which is specified but not built: a scheduled job (Hangfire, section 7) at the scheduled priority that refetches stored recordings, works, releases and people whose `fetched_at` is over 30 days old through the same crawl queue and rate gate, at random times across the day (section 10, constraints), and so also fills what rows fetched earlier lack (the `releases` release-group columns of M3R); `cache.lookups` counts `stale`, and a test shows a refresh changes nothing when MusicBrainz has not
-- [ ] About page with architecture and live crawl status (FR-ABOUT-01)
-- [ ] Grafana dashboards and SLO alerts (section 11)
-- [ ] Terraform VPS, Caddy, Docker Compose deploy; seed the demo cache
+- [ ] **The metrics rollup and the status API (NFR-OBS-02, NFR-OBS-04, NFR-OBS-03):** `metric_rollups` and `slo_checks` with their migration; each process's `MeterListener` flush; the Worker's every-minute job (queue depth, 1-minute rows into 5-minute rows, retention); histogram bounds for the SLOs; the health endpoint; the public and private metrics endpoints bucketed to the chart width; the daily SLO check job; tests that a flush adds, a roll-up sums, retention deletes and a missing minute is `null` (decision 0023)
+- [ ] **The status page and the About page (NFR-OBS-03, FR-ABOUT-01, NFR-MOTION-01, NFR-A11Y-01):** the ECharts wrapper and its theme from the tokens, `/status` (range and refresh controls, tiles with sparklines, synced crosshair and drag-to-zoom, SLO threshold lines, queue gauge, latency heatmap, breach annotations, the table view), the About page with the same components, the architecture diagram redrawn without the Collector, the chunk's size measured and budgeted
+- [ ] **Uptime monitor (NFR-OBS-04):** the developer registers the free monitor on `/api/v1/status/health`; the runbook in `infra/` records it
+- [ ] **Terraform on Oracle Cloud Always Free (decision 0024):** the Ampere A1 VM, network and firewall, the two buckets, a budget alert, remote state in the `oci` backend; Docker Compose with Caddy, Api, Worker, PostgreSQL, Redis and the Aspire Dashboard; `linux/arm64` images; the domain as one variable; the nightly backup and a restore drill; seed the demo cache. Oracle's limits are read again before it starts
 - [ ] Playwright suite green (extending the one flow added in M3R); k6 confirms NFR-PERF-01 and 02
 
 ### v2 and v3
@@ -1030,16 +1080,21 @@ The biggest risk is data, not code: MusicBrainz credit coverage is uneven and it
 | --- | --- | --- |
 | Sparse credits for less mainstream songs | Graphs with few hubs feel empty | "Credits incomplete" badges, Discogs enrichment (v2), seed the cache with well-credited albums for the demo |
 | MusicBrainz rate limit slows first-time graphs | 15 uncached songs take about a minute | Streaming results, a warm cache, priority for the active user's jobs, self-hosted mirror later |
-| Being blocked by MusicBrainz | Ingestion stops entirely | Global rate gate across instances, descriptive User-Agent, randomised background schedules, alert on 503 rate |
+| Being blocked by MusicBrainz | Ingestion stops entirely | Global rate gate across instances, descriptive User-Agent, randomised background schedules, a daily check of the 503 rate (section 11) |
 | Spotify API restrictions tighten further | Export breaks | Export never depends on Spotify; M3U and CSV always work |
 | Deezer preview availability changes | No in-app audio | Previews are optional; fall back to open-in-service links |
 | Scope creep from v3 features | MVP never ships | Strict phase gates in section 14; v3 work starts only after MVP is public |
 | Learning curve of C#, .NET and Aspire alongside product work | Slower early milestones | Milestone 0 is a learning spike with a throwaway prototype |
+| Oracle reclaims an idle Always Free instance, or Ampere A1 capacity is not available when creating one | The site is down until restored, or cannot be created for days | Upgrade to Pay As You Go inside the free limits with a budget alert, backups with a monthly restore drill, Terraform to rebuild, an external uptime monitor so it is noticed (decision 0024) |
+| A free tier's limits or terms change | The USD 0 budget breaks | Limits are read again at the start of the deployment pull request; nothing depends on one provider beyond Terraform and Docker Compose |
+| The Aspire Dashboard holds telemetry in memory only | A restart loses traces | Numbers that matter are in the rollup; traces are for looking at, not keeping (decision 0023) |
 
 ### Open questions
 
-- [ ] Which domain name for Nodeable?
-- [ ] VPS or Azure Container Apps for production? A VPS meets the USD 25 budget; Azure looks stronger on a .NET-focused CV.
+- [x] **Which domain name for Nodeable?** Start with a free subdomain, configurable; buying a domain is optional and later (decision 0024, 2026-10-14).
+- [x] **VPS or Azure Container Apps for production?** An Oracle Cloud Always Free VM running Docker Compose, for USD 0 (decision 0024, 2026-10-14).
+- [ ] Which free subdomain service, and can it give the Aspire Dashboard a hostname of its own? Settled in the deployment pull request.
+- [ ] Proposed in decision 0023 and not yet confirmed: how `/status` is protected (HTTP Basic enforced by the Api), who writes the rollup (each process flushes its own deltas), and which uptime monitor (Better Stack's free plan).
 - [ ] Should anonymous graphs expire after 90 days of inactivity?
 - [ ] Is Google sign-in enough for v2, or add GitHub for the developer audience?
 - [ ] Which 5 to 10 albums should seed the demo cache?
@@ -1104,6 +1159,8 @@ Raised on 2026-10-14 with the community-credit and waveform proposals (decisions
 | 2026-10-14 | Community credits are stored apart from MusicBrainz's, reviewed by an admin before anyone else sees them, and released as CC0 (FR-CREDIT-USER-01, FR-CREDIT-REVIEW-01 in v2; FR-CREDIT-VOTE-01 in v3) ([0021](decisions/0021-community-credits-data-model-and-licensing.md)) | Sparse credits are the spec's biggest data risk; MusicBrainz's core data is CC0, so a CC0 contribution has the same terms; mixing the tables would lose the licence boundary and expose MusicBrainz's idempotent upserts to user data |
 | 2026-10-14 | The preview waveform is decoded in the browser because Deezer's preview audio sends `Access-Control-Allow-Origin: *`; nothing is stored for FR-WAVE-01, and FR-WAVE-02's analysis is the Worker's (v3) ([0022](decisions/0022-preview-waveform-is-decoded-in-the-browser.md)) | Checked on 2026-10-14; no new table or job in M4; the preview URL expires after about 15 minutes, so only the track id is stored |
 | 2026-10-14 | **Stated, not changed:** every added recording and what it leads to is persisted and read before MusicBrainz is asked; search results nobody added are not stored (NFR-CACHE-01, section 10 "Persist, then reuse") | The developer asked for the rule to be explicit; it describes M2 and M3 as built, and notes that the 30-day refresh (NFR-REL-03) is not built yet |
+| 2026-10-14 | Hosting costs USD 0 (NFR-COST-01 was under USD 25 a month); production is an Oracle Cloud Always Free Ampere A1 VM (2 OCPU, 12 GB, arm64) with the domain configurable, and Terraform state and backups are in Always Free Object Storage ([0024](decisions/0024-production-hosting-on-oracle-always-free.md)) | The developer set the budget to USD 0; Oracle's page was read on 2026-10-14; idle reclamation is likely at portfolio traffic and the fallback is Pay As You Go inside the free limits |
+| 2026-10-14 | No Grafana and no Grafana Cloud: OpenTelemetry stays; traces are read in the standalone Aspire Dashboard; a rollup table feeds a protected `/status` page and the About panel, drawn with Apache ECharts; availability is watched by a free external monitor and a daily SLO check (NFR-OBS-02 to 04) ([0023](decisions/0023-monitoring-is-built-in-rollup-and-echarts.md)) | Free forever, nothing to depend on; ECharts is the only candidate with a heatmap and a gauge built in under a free licence; three mechanisms are proposed and open |
 | 2026-10-14 | The 30-day refresh (NFR-REL-03) is a task in M4; people need an MBID to be credited; search results stay unpersisted; the proposed numbers (10 submissions a day, 160 peaks, trust at 5 approved credits with none rejected in 90 days, a vote gate of 100 active users in 30 days) and the reduced-motion rule for FR-WAVE-01 are approved ([0021](decisions/0021-community-credits-data-model-and-licensing.md), [0022](decisions/0022-preview-waveform-is-decoded-in-the-browser.md)) | The developer reviewed the proposals; the spec must not promise a refresh that does not exist |
 
 ## 16. Learning guides
@@ -1164,7 +1221,7 @@ A guide id is `LG-` and two digits, with an optional capital letter for a revisi
 | LG-02 Ingestion | M2 | Typed `HttpClient`, resilience pipelines, Redis token bucket with Lua, durable queue with `FOR UPDATE SKIP LOCKED`, trace context across background jobs, relationship-to-role mapping |
 | LG-03 Graph UI | M3 | SignalR hubs, groups and the Redis backplane, sequence-numbered events and join-then-load, TanStack Query cache updates, Zustand stores, D3 force simulation on a canvas and in a Web Worker, quadtree hit testing, pg_trgm search, accessible tables |
 | LG-03R UI refresh | M3R | Radial tree layout with `d3-hierarchy` and `linkRadial`, polar interpolation, FLIP reordering, reduced motion, an image fallback chain, SignalR events through the query cache into animation, SVG versus canvas above a threshold |
-| LG-04 Discovery and launch | M4 | Recommendation SQL and scoring, Deezer integration, Grafana dashboards and SLO alerts, Terraform and Caddy deployment, Playwright and k6 |
+| LG-04 Discovery and launch | M4 | Recommendation SQL and scoring, Deezer integration, `MeterListener` and a metrics rollup in SQL, an ECharts status page, SLO checks, Terraform on Oracle Cloud with Caddy, Playwright and k6 |
 | LG-05 Accounts and saves | v2 | ASP.NET Core Identity, Google sign-in, migrating anonymous data to accounts |
 | LG-06 Six degrees | v2 | Bidirectional breadth-first search in C#, adjacency lists, recursive CTEs |
 | LG-07 Producer radar | v2 | Hangfire recurring jobs, randomised scheduling, notifications |
