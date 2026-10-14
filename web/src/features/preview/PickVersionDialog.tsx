@@ -38,9 +38,11 @@ export function PickVersionDialog({ open, onClose, song }: PickVersionDialogProp
     queryKey: ['preview-candidates', song.mbid],
     queryFn: ({ signal }) => fetchPreviewCandidates(song.mbid, signal),
     enabled: open,
-    // A list is a moment's answer from Deezer: asked again each time the dialog opens, never reused.
+    // A list is a moment's answer from Deezer: asked again each time the dialog opens, never reused. (Not gcTime: 0: a query
+    // that is dropped the moment it has no observer is created again by the next render, which asked Deezer in a loop.)
     staleTime: 0,
-    gcTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: false,
     retry: false,
   })
 

@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
+import { StrictMode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from 'vitest'
 import { Providers } from '../../app/providers.tsx'
 import { server } from '../../test/server.ts'
@@ -193,6 +194,30 @@ describe('PreviewControl', () => {
     expect(link).toHaveAttribute('href', 'https://www.deezer.com/search/Childish%20Gambino%20Redbone')
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'))
     expect(link).toHaveAttribute('target', '_blank')
+  })
+
+  it('FR_PREVIEW_01 opening the dialog asks Deezer for the list once, not on every render', async () => {
+    let asked = 0
+    server.use(
+      http.get(`/api/v1/recordings/${redbone.mbid}/preview/candidates`, () => {
+        asked++
+        return HttpResponse.json({ candidates })
+      }),
+    )
+    // StrictMode mounts, unmounts and mounts again in development, which is where a list asked for in a loop showed up.
+    render(
+      <StrictMode>
+        <Providers>
+          <PreviewControl song={{ ...redbone, hasPreview: false }} />
+        </Providers>
+      </StrictMode>,
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pick the right version' }))
+    await screen.findByRole('list', { name: 'Deezer results' })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    expect(asked).toBe(1)
   })
 
   it('FR_PREVIEW_01 choosing a result sends only its track id, then closes the dialog', async () => {
