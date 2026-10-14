@@ -259,11 +259,22 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("provider");
 
+                    b.Property<string>("CoverMd5")
+                        .HasColumnType("text")
+                        .HasColumnName("cover_md5");
+
                     b.Property<DateTimeOffset>("FetchedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("fetched_at")
                         .HasDefaultValueSql("now()");
+
+                    b.Property<string>("MatchedBy")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasColumnName("matched_by")
+                        .HasDefaultValueSql("'isrc'");
 
                     b.Property<string>("ProviderTrackId")
                         .IsRequired()
@@ -275,6 +286,8 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
 
                     b.ToTable("previews", null, t =>
                         {
+                            t.HasCheckConstraint("ck_previews_matched_by", "matched_by IN ('isrc', 'title_artist')");
+
                             t.HasCheckConstraint("ck_previews_provider", "provider IN ('deezer')");
                         });
                 });
@@ -308,6 +321,13 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                     b.Property<string>("FirstReleaseDatePrecision")
                         .HasColumnType("text")
                         .HasColumnName("first_release_date_precision");
+
+                    b.PrimitiveCollection<string[]>("Isrcs")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text[]")
+                        .HasColumnName("isrcs")
+                        .HasDefaultValueSql("'{}'");
 
                     b.Property<int?>("LengthMs")
                         .HasColumnType("integer")

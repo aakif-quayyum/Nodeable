@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Nodeable.Api.Endpoints;
 using Nodeable.Api.RateLimiting;
 using Nodeable.Infrastructure.Crawling;
+using Nodeable.Infrastructure.Deezer;
 using Nodeable.Infrastructure.Graphs;
 using Nodeable.Infrastructure.MusicBrainz;
 using Nodeable.Infrastructure.Persistence;
@@ -25,6 +26,10 @@ builder.AddNpgsqlDbContext<NodeableDbContext>(
 builder.AddRedisClient("redis");
 builder.Services.AddMusicBrainz();
 builder.Services.AddRecordingSearch();
+
+// Previews: the track ID is stored, and each play asks Deezer for a fresh signed URL through its own shared gate
+// (FR-PREVIEW-01). The Worker registers the same client for the preview jobs.
+builder.Services.AddDeezer();
 
 // Graphs: the queue the add-song flow writes to (the Worker reads it), the graph operations, and the SignalR hub with
 // its Redis backplane. The Worker sends events through the same backplane (spec section 7, step 6).
@@ -67,6 +72,7 @@ app.MapOpenApi();
 app.MapStatusEndpoints();
 app.MapSearchEndpoints();
 app.MapGraphEndpoints();
+app.MapRecordingEndpoints();
 
 // The one SignalR hub (spec section 9). Browsers connect to the same origin; Vite and Caddy proxy /hubs (decision 0004).
 // The build-time OpenAPI generator runs this startup code with no configuration. The hub is not part of the document,

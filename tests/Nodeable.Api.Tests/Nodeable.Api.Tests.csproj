@@ -23,6 +23,7 @@
   <ItemGroup>
     <!-- The real MusicBrainz responses the Infrastructure tests use: one copy, linked, so the two cannot drift apart. -->
     <None Include="..\Nodeable.Infrastructure.Tests\Fixtures\musicbrainz\*.json" Link="Fixtures\musicbrainz\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\Nodeable.Infrastructure.Tests\Fixtures\deezer\*.json" Link="Fixtures\deezer\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

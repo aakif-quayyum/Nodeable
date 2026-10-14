@@ -23,6 +23,13 @@ public class Recording
 
     public int? LengthMs { get; set; }
 
+    /// <summary>
+    /// The recording's ISRCs as MusicBrainz lists them (spec section 8). Deezer is looked up by ISRC (FR-PREVIEW-01), and the
+    /// preview job runs after the recording job, so the codes are stored instead of fetched again. Empty until the recording
+    /// is fetched again for rows stored before M4.
+    /// </summary>
+    public string[] Isrcs { get; set; } = [];
+
     public CreditsStatus CreditsStatus { get; set; } = CreditsStatus.None;
 
     public DateTimeOffset FetchedAt { get; set; }

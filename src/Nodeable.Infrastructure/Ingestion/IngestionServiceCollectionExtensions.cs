@@ -8,7 +8,7 @@ public static class IngestionServiceCollectionExtensions
 {
     /// <summary>
     /// Registers the handlers that turn crawl jobs into stored credits: one per job kind, with the kind as the key the
-    /// runner looks them up by. Needs <c>AddCrawling()</c>, <c>AddMusicBrainz()</c> and a registered DbContext.
+    /// runner looks them up by. Needs <c>AddCrawling()</c>, <c>AddMusicBrainz()</c>, <c>AddDeezer()</c> and a registered DbContext.
     /// </summary>
     public static IServiceCollection AddIngestion(this IServiceCollection services)
     {
@@ -19,6 +19,7 @@ public static class IngestionServiceCollectionExtensions
         services.AddKeyedScoped<ICrawlJobHandler, RecordingJobHandler>(CrawlJobKind.Recording);
         services.AddKeyedScoped<ICrawlJobHandler, WorkJobHandler>(CrawlJobKind.Work);
         services.AddKeyedScoped<ICrawlJobHandler, ReleaseJobHandler>(CrawlJobKind.Release);
+        services.AddKeyedScoped<ICrawlJobHandler, PreviewJobHandler>(CrawlJobKind.Preview);
 
         return services;
     }

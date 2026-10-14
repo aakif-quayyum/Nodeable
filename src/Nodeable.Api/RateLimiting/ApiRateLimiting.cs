@@ -20,6 +20,10 @@ public sealed class ApiRateLimitOptions
     /// <summary>NFR-SEC-02: 20 song additions per minute per IP address.</summary>
     [Range(1, 100_000)]
     public int SongAdditionPermitsPerMinute { get; set; } = 20;
+
+    /// <summary>NFR-SEC-02: 60 preview lookups per minute per IP address (each one is a Deezer request through the shared gate).</summary>
+    [Range(1, 100_000)]
+    public int PreviewPermitsPerMinute { get; set; } = 60;
 }
 
 public static class ApiRateLimiting
@@ -28,6 +32,8 @@ public static class ApiRateLimiting
     public const string SearchPolicy = "search";
 
     public const string SongAdditionPolicy = "song-additions";
+
+    public const string PreviewPolicy = "previews";
 
     public static IServiceCollection AddApiRateLimiting(this IServiceCollection services)
     {
@@ -44,6 +50,7 @@ public static class ApiRateLimiting
 
             limiter.AddPolicy(SearchPolicy, context => PerClient(context, o => o.SearchPermitsPerMinute));
             limiter.AddPolicy(SongAdditionPolicy, context => PerClient(context, o => o.SongAdditionPermitsPerMinute));
+            limiter.AddPolicy(PreviewPolicy, context => PerClient(context, o => o.PreviewPermitsPerMinute));
         });
 
         return services;

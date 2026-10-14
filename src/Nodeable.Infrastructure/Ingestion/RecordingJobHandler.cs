@@ -31,6 +31,7 @@ public sealed class RecordingJobHandler(
         var releases = (recording.Releases ?? []).DistinctBy(r => r.Id).ToList();
         var firstRelease = ParseDate(recording.FirstReleaseDate);
         var artistCredit = string.Concat((recording.ArtistCredit ?? []).Select(c => c.Name + c.JoinPhrase));
+        var isrcs = (recording.Isrcs ?? []).Distinct().ToArray();
 
         IReadOnlySet<CreditRole> rolesAnywhere = new HashSet<CreditRole>();
 
@@ -42,13 +43,13 @@ public sealed class RecordingJobHandler(
 
             await db.Database.ExecuteSqlAsync(
                 $"""
-                INSERT INTO recordings (mbid, title, artist_credit, first_release_date, first_release_date_precision, length_ms, credits_status, fetched_at)
-                VALUES ({recording.Id}, {recording.Title}, {artistCredit}, {firstRelease?.Date}, {ToText(firstRelease?.Precision)}, {recording.LengthMs}, 'none', now())
+                INSERT INTO recordings (mbid, title, artist_credit, first_release_date, first_release_date_precision, length_ms, isrcs, credits_status, fetched_at)
+                VALUES ({recording.Id}, {recording.Title}, {artistCredit}, {firstRelease?.Date}, {ToText(firstRelease?.Precision)}, {recording.LengthMs}, {isrcs}, 'none', now())
                 ON CONFLICT (mbid) DO UPDATE
                     SET title = EXCLUDED.title, artist_credit = EXCLUDED.artist_credit,
                         first_release_date = EXCLUDED.first_release_date,
                         first_release_date_precision = EXCLUDED.first_release_date_precision,
-                        length_ms = EXCLUDED.length_ms, fetched_at = now()
+                        length_ms = EXCLUDED.length_ms, isrcs = EXCLUDED.isrcs, fetched_at = now()
                 """,
                 cancellationToken);
 
@@ -132,9 +133,10 @@ public sealed class RecordingJobHandler(
             }
         }
 
-        if (options.Value.QueuePreviewJobs && recording.Isrcs is { Count: > 0 })
+        if (options.Value.QueuePreviewJobs)
         {
-            // The preview is looked up by ISRC, and stored per recording, so the recording is the target.
+            // Every recording gets a preview job: by ISRC when it has one, and by title and artist when it has none or Deezer does
+            // not know it (decision 0025). The preview is stored per recording, so the recording is the target.
             await queue.EnqueueAsync(CrawlJobKind.Preview, recording.Id, job.Priority, cancellationToken);
         }
     }
