@@ -8,7 +8,7 @@ public enum PreviewMatch
 
     /// <summary>
     /// No ISRC matched, so a search found a track whose normalised artist and title equal the recording's and whose
-    /// length is within five seconds (FR-PREVIEW-01). Stored apart so hit rates and wrong matches can be told from ISRC ones.
+    /// length is within ten seconds (FR-PREVIEW-01). Stored apart so hit rates and wrong matches can be told from ISRC ones.
     /// </summary>
     TitleArtist,
 }
