@@ -26,6 +26,13 @@ Three real responses, recorded as test fixtures (`tests/Nodeable.Infrastructure.
 6. **The Api's preview answer is `{ url, expiresAt }`**, with `Cache-Control: no-store`. The spec said it would gain `durationSeconds`; Deezer has no length for the preview (its `duration` is the whole song), so there is nothing true to send, and the player reads the length from the decoded audio. `expiresAt` is read from the URL's signed `exp`, and is null when the URL does not carry one.
 7. **A failure of Deezer is a 503 with `Retry-After`, never a 404**, so the player can tell "try again" from "this recording has no preview". The endpoint is limited to 60 a minute per address (NFR-SEC-02), because each call is a Deezer request through the gate.
 
+## What running it showed (2026-10-14, the real stack, ten recordings)
+
+- The chain works end to end: a recording job stores the ISRCs, queues the preview job, which asks Deezer and stores the IDs (covered by tests with recorded responses).
+- **Coverage by ISRC is low.** Of ten recordings looked at (MusicBrainz and Deezer asked directly, four songs by the stack), **four** had an ISRC on MusicBrainz (Redbone, and three Blinding Lights recordings), and Deezer answered "no data" for the ISRCs of **three** of those four. Only Redbone matched: **1 preview in 10 recordings**. Six recordings (two each of Get Lucky, Billie Jean and Hey Ya!) have no ISRC at MusicBrainz at all.
+- **A guarded title-and-artist match would have found 4 of 6** of the songs tried: Deezer's plain-text search (`q=<artist> <title>`; the field syntax `artist:".." track:".."` returned nothing today) with the artist and title equal after normalising and the track's length within 5 seconds of the recording's `length_ms`, and a preview present. It found Redbone, Blinding Lights, Billie Jean and Creep, rejected the versions of Get Lucky and Hey Ya! whose lengths differ, and made no wrong match in that sample. The sample is small and is not a measured error rate.
+- **Consequence:** with ISRC matching alone, most songs have no preview. Decision 0025 item 1 (no fallback) is **pending the developer's decision**: the fallback is the second step of section 10 as written, and its guards are the three above.
+
 ## Alternatives considered
 
 | Option | Why it lost |
