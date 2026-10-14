@@ -25,6 +25,8 @@ public sealed class GraphReadModel(NodeableDbContext db, IOptions<MusicBrainzOpt
         public string Status { get; set; } = string.Empty;
         public DateTimeOffset AddedAt { get; set; }
         public bool Loading { get; set; }
+        public bool HasPreview { get; set; }
+        public string? DeezerCoverMd5 { get; set; }
     }
 
     private sealed class CreditRow
@@ -82,9 +84,11 @@ public sealed class GraphReadModel(NodeableDbContext db, IOptions<MusicBrainzOpt
                              SELECT r.mbid
                              UNION ALL SELECT rw.work_mbid FROM recording_works rw WHERE rw.recording_mbid = r.mbid
                              UNION ALL SELECT rr.release_mbid FROM recording_releases rr WHERE rr.recording_mbid = r.mbid)
-                   ) AS loading
+                   ) AS loading,
+                   (p.recording_mbid IS NOT NULL) AS has_preview, p.cover_md5 AS deezer_cover_md5
             FROM graph_songs gs
             JOIN recordings r ON r.mbid = gs.recording_mbid
+            LEFT JOIN previews p ON p.recording_mbid = r.mbid AND p.provider = 'deezer'
             WHERE gs.graph_id = {graphId}
             ORDER BY gs.added_at, r.mbid
             """).ToListAsync(cancellationToken);
@@ -96,8 +100,21 @@ public sealed class GraphReadModel(NodeableDbContext db, IOptions<MusicBrainzOpt
             var cover = covers.GetValueOrDefault(row.Mbid, CoverChoice.None);
             return new GraphSongItem(
                 row.Mbid, row.Title, row.Artist, row.FirstReleaseDate?.Year, ToSongStatus(row.Status, row.Loading), row.AddedAt,
-                cover.ReleaseMbid, cover.ReleaseGroupMbid);
+                cover.ReleaseMbid, cover.ReleaseGroupMbid, row.HasPreview, row.DeezerCoverMd5);
         }).ToList();
+    }
+
+    /// <summary>A stored preview's cover ID.</summary>
+    public sealed record PreviewInfo(string? CoverMd5);
+
+    /// <summary>The preview stored for a recording (FR-PREVIEW-01), or null when Deezer had none.</summary>
+    public async Task<PreviewInfo?> GetPreviewAsync(Guid recordingMbid, CancellationToken cancellationToken)
+    {
+        var row = await db.Previews.AsNoTracking()
+            .Where(p => p.RecordingMbid == recordingMbid)
+            .Select(p => new PreviewInfo(p.CoverMd5))
+            .FirstOrDefaultAsync(cancellationToken);
+        return row;
     }
 
     /// <summary>

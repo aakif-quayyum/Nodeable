@@ -245,4 +245,45 @@ public class GraphEventsTests(PostgresFixture postgres)
 
         host.Events.Named("HubsUpdated").Select(e => e.GraphId).Should().BeEquivalentTo([graphA, graphB]);
     }
+    [Fact]
+    public async Task FR_PREVIEW_01_a_finished_preview_job_tells_only_the_graphs_that_hold_the_song_that_it_has_a_preview()
+    {
+        await using var host = await GraphTestHost.CreateAsync(postgres);
+        var graph = await host.SeedGraphAsync();
+        await host.SeedGraphAsync("Another graph");
+        await host.SeedRecordingAsync(_redbone, "Redbone", "Childish Gambino", CreditsStatus.Complete);
+        await host.AddToGraphAsync(graph, _redbone);
+        await host.SeedAsync(db =>
+        {
+            db.Previews.Add(new Preview
+            {
+                RecordingMbid = _redbone,
+                Provider = PreviewProvider.Deezer,
+                ProviderTrackId = "350320101",
+                CoverMd5 = "52a01335022b31b52b96106583ead686",
+            });
+            return Task.CompletedTask;
+        });
+
+        await Done(host, Job(CrawlJobKind.Preview, _redbone));
+
+        var sent = host.Events.Sent.Should().ContainSingle().Which;
+        sent.Name.Should().Be("PreviewFound");
+        sent.GraphId.Should().Be(graph);
+        sent.Song.Should().Be(_redbone);
+        sent.Payload.Should().Be("52a01335022b31b52b96106583ead686");
+    }
+
+    [Fact]
+    public async Task FR_PREVIEW_01_a_preview_job_that_found_nothing_sends_nothing()
+    {
+        await using var host = await GraphTestHost.CreateAsync(postgres);
+        var graph = await host.SeedGraphAsync();
+        await host.SeedRecordingAsync(_redbone, "Redbone", "Childish Gambino", CreditsStatus.Complete);
+        await host.AddToGraphAsync(graph, _redbone);
+
+        await Done(host, Job(CrawlJobKind.Preview, _redbone));
+
+        host.Events.Sent.Should().BeEmpty("a preview job adds no credits and found no preview");
+    }
 }

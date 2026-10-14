@@ -1,4 +1,5 @@
 using Nodeable.Domain.Entities;
+using Nodeable.Domain.Enums;
 using Nodeable.Infrastructure.Crawling;
 
 namespace Nodeable.Infrastructure.Graphs;
@@ -12,6 +13,13 @@ public sealed class GraphJobObserver(GraphReadModel read, GraphEventNotifier not
 {
     public async Task OnJobDoneAsync(CrawlJob job, CancellationToken cancellationToken)
     {
+        // A preview job adds no credits: its news is a preview, which only the graphs holding the recording care about.
+        if (job.Kind == CrawlJobKind.Preview)
+        {
+            await notifier.NotifyPreviewFoundAsync(job.TargetMbid, cancellationToken);
+            return;
+        }
+
         var recordings = await read.GetRecordingsAffectedByAsync(job.Kind, job.TargetMbid, cancellationToken);
         await notifier.NotifyCreditsChangedAsync(recordings, onlyGraph: null, cancellationToken);
     }

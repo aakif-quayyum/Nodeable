@@ -203,6 +203,9 @@ export interface components {
             artReleaseMbid?: null | string;
             /** Format: uuid */
             artReleaseGroupMbid?: null | string;
+            /** @default false */
+            hasPreview: boolean;
+            deezerCoverMd5?: null | string;
         };
         HubItem: {
             /** Format: uuid */

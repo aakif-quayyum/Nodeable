@@ -14,6 +14,7 @@ export function song(key: string, title: string, overrides: Partial<Song> = {}):
     year: 2016,
     creditsStatus: 'complete',
     addedAt: '2026-10-13T09:00:00Z',
+    hasPreview: false,
     ...overrides,
   }
 }

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { Providers } from '../../app/providers.tsx'
 import { setReducedMotion } from '../../test/viewport.ts'
 import { AlbumArt } from './AlbumArt.tsx'
-import { artSources } from './artSources.ts'
+import { artSources, deezerCoverUrl } from './artSources.ts'
 import { sleeveFor, sleevePatterns } from './sleeveSpec.ts'
 
 const release = '2017e952-42c9-41e0-9e39-69d5aa7b17a6'
@@ -62,6 +62,24 @@ describe('artSources', () => {
     ['text that is not a URL', 'not a url'],
   ])('FR_ART_01 ignores a Deezer cover on %s', (_, url) => {
     expect(artSources({ deezerCoverUrl: url }, 52)).toEqual([])
+  })
+})
+
+describe('deezerCoverUrl', () => {
+  it('FR_ART_01 builds the cover address from the stored album image id, on the one host a cover may come from', () => {
+    expect(deezerCoverUrl('57ae3715e73c0486616bab8c2d6c6159')).toBe(deezer)
+  })
+
+  it('FR_ART_01 gives no address for a missing or malformed id, so nothing else can be named', () => {
+    expect(deezerCoverUrl(null)).toBeNull()
+    expect(deezerCoverUrl(undefined)).toBeNull()
+    expect(deezerCoverUrl('../../evil')).toBeNull()
+    expect(deezerCoverUrl('57AE3715E73C0486616BAB8C2D6C6159')).toBeNull()
+  })
+
+  it('FR_ART_01 the third step of the chain comes from the stored id', () => {
+    const sources = artSources({ deezerCoverUrl: deezerCoverUrl('57ae3715e73c0486616bab8c2d6c6159') }, 52)
+    expect(sources.map((source) => source.origin)).toEqual(['deezer'])
   })
 })
 

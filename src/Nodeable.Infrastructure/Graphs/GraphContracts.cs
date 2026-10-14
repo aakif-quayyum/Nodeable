@@ -27,6 +27,8 @@ public enum CreditLevel
 
 /// <param name="ArtReleaseMbid">The release whose front cover is tried first (FR-ART-01); null until a release is known.</param>
 /// <param name="ArtReleaseGroupMbid">The release group tried second; null when it is not known.</param>
+/// <param name="HasPreview">True when Deezer has a 30-second preview for the recording (a <c>previews</c> row exists, FR-PREVIEW-01).</param>
+/// <param name="DeezerCoverMd5">Deezer's album image ID, the third step of the cover chain (FR-ART-01); null when there is no preview row.</param>
 public sealed record GraphSongItem(
     Guid Mbid,
     string Title,
@@ -35,7 +37,9 @@ public sealed record GraphSongItem(
     SongStatus CreditsStatus,
     DateTimeOffset AddedAt,
     Guid? ArtReleaseMbid = null,
-    Guid? ArtReleaseGroupMbid = null);
+    Guid? ArtReleaseGroupMbid = null,
+    bool HasPreview = false,
+    string? DeezerCoverMd5 = null);
 
 public sealed record PersonItem(Guid Mbid, string Name);
 
@@ -75,6 +79,9 @@ public sealed record CreditsResolvedMessage(
     IReadOnlyList<CreditItem> Credits,
     Guid? ArtReleaseMbid = null,
     Guid? ArtReleaseGroupMbid = null);
+
+/// <summary>A preview was found for a song of the graph (FR-PREVIEW-01); the player appears and the cover chain gains its Deezer step.</summary>
+public sealed record PreviewFoundMessage(long Seq, Guid SongMbid, string? DeezerCoverMd5);
 
 public sealed record SongStatusChangedMessage(long Seq, Guid SongMbid, SongStatus CreditsStatus);
 

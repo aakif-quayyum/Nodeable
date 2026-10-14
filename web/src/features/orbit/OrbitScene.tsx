@@ -241,6 +241,7 @@ export function OrbitScene({ workspace, centre, layout, focusId, svgRef, onChoos
             songCount={workspace.songs.length}
             artRelease={node.kind === 'song' ? workspace.songById.get(node.ref)?.artReleaseMbid : undefined}
             artGroup={node.kind === 'song' ? workspace.songById.get(node.ref)?.artReleaseGroupMbid : undefined}
+            artDeezer={node.kind === 'song' ? workspace.songById.get(node.ref)?.deezerCoverMd5 : undefined}
             spinning={(node.depth === 0 && node.kind !== 'graph') || workspace.songById.get(node.ref)?.creditsStatus === 'loading'}
             dim={related !== null && !related.has(node.id)}
             leaving={!staying.has(node.id)}
@@ -322,6 +323,7 @@ interface NodeShapeProps extends SceneHandlers {
   /** The ids a song's cover is looked up by, for the record's label. */
   artRelease: string | null | undefined
   artGroup: string | null | undefined
+  artDeezer: string | null | undefined
   spinning: boolean
   dim: boolean
   leaving: boolean
@@ -335,7 +337,7 @@ interface NodeShapeProps extends SceneHandlers {
  * centre is a button that makes it the centre.
  */
 const OrbitNodeShape = memo(function OrbitNodeShape(props: NodeShapeProps) {
-  const { node, roles, name, summary, connector, songCount, artRelease, artGroup, spinning, dim, leaving, register, onChoose, onHover, onLeave, onMove, stageRect } = props
+  const { node, roles, name, summary, connector, songCount, artRelease, artGroup, artDeezer, spinning, dim, leaving, register, onChoose, onHover, onLeave, onMove, stageRect } = props
   const isCentre = node.depth === 0
 
   function activate(event: KeyboardEvent) {
@@ -382,7 +384,7 @@ const OrbitNodeShape = memo(function OrbitNodeShape(props: NodeShapeProps) {
           smaller. Drawn in the glyph's units, so the group's scale gives it its size on the stage. */}
       {!isCentre && <circle className="hita" r={(baseRadius[node.kind] * node.hit) / Math.max(node.size, 1)} fill="transparent" />}
 
-      {node.kind === 'song' && <RecordGlyph mbid={node.ref} artRelease={artRelease} artGroup={artGroup} />}
+      {node.kind === 'song' && <RecordGlyph mbid={node.ref} artRelease={artRelease} artGroup={artGroup} artDeezer={artDeezer} />}
 
       {node.kind === 'graph' && (
         <>

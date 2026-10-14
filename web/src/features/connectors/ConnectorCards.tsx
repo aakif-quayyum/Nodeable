@@ -9,6 +9,7 @@ import { useCountUp } from '../../motion/useCountUp.ts'
 import { useFlip } from '../../motion/useFlip.ts'
 import { creditRoleStyles } from '../../app/creditRoles.ts'
 import { AlbumArt } from '../art/AlbumArt.tsx'
+import { deezerCoverUrl } from '../art/artSources.ts'
 import { type NodeRef } from '../orbit/orbitLayout.ts'
 import { initials } from '../orbit/initials.ts'
 import { roleVars } from '../orbit/orbitStyles.ts'
@@ -211,7 +212,7 @@ function Card({
           {person.songs.slice(0, 12).map((mbid) => {
             const song = workspace.songById.get(mbid)
             return song === undefined ? null : (
-              <AlbumArt key={mbid} seed={mbid} size={20} alt="" releaseMbid={song.artReleaseMbid} releaseGroupMbid={song.artReleaseGroupMbid} />
+              <AlbumArt key={mbid} seed={mbid} size={20} alt="" releaseMbid={song.artReleaseMbid} releaseGroupMbid={song.artReleaseGroupMbid} deezerCoverUrl={deezerCoverUrl(song.deezerCoverMd5)} />
             )
           })}
         </Box>

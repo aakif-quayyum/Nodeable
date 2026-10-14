@@ -12,7 +12,7 @@ function snapshot(overrides: Partial<GraphSnapshot> = {}): GraphSnapshot {
     name: 'Untitled graph',
     seq: 10,
     songs: [
-      { mbid: redbone, title: 'Redbone', artist: 'Childish Gambino', year: 2016, creditsStatus: 'loading', addedAt: '2026-10-12T09:09:45Z' },
+      { mbid: redbone, title: 'Redbone', artist: 'Childish Gambino', year: 2016, creditsStatus: 'loading', addedAt: '2026-10-12T09:09:45Z', hasPreview: false },
     ],
     people: [],
     credits: [],
@@ -98,11 +98,34 @@ describe('applyGraphEvent', () => {
     expect(JSON.stringify(before)).toBe(frozen)
   })
 
+  it('FR_PREVIEW_01 PreviewFound marks the song as having a preview and keeps its cover ids', () => {
+    const before = snapshot()
+
+    const after = applyGraphEvent(before, {
+      type: 'PreviewFound',
+      seq: 11,
+      songMbid: redbone,
+      deezerCoverMd5: '52a01335022b31b52b96106583ead686',
+    })
+
+    expect(after.songs[0]).toMatchObject({ hasPreview: true, deezerCoverMd5: '52a01335022b31b52b96106583ead686' })
+    expect(before.songs[0]?.hasPreview).toBe(false)
+  })
+
+  it('FR_PREVIEW_01 applying PreviewFound twice, or an old one, changes nothing more', () => {
+    const event = { type: 'PreviewFound', seq: 11, songMbid: redbone, deezerCoverMd5: 'a'.repeat(32) } as const
+    const once = applyGraphEvent(snapshot(), event)
+    const twice = applyGraphEvent({ ...once, seq: 11 }, event)
+
+    expect(twice).toEqual({ ...once, seq: 11 })
+    expect(applyGraphEvent(snapshot({ seq: 20 }), event).songs[0]?.hasPreview).toBe(false)
+  })
+
   it('FR_GRAPH_04 updates a song status and leaves the other songs alone', () => {
     const before = snapshot({
       songs: [
         ...snapshot().songs,
-        { mbid: america, title: 'This Is America', artist: 'Childish Gambino', year: 2018, creditsStatus: 'loading', addedAt: '2026-10-12T09:10:00Z' },
+        { mbid: america, title: 'This Is America', artist: 'Childish Gambino', year: 2018, creditsStatus: 'loading', addedAt: '2026-10-12T09:10:00Z', hasPreview: false },
       ],
     })
 

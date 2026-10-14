@@ -202,6 +202,9 @@ internal sealed class GraphTestHost : IAsyncDisposable
         public Task HubsUpdatedAsync(Guid graphId, IReadOnlyList<HubItem> hubs, CancellationToken cancellationToken = default) =>
             Record(new SentEvent(graphId, "HubsUpdated", null, hubs));
 
+        public Task PreviewFoundAsync(Guid graphId, Guid songMbid, string? deezerCoverMd5, CancellationToken cancellationToken = default) =>
+            Record(new SentEvent(graphId, "PreviewFound", songMbid, deezerCoverMd5));
+
         public Task CrawlProgressAsync(Guid graphId, CrawlProgressItem progress, CancellationToken cancellationToken = default) =>
             Record(new SentEvent(graphId, "CrawlProgress", null, progress));
 

@@ -28,6 +28,8 @@ export interface SongNode extends NodeBase {
   /** Where the cover is looked up (FR-ART-01); unknown until the recording has been fetched with its releases. */
   artRelease?: string | null
   artGroup?: string | null
+  /** Deezer's album image ID, the cover chain's third step; null until a preview is found. */
+  artDeezer?: string | null
 }
 
 export interface PersonNode extends NodeBase {

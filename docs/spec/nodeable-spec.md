@@ -280,7 +280,7 @@ Solid arrows carry requests and data; dashed arrows carry telemetry to the Aspir
 3. Cached credits (status other than `none`) are sent to the graph's browsers by the API itself, as the events of step 6, and the answer is 200. Otherwise the API upserts the `recordings` row, inserts one `crawl_jobs` row for the recording fetch with the trace context stored on it, and returns 202 with the song node (decision 0009).
 4. The Worker claims jobs with `FOR UPDATE SKIP LOCKED`, highest priority first, and waits for a token from the Redis rate gate.
 5. The Worker fetches from MusicBrainz, maps relationships to roles, and upserts `people` and `credits`. From the recording response it queues the follow-up jobs itself: a `work` job per linked work, a `preview` job for every recording (found by ISRC when it has one, by a guarded title and artist match when it has none or Deezer does not know it), and a `release` job only when no producer credit was found. Each carries the same trace context and priority.
-6. When a job ends, the Worker finds the recordings it concerned and the graphs that hold them, and publishes `CreditsResolved`, `SongStatusChanged`, `CrawlProgress` and `HubsUpdated` (or `CrawlFailed`) through SignalR, using the Redis backplane, to every client in each graph's group. The Worker has no hub of its own: it sends to the one the API hosts.
+6. When a job ends, the Worker finds the recordings it concerned and the graphs that hold them, and publishes `CreditsResolved`, `SongStatusChanged`, `CrawlProgress` and `HubsUpdated` (or `CrawlFailed`, or, for a preview job, `PreviewFound`) through SignalR, using the Redis backplane, to every client in each graph's group. The Worker has no hub of its own: it sends to the one the API hosts.
 7. The browser merges each event into the TanStack Query cache, and new nodes animate into the graph.
 
 ### How the queue works (implemented in M2)
@@ -495,7 +495,8 @@ X-Graph-Token: <token>
   "seq": 17,
   "songs": [{ "mbid": "7408...", "title": "Redbone", "artist": "Childish Gambino", "year": 2016,
               "creditsStatus": "complete", "addedAt": "2026-10-12T09:09:45Z",
-              "artReleaseMbid": "2017e952-...", "artReleaseGroupMbid": "fd817615-..." }],
+              "artReleaseMbid": "2017e952-...", "artReleaseGroupMbid": "fd817615-...",
+              "hasPreview": true, "deezerCoverMd5": "52a01335022b31b52b96106583ead686" }],
   "people": [{ "mbid": "1ba0...", "name": "Donald Glover" }],
   "credits": [{ "songMbid": "7408...", "personMbid": "1ba0...", "role": "songwriter", "detail": "", "level": "recording" }],
   "hubs": [{ "personMbid": "1ba0...", "songs": 2, "roles": ["songwriter", "vocal"] }],
@@ -535,6 +536,7 @@ Clients join a group per graph with `JoinGraph(graphId, token)` and leave it wit
 | --- | --- | --- |
 | `CreditsResolved` | `{ songMbid, people: [{ mbid, name }], credits: [{ personMbid, role, detail, level }], artReleaseMbid, artReleaseGroupMbid }` | A recording, work or release fetch finishes; the two cover ids are the song's cover as known now (`null` while no release is known), so a song added before its releases were fetched learns them (FR-ART-01) |
 | `SongStatusChanged` | `{ songMbid, creditsStatus }` | A song becomes complete, partial or none |
+| `PreviewFound` | `{ songMbid, deezerCoverMd5 }` | A preview job (FR-PREVIEW-01) ends and a `previews` row exists for the song: the song gets its player, and the cover chain its Deezer step (M4) |
 | `HubsUpdated` | `{ hubs: [{ personMbid, songs, roles }] }` | Hub counts change, debounced to once per second |
 | `CrawlProgress` | `{ queued, done, failed, etaSeconds }` | Every completed job for this graph |
 | `CrawlFailed` | `{ songMbid, reason }` | A job exhausts its retries |
@@ -542,6 +544,7 @@ Clients join a group per graph with `JoinGraph(graphId, token)` and leave it wit
 Every message carries `seq`, a number that grows by one for each message of its graph (a Redis counter, so it holds across the Api and the Worker). On reconnect the client joins again, calls `GET /graphs/{id}`, and drops messages with a `seq` at or below the snapshot's.
 
 - `CreditsResolved` is sent for every song a finished job concerned, with that song's credits at all levels; a credit already known is simply sent again, and the client merges by (person, role, detail).
+- `PreviewFound` is sent to the graphs that hold the song, once for each finished preview job that left a row; a job that found nothing sends nothing, so a song without a preview simply keeps its link out. The snapshot carries the same two facts for every song (`hasPreview`, `deezerCoverMd5`), so a page that joins late needs no event.
 - `SongStatusChanged` is sent only when the status a graph was last told changes. `loading` is a status: the first event after an add is the change out of `loading`.
 - `HubsUpdated` is sent at once the first time and then at most once a second per graph; requests inside the second share one trailing send that reads the hubs at the moment it is sent. It is also sent when a song is removed.
 - `CrawlFailed` carries a reason written for the person, never the exception text.
@@ -618,7 +621,7 @@ The browser loads the cover itself, with an `<img>`; the Api and the Worker make
 
 1. `https://coverartarchive.org/release/{releaseMbid}/front-250` (and `front-500` for sizes above 125 CSS pixels, through `srcset`), the release the Api chose as the song's cover (section 8).
 2. `https://coverartarchive.org/release-group/{releaseGroupMbid}/front-250` (and `front-500`).
-3. The Deezer album cover (`cover_medium` / `cover_big`, on `cdn-images.dzcdn.net`). The URL comes from the Deezer lookup that FR-PREVIEW-01 adds in M4, so this step is wired in M3R and has data from M4.
+3. The Deezer album cover (`cover_medium` / `cover_big`, on `cdn-images.dzcdn.net`). The snapshot carries the stored album image ID (`previews.cover_md5`, M4 pull request 2) and the page builds the address from it, `.../images/cover/{md5}/250x250-000000-80-0-0.jpg` and the 500 px twin for large placements, accepting only a 32-digit hex ID on that one host.
 4. A generated flat **sleeve**: an inline SVG whose background, mark colour and pattern (one of a small set of geometric marks) are chosen by hashing the recording's MBID, so a song always has the same sleeve. It is also what shows while an image loads and when every step has failed.
 
 Rules: images are fixed-size and `loading="lazy"` (no layout shift), have `alt` text ("Cover of {album}" for a loaded image, empty for the decorative sleeve), carry `referrerpolicy="no-referrer"` and no credentials, and a failed image (a `404` from the Cover Art Archive means no art) moves to the next step without an error shown. Verified on 2026-10-13: the Cover Art Archive answers a missing front image with `404`, and redirects found images by `307` to `archive.org` and then `302` to a data node such as `dn721801.ca.archive.org`; the Deezer image host is `cdn-images.dzcdn.net`. All of them send `Access-Control-Allow-Origin: *`, which the canvas renderer needs to draw a cover (the constellation above its threshold).
@@ -1052,7 +1055,8 @@ Reordered after the first screens were reviewed (2026-10-13): the `/graph` page 
 
 - [ ] Person drawer with credited recordings (FR-PERSON-01). It opens from a "Details" button (in the liner notes and on the node tooltip) and with Enter on a focused node; a click on an orbit node still re-roots the view (D2, 2026-10-14). "Active years" come from the credited recordings stored so far and are labelled as partial
 - [ ] Recommendation scoring with reasons (FR-REC-01, FR-REC-02): from the stored credits only, so no MusicBrainz request is made for a recommendation (D3, 2026-10-14); songs already in the graph are excluded; ties are broken by a fixed rule written in the pull request's plan, so the order is stable between requests
-- [x] Deezer previews (FR-PREVIEW-01), by ISRC and then by the guarded title-and-artist match, with how each was matched stored and counted, including turning on `Ingestion:QueuePreviewJobs` with the handler (M4 pull request 1, decision 0025). The preview is looked up and stored and `GET /recordings/{mbid}/preview` answers; playing it in the app is the next task
+- [x] Deezer previews (FR-PREVIEW-01), by ISRC and then by the guarded title-and-artist match, with how each was matched stored and counted, including turning on `Ingestion:QueuePreviewJobs` with the handler (M4 pull request 1, decision 0025). The preview is looked up and stored and `GET /recordings/{mbid}/preview` answers
+- [x] **Previews in the app (M4 pull request 2, FR-PREVIEW-01, FR-ART-01):** the snapshot says which songs have a preview and carries Deezer's cover id, the `PreviewFound` event tells a page that it arrived, the cover chain's third step is wired, and the liner notes and the Text view have a plain player (play and pause, time, a bar, one song at a time, a link to look for the song at Deezer when there is none). The waveform is the next task
 - [ ] Before the preview work starts, re-check that the preview audio host still sends `Access-Control-Allow-Origin` (decision 0022); then the waveform player: fetch and decode in the browser, peaks drawn with D3 with a playhead, seeking, the spinning record, reduced motion, and the player working without a waveform (FR-WAVE-01, FR-PREVIEW-01, NFR-MOTION-01, NFR-A11Y-01)
 - [ ] The 30-day refresh (NFR-REL-03), which is specified but not built: a scheduled job (Hangfire with `Hangfire.PostgreSql`, dashboard in development only, D4; section 7) at the scheduled priority that refetches stored recordings, works, releases and people whose `fetched_at` is over 30 days old through the same crawl queue and rate gate, at random times across the day (section 10, constraints), and so also fills what rows fetched earlier lack (the `releases` release-group columns of M3R); `cache.lookups` counts `stale`, and a test shows a refresh changes nothing when MusicBrainz has not
 - [ ] **The metrics rollup and the status API (NFR-OBS-02, NFR-OBS-04, NFR-OBS-03):** `metric_rollups` and `slo_checks` with their migration; each process's `MeterListener` flush; the Worker's every-minute job (queue depth, 1-minute rows into 5-minute rows, retention); histogram bounds for the SLOs; the health endpoint; the public and private metrics endpoints bucketed to the chart width; the daily SLO check job; tests that a flush adds, a roll-up sums, retention deletes and a missing minute is `null` (decision 0023)
