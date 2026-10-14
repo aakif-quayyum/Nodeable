@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { apiClient } from '../../api/client.ts'
+import { decodePeaks } from './peaks.ts'
 
 /** What the player is doing for the one song it may be playing at a time. */
 export type PlaybackPhase =
@@ -22,15 +23,29 @@ export interface PlaybackState {
   position: number
   /** Seconds in the preview, read from the audio itself (Deezer sends no length for the preview); 0 until known. */
   duration: number
+  /**
+   * The waveform (FR-WAVE-01): peaks from 0 to 1, computed once from the decoded audio before the first frame, or null
+   * when the audio could not be fetched or decoded, in which case the player works without one.
+   */
+  peaks: readonly number[] | null
 }
 
-const initial: PlaybackState = { songMbid: null, phase: 'idle', position: 0, duration: 0 }
+const initial: PlaybackState = { songMbid: null, phase: 'idle', position: 0, duration: 0, peaks: null }
 
 let state: PlaybackState = initial
 const listeners = new Set<() => void>()
 let audio: HTMLAudioElement | null = null
 // Every start takes a number; an answer that arrives for an older start (the person pressed another song) is dropped.
 let startToken = 0
+// The address of the bytes being played, when they were fetched to be decoded: they are released when another preview starts.
+let objectUrl: string | null = null
+
+function releaseObjectUrl() {
+  if (objectUrl !== null) {
+    URL.revokeObjectURL(objectUrl)
+    objectUrl = null
+  }
+}
 
 function set(next: Partial<PlaybackState>) {
   state = { ...state, ...next }
@@ -79,12 +94,39 @@ async function begin(songMbid: string, token: number): Promise<boolean> {
   if (token !== startToken) return false
 
   if (fetched.kind !== 'url') {
-    set({ songMbid, phase: fetched.kind === 'unavailable' ? 'unavailable' : 'busy', position: 0, duration: 0 })
+    set({ songMbid, phase: fetched.kind === 'unavailable' ? 'unavailable' : 'busy', position: 0, duration: 0, peaks: null })
     return false
   }
 
+  // LEARN: LG-04 one-fetch | The page fetches the preview once, decodes those bytes for the waveform and plays the same bytes from a Blob address, so there is one download, and when the fetch or the decode fails it plays the signed address as it would without a waveform
+  let source = fetched.url
+  let peaks: readonly number[] | null = null
+  let length = 0
+  try {
+    const response = await fetch(fetched.url, { credentials: 'omit' })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const bytes = await response.arrayBuffer()
+    if (token !== startToken) return false
+
+    releaseObjectUrl()
+    objectUrl = URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' }))
+    source = objectUrl
+    try {
+      const decoded = await decodePeaks(bytes)
+      peaks = decoded.peaks
+      length = decoded.duration
+    } catch {
+      // Not decodable here: the bytes still play, just without a waveform.
+    }
+  } catch {
+    // Not readable from this page (a CORS header gone, an expired address, no network): play the address directly.
+    if (token !== startToken) return false
+  }
+  if (token !== startToken) return false
+  set({ peaks, duration: length })
+
   const player = element()
-  player.src = fetched.url
+  player.src = source
   try {
     await player.play()
     return true
@@ -133,7 +175,7 @@ export async function togglePreview(songMbid: string): Promise<void> {
   player.pause()
   retriedFor = null
   const token = ++startToken
-  set({ songMbid, phase: 'loading', position: 0, duration: 0 })
+  set({ songMbid, phase: 'loading', position: 0, duration: 0, peaks: null })
   await begin(songMbid, token)
 }
 
@@ -145,13 +187,37 @@ export function stopPreview(songMbid: string): void {
     audio.pause()
     audio.removeAttribute('src')
   }
+  releaseObjectUrl()
   set(initial)
+}
+
+/**
+ * Moves the playhead of the song that is loaded to `seconds` (clamped to the clip). The audio element is the one clock:
+ * the time, the bar and the waveform's playhead all read from it, so they cannot disagree.
+ */
+export function seekPreview(songMbid: string, seconds: number): void {
+  if (audio === null || state.songMbid !== songMbid) return
+  const limit = Number.isFinite(audio.duration) && audio.duration > 0 ? audio.duration : state.duration
+  const next = Math.min(Math.max(0, seconds), limit > 0 ? limit : seconds)
+  audio.currentTime = next
+  set({ position: next })
+}
+
+/** The element's own time, for a playhead that moves every frame; the state's `position` is updated about four times a second. */
+export function playbackTime(): number {
+  return audio?.currentTime ?? 0
+}
+
+/** The recording that is playing right now, or null. It changes only when playing starts or stops, not as time passes. */
+export function usePlayingSong(): string | null {
+  return useSyncExternalStore(subscribe, () => (state.phase === 'playing' ? state.songMbid : null))
 }
 
 /** For tests: forgets the element and the state. */
 export function resetPreviewPlaybackForTests(): void {
   startToken++
   retriedFor = null
+  releaseObjectUrl()
   audio = null
   state = initial
   listeners.clear()

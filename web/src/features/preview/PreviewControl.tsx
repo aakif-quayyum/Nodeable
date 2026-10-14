@@ -9,7 +9,8 @@ import Typography from '@mui/material/Typography'
 import { useEffect, useState } from 'react'
 import { PickVersionDialog } from './PickVersionDialog.tsx'
 import { clock } from './previewFormat.ts'
-import { stopPreview, togglePreview, usePreviewPlayback } from './previewPlayback.ts'
+import { seekPreview, stopPreview, togglePreview, usePreviewPlayback } from './previewPlayback.ts'
+import { Waveform } from './Waveform.tsx'
 
 const visuallyHidden = {
   position: 'absolute',
@@ -92,6 +93,18 @@ export function PreviewControl({ song, label = 'Preview' }: { song: PreviewSong;
         <Typography variant='caption' color='text.secondary' component='div' sx={{ lineHeight: 1.2 }}>
           {label} · 30 seconds
         </Typography>
+        {mine && playback.peaks !== null ? (
+          <Box sx={{ mt: 0.5 }}>
+            <Waveform
+              peaks={playback.peaks}
+              duration={duration}
+              position={position}
+              playing={playing}
+              title={song.title}
+              onSeek={(seconds) => seekPreview(song.mbid, seconds)}
+            />
+          </Box>
+        ) : (
         <LinearProgress
           variant='determinate'
           value={duration > 0 ? Math.min(100, (position / duration) * 100) : 0}
@@ -104,6 +117,7 @@ export function PreviewControl({ song, label = 'Preview' }: { song: PreviewSong;
             '@media (prefers-reduced-motion: reduce)': { '& .MuiLinearProgress-bar': { transition: 'none' } },
           }}
         />
+        )}
       </Box>
 
       <Typography variant='caption' color='text.secondary' sx={{ fontVariantNumeric: 'tabular-nums' }}>
