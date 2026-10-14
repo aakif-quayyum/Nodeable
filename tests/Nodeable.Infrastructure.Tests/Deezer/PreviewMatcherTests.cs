@@ -23,12 +23,34 @@ public sealed class PreviewMatcherTests
     }
 
     [Fact]
-    public void FR_PREVIEW_01_the_length_may_differ_by_exactly_five_seconds_and_not_by_more()
+    public void FR_PREVIEW_01_the_length_may_differ_by_exactly_ten_seconds_and_not_by_more()
     {
-        Pick("Song", "Artist", 200_000, Track("1", "Song", "Artist", 205)).Should().Be("1");
-        Pick("Song", "Artist", 200_000, Track("1", "Song", "Artist", 195)).Should().Be("1");
-        Pick("Song", "Artist", 200_000, Track("1", "Song", "Artist", 206)).Should().BeNull();
-        Pick("Song", "Artist", 200_000, Track("1", "Song", "Artist", 194)).Should().BeNull();
+        Pick("Song", "Artist", 200_000, Track("1", "Song", "Artist", 210)).Should().Be("1");
+        Pick("Song", "Artist", 200_000, Track("1", "Song", "Artist", 190)).Should().Be("1");
+        Pick("Song", "Artist", 200_000, Track("1", "Song", "Artist", 211)).Should().BeNull();
+        Pick("Song", "Artist", 200_000, Track("1", "Song", "Artist", 189)).Should().BeNull();
+    }
+
+    // The two songs of the first twenty-song check that the 5 second rule refused and that were probably the same
+    // recording (decision 0025): MusicBrainz's length against Deezer's whole-track length, 8 and 9 seconds apart.
+    [Theory]
+    [InlineData("HUMBLE.", "Kendrick Lamar", 185_000, 177)]
+    [InlineData("Three Little Birds", "Bob Marley & The Wailers", 192_000, 183)]
+    public void FR_PREVIEW_01_the_same_song_8_or_9_seconds_apart_matches(string title, string artist, int lengthMs, int seconds)
+    {
+        Pick(title, artist, lengthMs, Track("1", title, artist, seconds)).Should().Be("1");
+    }
+
+    [Theory]
+    [InlineData("Three Little Birds (Exodus 40 Mix)", 191)]
+    [InlineData("Three Little Birds Dub", 195)]
+    [InlineData("Three Little Birds (Alternate Mix)", 187)]
+    public void FR_PREVIEW_01_a_mix_or_dub_a_few_seconds_away_is_still_refused_by_its_label(string deezerTitle, int seconds)
+    {
+        // The recorded Deezer versions of the song against MusicBrainz's 192 seconds: well inside ten seconds, so only the
+        // title can refuse them.
+        Pick("Three Little Birds", "Bob Marley & The Wailers", 192_000, Track("1", deezerTitle, "Bob Marley & The Wailers", seconds))
+            .Should().BeNull();
     }
 
     [Theory]
