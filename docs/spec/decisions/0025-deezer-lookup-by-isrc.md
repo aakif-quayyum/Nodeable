@@ -23,7 +23,7 @@ Real responses, recorded as test fixtures (`tests/Nodeable.Infrastructure.Tests/
    - it has a preview;
    - the **first-named artist** equals the recording's, after normalising (case, accents, punctuation and "&" ignored; "feat." credits dropped from both sides);
    - the **title** equals the recording's after normalising and after dropping only decoration that does not make a different recording: a `(feat. ...)` credit and a remaster or "album version" label (`- 2011 Remaster`, `(Remastered 2009)`, `(Album Version)`). Any other bracket (live, remix, acoustic, radio edit, instrumental, a year of a re-recording) stays and must be equal;
-   - its length is **within 5 seconds** of MusicBrainz's `length_ms`, and a recording with no length matches nothing.
+   - its length is **within 10 seconds** of MusicBrainz's `length_ms` (5 seconds in the first version; widened on 2026-10-14, below), and a recording with no length matches nothing.
 
    Of several that pass, the closest length wins and Deezer's order breaks a tie. There is no score and no threshold: a near miss is no match.
 2. **The ISRCs are stored on the recording** (`recordings.isrcs`, `text[]`, empty by default), written by the recording job from the MusicBrainz response it already has. The preview job runs after it, with only a recording MBID as its target (decision 0009), and fetching the recording again from MusicBrainz to find the ISRC would spend rate-gate slots on data we had. Rows stored before M4 have no ISRCs until the 30-day refresh (NFR-REL-03) fetches them again; the refresh is built to fill what rows lack. Every recording gets a preview job, with or without an ISRC, because the fallback needs only the title, artist and length.
@@ -68,6 +68,22 @@ Real responses, recorded as test fixtures (`tests/Nodeable.Infrastructure.Tests/
 - **Of the 7 not found,** 5 differ from Deezer's studio track by 21 to 302 seconds, which is what a different edit or version looks like and what the guard is for (the audio was not compared); 2 are probably the same song 8 and 9 seconds apart (HUMBLE., Three Little Birds), which the 5-second rule refuses on purpose. Moving the limit would trade correct rejections for coverage; it is a number to revisit with the counters, not a guess to make now.
 - **Covers and tributes by other artists** (Lee Sang Gul and Mellow Melodies in the recorded Redbone search, "Daft Punk Experience" in the Get Lucky one) sit among the first results with the same title, which is why the artist is compared and not just the title.
 
+### The same check with the window at 10 seconds (2026-10-14)
+
+The window was widened from 5 to 10 seconds on the developer's instruction (ISRC matches unchanged; the label rules unchanged, so live, remix, edit, acoustic and instrumental versions are still refused by their title). The preview jobs of the same twenty songs were queued again on the real stack and run by the Worker:
+
+| | 5 seconds | 10 seconds |
+| --- | --- | --- |
+| Found by ISRC | 7 | 7 |
+| Found by title and artist | 4 | **6** (adds HUMBLE., 185 s against 177 s, and Three Little Birds, 192 s against 183 s) |
+| Not found | 7 | **5** (Blinding Lights, Smells Like Teen Spirit, Gold Digger, So What, Hips Don't Lie) |
+| Hit rate over the 18 | 61% | **72%** (13 of 18; ISRC alone 39%) |
+
+- **Nothing else changed:** the 11 earlier matches are the same tracks, and the 5 still refused differ by 21 to 302 seconds, so the wider window accepted exactly the two cases it was widened for in this sample.
+- **No wrong match among the 13**, judged as before from Deezer's own title, artist and length for each stored track; audio was not compared.
+- **Redbone**, which was stored before the change and so was not among the 18, was also run: matched by title and artist (326 s against 327 s). Get Lucky was not matched (237 s at MusicBrainz; Deezer's are 248 s and 367 s).
+- **Tests:** HUMBLE. and Three Little Birds are test cases of the guard, and so are three of Deezer's recorded versions of Three Little Birds (Exodus 40 Mix, Dub, Alternate Mix, 187 to 195 seconds), which sit inside the window and are refused by their label.
+
 ## Alternatives considered
 
 | Option | Why it lost |
@@ -75,7 +91,8 @@ Real responses, recorded as test fixtures (`tests/Nodeable.Infrastructure.Tests/
 | ISRC only (the first version of this decision) | One preview in ten, then 39% on the twenty songs; most songs would play nothing |
 | A similarity score with a threshold | A threshold hides which near misses were accepted and cannot be explained as a rule; the guard is a list of reasons each with a test |
 | Match the title only and trust the first search result | Covers and tributes are in the first results of popular songs |
-| A wider length window (10 s or 15 s) | Would accept the 8 and 9 second cases, and would also accept more edits and fades of other versions; there is no data yet to choose a number |
+| The 5 second window of the first version | Refused two songs that were probably the same recording (8 and 9 seconds apart); widened to 10 s on the developer's instruction |
+| A window wider than 10 s (15 s or more) | Would accept more edits and fades of other versions; the refused cases in the sample are 21 seconds or more away, and there is no data yet to justify a larger number |
 | Fetch the recording again from MusicBrainz in the preview job to get the ISRC | One more gated request per recording for data already received; a second place that can fail |
 | Put the ISRC in the job (a column on `crawl_jobs`) | A column used by one job kind, on a table that is deliberately kind-neutral |
 | Store the preview URL with a short expiry and reuse it | The answer is a signature that changes; a stored URL is useless within 15 minutes and would invite serving an expired one |
