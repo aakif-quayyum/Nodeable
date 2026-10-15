@@ -7,6 +7,7 @@ import { Fragment } from 'react'
 import { creditRoles, creditRoleStyles } from '../../app/creditRoles.ts'
 import { useRoleFilters } from '../../stores/roleFilters.ts'
 import { AlbumArt } from '../art/AlbumArt.tsx'
+import { deezerCoverUrl } from '../art/artSources.ts'
 import type { Workspace, WorkspaceSong } from '../graph/workspaceModel.ts'
 import { songsNotConnected } from './connection.ts'
 import { nodeKey, rootRef, type EmptyCentre as EmptyCentreReason, type NodeRef } from './orbitLayout.ts'
@@ -259,6 +260,7 @@ export function EmptyCentre({
           alt={`Cover of ${song.title}`}
           releaseMbid={song.artReleaseMbid}
           releaseGroupMbid={song.artReleaseGroupMbid}
+          deezerCoverUrl={deezerCoverUrl(song.deezerCoverMd5)}
         />
       </Box>
 

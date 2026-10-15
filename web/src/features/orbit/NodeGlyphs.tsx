@@ -1,7 +1,7 @@
 import { arc, pie } from 'd3-shape'
 import { useMemo, useState } from 'react'
 import type { CreditRoleKey } from '../../app/creditRoles.ts'
-import { artSources, type ArtSource } from '../art/artSources.ts'
+import { artSources, deezerCoverUrl, type ArtSource } from '../art/artSources.ts'
 import { sleeveFor } from '../art/sleeveSpec.ts'
 import { initials } from './initials.ts'
 
@@ -42,9 +42,23 @@ function RecordCover({ sources }: { sources: readonly ArtSource[] }) {
  * drawn first so there is never a hole) with the real cover over it once that has loaded. The orbit and the
  * constellation draw the same record.
  */
-export function RecordGlyph({ mbid, artRelease, artGroup }: { mbid: string; artRelease?: string | null; artGroup?: string | null }) {
+export function RecordGlyph({
+  mbid,
+  artRelease,
+  artGroup,
+  artDeezer,
+}: {
+  mbid: string
+  artRelease?: string | null
+  artGroup?: string | null
+  /** Deezer's album image ID, the third step of the chain (FR-ART-01). */
+  artDeezer?: string | null
+}) {
   const palette = sleeveFor(mbid)
-  const sources = useMemo(() => artSources({ releaseMbid: artRelease, releaseGroupMbid: artGroup }, 64), [artRelease, artGroup])
+  const sources = useMemo(
+    () => artSources({ releaseMbid: artRelease, releaseGroupMbid: artGroup, deezerCoverUrl: deezerCoverUrl(artDeezer) }, 64),
+    [artRelease, artGroup, artDeezer],
+  )
   // A different cover is a different chain: the component's state is keyed by what it will try.
   const sourcesKey = sources.map((source) => source.url).join('|')
 

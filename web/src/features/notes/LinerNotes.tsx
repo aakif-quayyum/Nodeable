@@ -7,6 +7,8 @@ import { useMemo } from "react";
 import { useExiting } from "../../motion/useExiting.ts";
 import { creditRoleStyles } from "../../app/creditRoles.ts";
 import { AlbumArt } from "../art/AlbumArt.tsx";
+import { deezerCoverUrl } from "../art/artSources.ts";
+import { PreviewControl } from "../preview/PreviewControl.tsx";
 import { Heading } from "../connectors/ConnectorCards.tsx";
 import { RoleSwatch } from "../graph/RoleSwatch.tsx";
 import { creditKey } from "../graph/useFreshCredits.ts";
@@ -195,6 +197,7 @@ function Card({
             alt={`Cover of ${song.title}`}
             releaseMbid={song.artReleaseMbid}
             releaseGroupMbid={song.artReleaseGroupMbid}
+            deezerCoverUrl={deezerCoverUrl(song.deezerCoverMd5)}
           />
           <Box
             component="span"
@@ -230,6 +233,10 @@ function Card({
             </Typography>
             <StatusChip status={song.creditsStatus} />
           </Box>
+        </Box>
+
+        <Box sx={{ px: 1.5, pb: 1.25 }}>
+          <PreviewControl song={song} />
         </Box>
 
         {rows.length > 0 ? (

@@ -10,7 +10,7 @@ export interface ArtSource {
 export interface ArtInput {
   releaseMbid?: string | null
   releaseGroupMbid?: string | null
-  /** The Deezer album cover (the 250 px one), from M4's preview lookup; null until then. */
+  /** The Deezer album cover (the 250 px one), from `deezerCoverUrl`; null when the song has no stored preview. */
   deezerCoverUrl?: string | null
 }
 
@@ -19,6 +19,15 @@ const archive = 'https://coverartarchive.org'
 // The only host a Deezer cover may come from (verified 2026-10-13). A URL that is not on it is ignored rather than
 // rendered, so a bad value in the data cannot make the page load an image from anywhere.
 const deezerHost = 'cdn-images.dzcdn.net'
+
+/**
+ * The Deezer cover address for a stored album image ID (`previews.cover_md5`, FR-PREVIEW-01), or null when there is no
+ * ID or it is not a 32-digit hex ID. Only the ID is stored (decision 0025); the address is built here, on the one
+ * host a cover may come from, so a bad value in the data cannot name another.
+ */
+export function deezerCoverUrl(md5: string | null | undefined): string | null {
+  return md5 != null && /^[0-9a-f]{32}$/.test(md5) ? `https://${deezerHost}/images/cover/${md5}/250x250-000000-80-0-0.jpg` : null
+}
 
 /** Above this many CSS pixels the 500 px image is offered as well, for dense screens and large placements. */
 const LARGE_ABOVE = 125

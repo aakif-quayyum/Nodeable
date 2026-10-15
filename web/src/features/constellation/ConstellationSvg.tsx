@@ -379,7 +379,7 @@ const ConstellationNode = memo(function ConstellationNode({ node, dim, register,
       onBlur={() => onHover(null, 0, 0)}
     >
       {node.kind === 'song' ? (
-        <RecordGlyph mbid={node.mbid} artRelease={node.artRelease} artGroup={node.artGroup} />
+        <RecordGlyph mbid={node.mbid} artRelease={node.artRelease} artGroup={node.artGroup} artDeezer={node.artDeezer} />
       ) : (
         <PersonGlyph name={node.name} roles={node.roles} connector={node.isHub} />
       )}

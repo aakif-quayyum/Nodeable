@@ -55,6 +55,25 @@ public sealed class GraphEventNotifier(GraphReadModel read, IGraphEvents events,
         }
     }
 
+    /// <summary>
+    /// Tells every graph holding the recording that it has a preview now (FR-PREVIEW-01). Nothing is sent when the preview
+    /// job found none: there is nothing new to show, and the song keeps its link out.
+    /// </summary>
+    public async Task NotifyPreviewFoundAsync(Guid recordingMbid, CancellationToken cancellationToken = default)
+    {
+        var preview = await read.GetPreviewAsync(recordingMbid, cancellationToken);
+        if (preview is null)
+        {
+            return;
+        }
+
+        var held = await FindHoldersAsync([recordingMbid], onlyGraph: null, cancellationToken);
+        foreach (var graph in held.Select(h => h.GraphId).Distinct())
+        {
+            await events.PreviewFoundAsync(graph, recordingMbid, preview.CoverMd5, cancellationToken);
+        }
+    }
+
     /// <summary>Tells every graph holding <paramref name="recordingMbids"/> that fetching for them gave up.</summary>
     public async Task NotifyFailedAsync(
         IReadOnlyCollection<Guid> recordingMbids, string reason, CancellationToken cancellationToken = default)

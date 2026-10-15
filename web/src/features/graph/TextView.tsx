@@ -12,6 +12,8 @@ import TableRow from '@mui/material/TableRow'
 import Typography from '@mui/material/Typography'
 import { useId, useState } from 'react'
 import { AlbumArt } from '../art/AlbumArt.tsx'
+import { deezerCoverUrl } from '../art/artSources.ts'
+import { PreviewControl } from '../preview/PreviewControl.tsx'
 import type { GraphCredit } from './graphEvents.ts'
 import { RoleChip } from './RoleChip.tsx'
 import type { Workspace, WorkspaceSong } from './workspaceModel.ts'
@@ -157,7 +159,7 @@ function SongRow({
     <TableRow>
       <TableCell component="th" scope="row" sx={{ verticalAlign: 'top' }}>
         <Box sx={{ mb: 0.75 }}>
-          <AlbumArt seed={song.mbid} size={44} alt={`Cover of ${song.title}`} releaseMbid={song.artReleaseMbid} releaseGroupMbid={song.artReleaseGroupMbid} />
+          <AlbumArt seed={song.mbid} size={44} alt={`Cover of ${song.title}`} releaseMbid={song.artReleaseMbid} releaseGroupMbid={song.artReleaseGroupMbid} deezerCoverUrl={deezerCoverUrl(song.deezerCoverMd5)} />
         </Box>
         <Typography component="span" sx={{ fontWeight: 600 }}>
           {song.title}
@@ -169,6 +171,9 @@ function SongRow({
 
         <Box sx={{ mt: 1 }}>
           <SongStatus song={song} failure={failure} />
+        </Box>
+        <Box sx={{ mt: 1, maxWidth: 320 }}>
+          <PreviewControl song={song} />
         </Box>
         <Button
           size="small"

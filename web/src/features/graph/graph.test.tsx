@@ -28,6 +28,7 @@ const redbone: Song = {
   year: 2016,
   creditsStatus: 'loading',
   addedAt: '2026-10-12T09:09:45Z',
+  hasPreview: false,
 }
 const america: Song = { ...redbone, mbid: americaMbid, title: 'This Is America', year: 2018, creditsStatus: 'complete', addedAt: '2026-10-12T09:10:00Z' }
 

@@ -48,6 +48,7 @@ export function constellationOf(ws: Workspace): Constellation {
     status: song.creditsStatus,
     artRelease: song.artReleaseMbid ?? null,
     artGroup: song.artReleaseGroupMbid ?? null,
+    artDeezer: song.deezerCoverMd5 ?? null,
   }))
 
   const links: GraphLink[] = []

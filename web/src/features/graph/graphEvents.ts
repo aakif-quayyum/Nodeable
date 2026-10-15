@@ -27,6 +27,8 @@ export type GraphEvent =
       artReleaseGroupMbid?: string | null
     }
   | { type: 'SongStatusChanged'; seq: number; songMbid: string; creditsStatus: SongStatus }
+  /** A preview was stored for the song (FR-PREVIEW-01): the player appears and the cover chain gains Deezer's cover. */
+  | { type: 'PreviewFound'; seq: number; songMbid: string; deezerCoverMd5?: string | null }
   | { type: 'HubsUpdated'; seq: number; hubs: GraphHub[] }
   | { type: 'CrawlProgress'; seq: number; queued: number; done: number; failed: number; etaSeconds: number }
   | { type: 'CrawlFailed'; seq: number; songMbid: string; reason: string }
@@ -34,6 +36,7 @@ export type GraphEvent =
 export const graphEventTypes = [
   'CreditsResolved',
   'SongStatusChanged',
+  'PreviewFound',
   'HubsUpdated',
   'CrawlProgress',
   'CrawlFailed',
@@ -99,6 +102,14 @@ export function applyGraphEvent(snapshot: GraphSnapshot, event: GraphEvent): Gra
         ...snapshot,
         songs: snapshot.songs.map((song) =>
           song.mbid === event.songMbid ? { ...song, creditsStatus: event.creditsStatus } : song,
+        ),
+      }
+
+    case 'PreviewFound':
+      return {
+        ...snapshot,
+        songs: snapshot.songs.map((song) =>
+          song.mbid === event.songMbid ? { ...song, hasPreview: true, deezerCoverMd5: event.deezerCoverMd5 ?? song.deezerCoverMd5 } : song,
         ),
       }
 

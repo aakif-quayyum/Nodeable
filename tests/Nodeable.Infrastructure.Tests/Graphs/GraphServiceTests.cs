@@ -85,6 +85,36 @@ public class GraphServiceTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public async Task FR_PREVIEW_01_the_snapshot_says_which_songs_have_a_preview_and_carries_the_deezer_cover_id()
+    {
+        await using var host = await GraphTestHost.CreateAsync(postgres);
+        var graph = await host.SeedGraphAsync();
+        await host.SeedRecordingAsync(_redbone, "Redbone", "Childish Gambino", CreditsStatus.Complete);
+        await host.SeedRecordingAsync(_stay, "Stay", "The Kid LAROI", CreditsStatus.None);
+        await host.AddToGraphAsync(graph, _redbone);
+        await host.AddToGraphAsync(graph, _stay);
+        await host.SeedAsync(db =>
+        {
+            db.Previews.Add(new Preview
+            {
+                RecordingMbid = _redbone,
+                Provider = PreviewProvider.Deezer,
+                ProviderTrackId = "350320101",
+                CoverMd5 = "52a01335022b31b52b96106583ead686",
+            });
+            return Task.CompletedTask;
+        });
+
+        var snapshot = await host.InScopeAsync(s => s.GetRequiredService<GraphService>().GetSnapshotAsync(graph, Ct));
+
+        var songs = snapshot!.Songs.ToDictionary(s => s.Mbid);
+        songs[_redbone].HasPreview.Should().BeTrue();
+        songs[_redbone].DeezerCoverMd5.Should().Be("52a01335022b31b52b96106583ead686");
+        songs[_stay].HasPreview.Should().BeFalse();
+        songs[_stay].DeezerCoverMd5.Should().BeNull();
+    }
+
+    [Fact]
     public async Task FR_ART_01_a_song_with_no_releases_yet_has_no_cover_ids()
     {
         await using var host = await GraphTestHost.CreateAsync(postgres);

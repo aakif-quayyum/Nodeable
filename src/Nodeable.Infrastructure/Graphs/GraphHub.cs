@@ -13,6 +13,8 @@ public interface IGraphClient
 
     Task SongStatusChanged(SongStatusChangedMessage message);
 
+    Task PreviewFound(PreviewFoundMessage message);
+
     Task HubsUpdated(HubsUpdatedMessage message);
 
     Task CrawlProgress(CrawlProgressMessage message);

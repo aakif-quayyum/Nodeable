@@ -30,6 +30,8 @@ public interface IGraphEvents
 
     Task HubsUpdatedAsync(Guid graphId, IReadOnlyList<HubItem> hubs, CancellationToken cancellationToken = default);
 
+    Task PreviewFoundAsync(Guid graphId, Guid songMbid, string? deezerCoverMd5, CancellationToken cancellationToken = default);
+
     Task CrawlProgressAsync(Guid graphId, CrawlProgressItem progress, CancellationToken cancellationToken = default);
 
     Task CrawlFailedAsync(Guid graphId, Guid songMbid, string reason, CancellationToken cancellationToken = default);
@@ -74,6 +76,9 @@ public sealed class GraphEventPublisher(IHubContext<GraphHub, IGraphClient> hub,
 
     public Task HubsUpdatedAsync(Guid graphId, IReadOnlyList<HubItem> hubs, CancellationToken cancellationToken = default) =>
         BroadcastAsync(graphId, "HubsUpdated", null, (group, seq) => group.HubsUpdated(new HubsUpdatedMessage(seq, hubs)));
+
+    public Task PreviewFoundAsync(Guid graphId, Guid songMbid, string? deezerCoverMd5, CancellationToken cancellationToken = default) =>
+        BroadcastAsync(graphId, "PreviewFound", songMbid, (group, seq) => group.PreviewFound(new PreviewFoundMessage(seq, songMbid, deezerCoverMd5)));
 
     public Task CrawlProgressAsync(Guid graphId, CrawlProgressItem progress, CancellationToken cancellationToken = default) =>
         BroadcastAsync(graphId, "CrawlProgress", null, (group, seq) =>
