@@ -8,8 +8,8 @@ import { useTrail } from '../features/orbit/useCentre.ts'
 import { useRoleFilters } from '../stores/roleFilters.ts'
 import { server } from './server.ts'
 
-// The first test of a file waits for lazy chunks (the graph, the results) to be transformed and imported, which on a busy
-// machine takes longer than the default second.
+// Lazy chunks are preloaded by the test files that open them (test/lazyChunks.ts), so a wait covers rendering only; this is
+// above the default second for a busy machine, not a cover for a cold transform.
 configure({ asyncUtilTimeout: 5000 })
 
 // jsdom has no matchMedia, which MUI's colour-scheme support calls to follow the operating system setting.

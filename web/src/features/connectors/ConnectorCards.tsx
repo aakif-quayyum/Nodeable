@@ -1,3 +1,4 @@
+import InfoOutlined from '@mui/icons-material/InfoOutlined'
 import VisibilityOff from '@mui/icons-material/VisibilityOff'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
@@ -25,6 +26,8 @@ interface ConnectorCardsProps {
   centre: NodeRef | null
   onCentre: (ref: NodeRef) => void
   onHide: (personMbid: string) => void
+  /** "Details": opens the person drawer (FR-PERSON-01). */
+  onDetails: (personMbid: string) => void
 }
 
 /**
@@ -32,7 +35,7 @@ interface ConnectorCardsProps {
  * person's initials in a ring with one segment for each role, their song count, a bar of their role colours, and the
  * small covers of their songs. Choosing a card puts that person at the centre of the orbit.
  */
-export function ConnectorCards({ workspace, centre, onCentre, onHide }: ConnectorCardsProps) {
+export function ConnectorCards({ workspace, centre, onCentre, onHide, onDetails }: ConnectorCardsProps) {
   const [all, setAll] = useState(false)
   const connectors = workspace.connectors
   const shown = all ? connectors : connectors.slice(0, firstCards)
@@ -64,6 +67,7 @@ export function ConnectorCards({ workspace, centre, onCentre, onHide }: Connecto
                 active={centre?.type === 'person' && centre.id === person.mbid}
                 onCentre={onCentre}
                 onHide={onHide}
+                onDetails={onDetails}
               />
             ))}
           </Box>
@@ -85,6 +89,7 @@ function Card({
   active,
   onCentre,
   onHide,
+  onDetails,
 }: {
   person: WorkspacePerson
   workspace: Workspace
@@ -92,6 +97,7 @@ function Card({
   active: boolean
   onCentre: (ref: NodeRef) => void
   onHide: (personMbid: string) => void
+  onDetails: (personMbid: string) => void
 }) {
   const step = 360 / Math.max(1, person.roles.length)
   const gap = person.roles.length > 1 ? 6 : 0
@@ -217,6 +223,15 @@ function Card({
           })}
         </Box>
       </Box>
+
+      <IconButton
+        size="small"
+        aria-label={`Details for ${person.name}`}
+        onClick={() => onDetails(person.mbid)}
+        sx={{ position: 'absolute', top: 2, right: 28, opacity: 0.6, '&:hover, &:focus-visible': { opacity: 1 } }}
+      >
+        <InfoOutlined fontSize="inherit" />
+      </IconButton>
 
       <IconButton
         size="small"

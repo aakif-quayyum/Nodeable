@@ -114,6 +114,7 @@ export function Caption({
   centre,
   constellation = false,
   onHide,
+  onDetails,
 }: {
   workspace: Workspace
   centre: NodeRef
@@ -121,6 +122,8 @@ export function Caption({
   constellation?: boolean
   /** "Hide from view" for the person at the centre (FR-VIEW-03). */
   onHide: (personMbid: string) => void
+  /** "Details" for the person at the centre (FR-PERSON-01). */
+  onDetails: (personMbid: string) => void
 }) {
   const song = centre.type === 'song' ? workspace.songById.get(centre.id) : undefined
   const person = centre.type === 'person' ? workspace.personById.get(centre.id) : undefined
@@ -201,15 +204,26 @@ export function Caption({
             On {person.songs.length} of your {person.songs.length === 1 ? 'song' : 'songs'}
             {person.roles.length > 0 && ` · ${person.roles.map((role) => creditRoleStyles[role].label).join(', ')}`}
           </Typography>
+          <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap', mt: 0.5 }}>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => onDetails(person.mbid)}
+              aria-label={`Details for ${person.name} (the centre)`}
+              sx={{ pointerEvents: 'auto', py: 0.25 }}
+            >
+              Details
+            </Button>
           <Button
             size="small"
             variant="outlined"
             onClick={() => onHide(person.mbid)}
             aria-label={`Hide from view: ${person.name} (the centre)`}
-            sx={{ alignSelf: 'flex-start', pointerEvents: 'auto', mt: 0.5, py: 0.25 }}
+            sx={{ pointerEvents: 'auto', py: 0.25 }}
           >
             Hide from view
           </Button>
+          </Box>
         </>
       )}
     </Box>

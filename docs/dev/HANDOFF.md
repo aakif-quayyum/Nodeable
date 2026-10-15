@@ -19,8 +19,10 @@ Written 2026-10-16 so a new session can continue without the conversation that p
 | 2b | Pick the right version of a preview (ADR 0026, Accepted) | merged #41 |
 | 3 | Waveform player (Deezer CORS re-checked from the page origin) | merged #42 |
 | sec | MessagePack 2.5.303 for GHSA-qhrr-8q5h-9q3h | merged #45 |
-| 4 | Person drawer (FR-PERSON-01) | **open #44**, CI green, waiting for the developer's "merge" |
-| docs | FR-SAMPLE-01 "Built from" (v2) and ADR 0027 (Proposed) | **open #43**, CI green, waiting for approval and "merge" |
+| 4 | Person drawer (FR-PERSON-01) | merged #44 |
+| docs | FR-SAMPLE-01 "Built from" (v2) approved, ADR 0027 Accepted | merged #43 |
+| docs | M4-start tool-version review recorded (decision 0013) | merged #47 |
+| test | Lazy-chunk waits put back to 5 s / 10 s, chunks preloaded in the three test files that open them | this PR |
 | 5 | Recommendations (FR-REC-01, 02), cache only | next after #44 is merged |
 | 6 | 30-day refresh with Hangfire + Hangfire.PostgreSql (dashboard dev-only); backfills ISRCs and previews for pre-M4 songs | not started |
 | 7 | Rollup, status API, health, daily SLO check | not started |
@@ -34,8 +36,7 @@ FR-SAMPLE-01 is **v2 and must not be built** until the developer approves #43 an
 
 ## Open pull requests
 
-- **#44 person drawer (`m4/person-drawer`).** Cache-only profile and paged recordings endpoints (`GET /api/v1/people/{mbid}`, `.../recordings`), 120 per minute per address; drawer opens from a "Details" button, Enter on a focused person node and `?person=`; click and Space still re-centre. One deviation from D2 is stated in the PR: the node tooltip carries a hint line instead of a button (tooltips are aria-hidden and not targets). Backend 443 and web 264 tests passed. Waiting for the developer to try it and say "merge".
-- **#43 FR-SAMPLE-01 write-up (`docs/fr-sample-01`).** Docs only: ADR 0027 (Proposed), spec rows and subsections. Waiting for the developer's review.
+None besides the PR that carries this update.
 
 ## Settled decisions (D1 to D8, 2026-10-14)
 
@@ -62,7 +63,7 @@ FR-SAMPLE-01 is **v2 and must not be built** until the developer approves #43 an
 
 ## Known flaky tests and what has been tried
 
-- **`web/src/motion/motionCss.test.tsx` and the lazy constellation chunk.** Under load (full web suite locally, parallel workers) a test occasionally times out waiting for the lazily imported constellation chunk. Standing instruction: if it fails again in CI, find the root cause (do not just raise a timeout). So far it has failed only locally, never in CI since the hardening. Tried: `asyncUtilTimeout` 5 s to 12 s to 20 s (`web/src/test/setup.ts`), `testTimeout` 30 s (`web/vite.config.ts`). This is hardening, not a proven cause; a candidate root cause to test is the dynamic import being evaluated under a cold transform in jsdom, so preloading the chunk in the test setup is the next thing to try.
+- **Lazy chunks under load (fixed, 2026-10-16).** The Playwright suite already runs against a production build (`vite preview`), so it never had the problem; the Vitest jsdom tests import source through Vite's transform and cannot use a build. With the waits back at 5 s / 10 s the full suite failed on `spin.test.tsx` (first findByRole of the constellation), so the cause was the first transform of the lazy module graph under parallel load, not a render problem. `web/src/test/lazyChunks.ts` preloads the graph view and constellation in `beforeAll` of `spin.test.tsx`, `graph.test.tsx` and `motionCss.test.tsx`; five full-suite runs passed. If it fails again, preload in the file that fails; do not raise the waits.
 - **Backend CI job hung 20 minutes once** in the Infrastructure tests (#41), not reproduced. `tests/Shared/xunit.runner.json` sets `longRunningTestSeconds` 60, linked into the Infrastructure and Api test projects, so a hang now names the test.
 - **A jsdom test passed with a real bug present** (the pick dialog re-asked Deezer in a loop; `gcTime: 0` query re-created per render). Found only in a real browser; prefer a real-stack check for query-lifecycle behaviour.
 

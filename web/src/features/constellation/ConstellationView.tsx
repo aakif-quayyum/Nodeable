@@ -14,6 +14,8 @@ interface ConstellationViewProps {
   workspace: Workspace
   /** A node was chosen: the orbit opens on it (FR-VIEW-02). */
   onCentre: (ref: NodeRef) => void
+  /** Enter on a focused person: the person drawer (FR-PERSON-01). */
+  onDetails: (personMbid: string) => void
 }
 
 /**
@@ -21,7 +23,7 @@ interface ConstellationViewProps {
  * button, a canvas above the threshold. Both read one layout (`LayoutController`) and one model, and both open the
  * orbit on the node that is chosen. This component owns what they share: the model, the layout, and the tooltip.
  */
-export function ConstellationView({ workspace, onCentre }: ConstellationViewProps) {
+export function ConstellationView({ workspace, onCentre, onDetails }: ConstellationViewProps) {
   const graph = useMemo(() => constellationOf(workspace), [workspace])
   const renderer = rendererFor(graph.nodes.length)
   const [controller] = useState(() => new LayoutController())
@@ -77,7 +79,7 @@ export function ConstellationView({ workspace, onCentre }: ConstellationViewProp
     [onCentre],
   )
 
-  const shared = { graph, controller, focusId: hover?.id ?? null, onChoose, onHover, onMove }
+  const shared = { graph, controller, focusId: hover?.id ?? null, onChoose, onDetails, onHover, onMove }
 
   return (
     <Box ref={rootRef} data-renderer={renderer} sx={{ position: 'absolute', inset: 0 }}>
