@@ -23,7 +23,7 @@ Written 2026-10-16 so a new session can continue without the conversation that p
 | docs | FR-SAMPLE-01 "Built from" (v2) approved, ADR 0027 Accepted | merged #43 |
 | docs | M4-start tool-version review recorded (decision 0013) | merged #47 |
 | test | Lazy-chunk waits put back to 5 s / 10 s, chunks preloaded in the three test files that open them | this PR |
-| 5 | Recommendations (FR-REC-01, 02), cache only | next after #44 is merged |
+| 5 | Recommendations (FR-REC-01, 02), cache only | next: plan awaiting approval |
 | 6 | 30-day refresh with Hangfire + Hangfire.PostgreSql (dashboard dev-only); backfills ISRCs and previews for pre-M4 songs | not started |
 | 7 | Rollup, status API, health, daily SLO check | not started |
 | 8 | `/status` page and About with ECharts | not started |
