@@ -19,6 +19,8 @@ const fallbackStage = { width: 800, height: 600 }
 export interface ConstellationHandlers {
   /** A node was chosen: the orbit opens on it (FR-VIEW-02). */
   onChoose: (node: GraphNode) => void
+  /** Enter on a focused person: their drawer opens (FR-PERSON-01, D2). A click still opens them in the orbit. */
+  onDetails?: (personMbid: string) => void
   /** A node is being looked at (pointer or keyboard focus), or none is (`null`); x and y are in the stage's coordinates. */
   onHover: (node: GraphNode | null, x: number, y: number) => void
   onMove: (event: MouseEvent) => void
@@ -48,7 +50,7 @@ function summaryOf(node: GraphNode): string {
  * As in the orbit, React decides which elements exist and what they look like; the layout's positions are written onto
  * them by a function that runs on every tick, so a moving graph is not a stream of renders.
  */
-export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover, onMove }: ConstellationSvgProps) {
+export function ConstellationSvg({ graph, controller, focusId, onChoose, onDetails, onHover, onMove }: ConstellationSvgProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const worldRef = useRef<SVGGElement>(null)
   const elements = useRef(new Map<string, SVGElement>())
@@ -300,6 +302,7 @@ export function ConstellationSvg({ graph, controller, focusId, onChoose, onHover
               register={register}
               stageRect={stageRect}
               onChoose={onChoose}
+              onDetails={onDetails}
               onHover={onHover}
               onMove={onMove}
             />
@@ -345,7 +348,7 @@ interface NodeProps extends ConstellationHandlers {
   stageRect: () => DOMRect | undefined
 }
 
-const ConstellationNode = memo(function ConstellationNode({ node, dim, register, stageRect, onChoose, onHover, onMove }: NodeProps) {
+const ConstellationNode = memo(function ConstellationNode({ node, dim, register, stageRect, onChoose, onDetails, onHover, onMove }: NodeProps) {
   const name = nameOf(node)
   // The record of the song whose preview is playing turns while it plays (FR-WAVE-01); the stylesheet stills it with reduced motion.
   const spinning = useIsPlaying(node.kind === 'song' ? node.mbid : '')
@@ -353,6 +356,10 @@ const ConstellationNode = memo(function ConstellationNode({ node, dim, register,
   function activate(event: KeyboardEvent) {
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
+    if (event.key === 'Enter' && node.kind === 'person' && onDetails !== undefined) {
+      onDetails(node.mbid)
+      return
+    }
     onChoose(node)
   }
 

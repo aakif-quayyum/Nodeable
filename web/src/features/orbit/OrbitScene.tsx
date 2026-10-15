@@ -27,6 +27,8 @@ const noRoles: CreditRoleKey[] = []
 export interface SceneHandlers {
   /** A node was chosen: it becomes the centre. */
   onChoose: (node: OrbitNode) => void
+  /** Enter on a focused person: their drawer opens (FR-PERSON-01, D2). */
+  onDetails: (personMbid: string) => void
   /** A node is being looked at (pointer or keyboard focus); x and y are in the stage's coordinates. */
   onHover: (node: OrbitNode, x: number, y: number) => void
   onLeave: () => void
@@ -51,7 +53,7 @@ interface OrbitSceneProps extends SceneHandlers {
  * second, and React never sets those attributes itself, so it never undoes them.
  */
 // LEARN: LG-03R react-structure-d3-motion | React decides which elements exist and what they look like; the motion engine writes transform and opacity onto those elements through refs, and React never sets those two attributes in JSX, so a re-render cannot undo a frame of the animation
-export function OrbitScene({ workspace, centre, layout, focusId, svgRef, onChoose, onHover, onLeave, onMove }: OrbitSceneProps) {
+export function OrbitScene({ workspace, centre, layout, focusId, svgRef, onChoose, onDetails, onHover, onLeave, onMove }: OrbitSceneProps) {
   // Changes only when playing starts or stops, so the orbit is not drawn again as the playhead moves.
   const playingSong = usePlayingSong()
   const reduced = useReducedMotion()
@@ -245,6 +247,7 @@ export function OrbitScene({ workspace, centre, layout, focusId, svgRef, onChoos
             artRelease={node.kind === 'song' ? workspace.songById.get(node.ref)?.artReleaseMbid : undefined}
             artGroup={node.kind === 'song' ? workspace.songById.get(node.ref)?.artReleaseGroupMbid : undefined}
             artDeezer={node.kind === 'song' ? workspace.songById.get(node.ref)?.deezerCoverMd5 : undefined}
+            onDetails={onDetails}
             spinning={
               (node.depth === 0 && node.kind !== 'graph') ||
               workspace.songById.get(node.ref)?.creditsStatus === 'loading' ||
@@ -332,6 +335,8 @@ interface NodeShapeProps extends SceneHandlers {
   artRelease: string | null | undefined
   artGroup: string | null | undefined
   artDeezer: string | null | undefined
+  /** Enter on a focused person (FR-PERSON-01). */
+  onDetails: (personMbid: string) => void
   spinning: boolean
   dim: boolean
   leaving: boolean
@@ -345,12 +350,17 @@ interface NodeShapeProps extends SceneHandlers {
  * centre is a button that makes it the centre.
  */
 const OrbitNodeShape = memo(function OrbitNodeShape(props: NodeShapeProps) {
-  const { node, roles, name, summary, connector, songCount, artRelease, artGroup, artDeezer, spinning, dim, leaving, register, onChoose, onHover, onLeave, onMove, stageRect } = props
+  const { node, roles, name, summary, connector, songCount, artRelease, artGroup, artDeezer, onDetails, spinning, dim, leaving, register, onChoose, onHover, onLeave, onMove, stageRect } = props
   const isCentre = node.depth === 0
 
+  // D2 (2026-10-14): a click, and the space bar like a button's, put the person at the centre; Enter opens their details.
   function activate(event: KeyboardEvent) {
     if (event.key !== 'Enter' && event.key !== ' ') return
     event.preventDefault()
+    if (event.key === 'Enter' && node.kind === 'person' && !isCentre && !leaving) {
+      onDetails(node.ref)
+      return
+    }
     onChoose(node)
   }
 

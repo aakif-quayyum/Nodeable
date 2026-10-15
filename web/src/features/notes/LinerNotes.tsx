@@ -9,6 +9,8 @@ import { creditRoleStyles } from "../../app/creditRoles.ts";
 import { AlbumArt } from "../art/AlbumArt.tsx";
 import { deezerCoverUrl } from "../art/artSources.ts";
 import { PreviewControl } from "../preview/PreviewControl.tsx";
+import InfoOutlined from "@mui/icons-material/InfoOutlined";
+import IconButton from "@mui/material/IconButton";
 import { Heading } from "../connectors/ConnectorCards.tsx";
 import { RoleSwatch } from "../graph/RoleSwatch.tsx";
 import { creditKey } from "../graph/useFreshCredits.ts";
@@ -51,6 +53,8 @@ interface LinerNotesProps {
   textView: boolean;
   onToggleTextView: () => void;
   onCentre: (ref: NodeRef) => void;
+  /** "Details": opens the person drawer (FR-PERSON-01). A name still puts that person at the centre. */
+  onDetails: (personMbid: string) => void;
   /** "Remove from graph" (FR-GRAPH-01, FR-GRAPH-06). */
   onRemove: (song: WorkspaceSong) => void;
 }
@@ -68,6 +72,7 @@ export function LinerNotes({
   textView,
   onToggleTextView,
   onCentre,
+  onDetails,
   onRemove,
 }: LinerNotesProps) {
   // Memoised: the exit bookkeeping compares the list it was given with the last one, so it must change only when the songs do.
@@ -117,6 +122,7 @@ export function LinerNotes({
               failure={failures[song.mbid]}
               fresh={fresh}
               onCentre={onCentre}
+              onDetails={onDetails}
               onRemove={onRemove}
             />
           ))}
@@ -135,6 +141,7 @@ function Card({
   failure,
   fresh,
   onCentre,
+  onDetails,
   onRemove,
 }: {
   song: WorkspaceSong;
@@ -145,6 +152,7 @@ function Card({
   failure: string | undefined;
   fresh: ReadonlySet<string>;
   onCentre: (ref: NodeRef) => void;
+  onDetails: (personMbid: string) => void;
   onRemove: (song: WorkspaceSong) => void;
 }) {
   const rows = noteRows(workspace, song.mbid);
@@ -348,6 +356,14 @@ function Card({
                           >
                             {person.name}
                           </Box>
+                          <IconButton
+                            size="small"
+                            aria-label={`Details for ${person.name}`}
+                            onClick={() => onDetails(person.mbid)}
+                            sx={{ ml: "2px", width: 24, height: 24, verticalAlign: "-6px" }}
+                          >
+                            <InfoOutlined sx={{ fontSize: 16 }} />
+                          </IconButton>
                           {person.songs.length >= 2 && (
                             <Box
                               component="span"
