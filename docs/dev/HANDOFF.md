@@ -5,7 +5,7 @@ Written 2026-10-16 so a new session can continue without the conversation that p
 ## Where we are
 
 - **v0.3.1 is released** (M3 and the M3R UI refresh). **M4 (Discovery and launch) is in progress**, target tags `v0.4.0` at the end of M4 and `v1.0.0` when it is live.
-- **Not verified:** the M4-start review of held tool versions (decisions 0013 and 0014, see CLAUDE.md) is not recorded in the git history. Check it before PR 5 and lift any pin that can move.
+- **Tool-version review done (2026-10-14, logged in decision 0013):** the TypeScript pin stays (typescript-eslint 8.71.2 declares `<6.1.0`), `@types/node` stays on 24 (CI runs Node 24), `eslint-plugin-jsx-a11y-x` stays on 0.2.0 (latest). No pin can move in M4.
 
 ## M4 pull request plan
 
