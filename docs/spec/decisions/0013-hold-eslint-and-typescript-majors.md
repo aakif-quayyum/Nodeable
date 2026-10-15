@@ -58,3 +58,13 @@ Outcome: the TypeScript pin stays. The ESLint pin **could** move, but only by re
 | Is `eslint-plugin-jsx-a11y-x` still being released? | It is alive but slow. 0.2.0 was published 2026-05-10; the release before it was 0.1.1 on 2025-05-21. Its peer range is `^9.0.0 \|\| ^10.0.0`, so ESLint 10 is supported. No action; the next review checks for a release since May. |
 
 Outcome: no pin can move, so nothing is lifted in M3's first pull request.
+
+### M4 start (2026-10-14)
+
+| Question | Finding |
+| --- | --- |
+| Does typescript-eslint support TypeScript 6.1 or later? | No. Version 8.71.2 declares `<6.1.0`. The hold on TypeScript 6.0 stands. |
+| Is Node 24 still the runtime in CI, so that `@types/node` 24 is the matching major? | Yes: CI runs Node 24, so `@types/node` stays on 24. |
+| Is `eslint-plugin-jsx-a11y-x` still being released? | 0.2.0 is still the latest release. No action; it stays. |
+
+Outcome: no pin can move, so nothing is lifted in M4's pull requests. Reviewed during M4, before PR 5; recorded 2026-10-16.
