@@ -1,6 +1,6 @@
 # 0027. "Built from" comes from MusicBrainz relationships only, with honest labels and a WhoSampled link
 
-- **Status:** Proposed 2026-10-16. The developer approved the research recommendation (MusicBrainz only, a WhoSampled link on every song, no Genius) on 2026-10-16; this is the written design for FR-SAMPLE-01 and **awaits approval before anything is built**. v2: nothing is started.
+- **Status:** Accepted 2026-10-16. The developer approved the research recommendation (MusicBrainz only, a WhoSampled link on every song, no Genius) and then this written design for FR-SAMPLE-01 on 2026-10-16. It is v2 work: nothing is started, and the WhoSampled search URL pattern stays an open item (spec section 15).
 - **Date:** 2026-10-16
 - **Spec:** FR-SAMPLE-01 (new, v2), FR-TREE-01 (v3, narrowed), FR-CREDIT-USER-01 and FR-CREDIT-REVIEW-01 (extended), section 8 (`sample_links`, `user_sample_links`, `sample_link_review_events`, `crawl_jobs.kind`), section 9 (sources endpoints), section 10 (fetch plan steps 2 and 3, the `source` job, "Built from"), section 12 (liner notes, orbit); decisions 0009, 0021, 0022, 0025, 0026
 
