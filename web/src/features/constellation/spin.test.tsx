@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+import { preloadConstellation, preloadGraphView } from '../../test/lazyChunks.ts'
 import { resetPreviewPlaybackForTests } from '../preview/previewPlayback.ts'
 import { FakeGraphHub } from '../../test/fakeGraphHub.ts'
 import { renderAt } from '../../test/renderApp.tsx'
@@ -12,6 +13,10 @@ const graphId = '7c1e0000-0000-4000-8000-000000000000'
 // The constellation's record of the playing song turns while it plays and only then (FR-WAVE-01, NFR-MOTION-01): the
 // orbit has the same rule, and the stylesheet stills the turn with reduced motion.
 describe('the playing song in the constellation', () => {
+  beforeAll(async () => {
+    await Promise.all([preloadGraphView(), preloadConstellation()])
+  })
+
   beforeEach(() => {
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
       queueMicrotask(() => this.dispatchEvent(new Event('playing')))

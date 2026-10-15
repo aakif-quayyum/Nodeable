@@ -31,6 +31,6 @@ export default defineConfig({
     include: ['src/**/*.test.{ts,tsx}'],
     setupFiles: ['./src/test/setup.ts'],
     // A test that opens the graph waits for its lazy chunks to be transformed, which is slow when every file runs at once.
-    testTimeout: 15000,
+    testTimeout: 10000,
   },
 })

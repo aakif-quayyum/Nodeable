@@ -1,7 +1,8 @@
 import { act, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { http, HttpResponse } from 'msw'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { preloadConstellation, preloadGraphView } from '../../test/lazyChunks.ts'
 import type { components } from '../../api/schema'
 import { FakeGraphHub } from '../../test/fakeGraphHub.ts'
 import { renderAt } from '../../test/renderApp.tsx'
@@ -96,6 +97,10 @@ function twoSongs(): Snapshot {
 const orbitNamed = (name: string | RegExp) => screen.findByRole('group', { name })
 
 describe('workspace: graph and live updates', () => {
+  beforeAll(async () => {
+    await Promise.all([preloadGraphView(), preloadConstellation()])
+  })
+
   beforeEach(() => {
     // The still version of every animation: positions are final at once, so the tests read the end state.
     setReducedMotion(true)
