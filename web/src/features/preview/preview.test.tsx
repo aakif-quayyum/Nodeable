@@ -6,7 +6,7 @@ import { Providers } from '../../app/providers.tsx'
 import { server } from '../../test/server.ts'
 import { PreviewControl, type PreviewSong } from './PreviewControl.tsx'
 import { clock, deezerSearchUrl } from './previewFormat.ts'
-import { resetPreviewPlaybackForTests } from './previewPlayback.ts'
+import { resetPreviewPlaybackForTests, usePlayingSong } from './previewPlayback.ts'
 
 const redbone: PreviewSong = {
   mbid: '7408f11c-6c4e-41e5-b81b-6a15bf6cb268',
@@ -56,7 +56,35 @@ const pause = (title: string) => screen.getByRole('button', { name: `Pause the p
 let playSpy: MockInstance<HTMLMediaElement['play']>
 let pauseSpy: MockInstance<HTMLMediaElement['pause']>
 
+const audioHost = 'https://cdnt-preview.dzcdn.net/*'
+
+/** A clip of 3,200 samples: a quiet half, then a loud one, in two channels, 30 seconds long as a Deezer preview is. */
+function fakeClip() {
+  const left = new Float32Array(3200)
+  const right = new Float32Array(3200)
+  for (let i = 0; i < 3200; i++) {
+    const loud = i >= 1600
+    left[i] = (loud ? 0.8 : 0.2) * Math.sin(i)
+    right[i] = left[i] ?? 0
+  }
+  return { numberOfChannels: 2, duration: 30, getChannelData: (channel: number) => (channel === 0 ? left : right) }
+}
+
+/** Makes `new OfflineAudioContext(...).decodeAudioData(bytes)` answer with `clip`, or fail when it is null. */
+function stubWebAudio(clip: ReturnType<typeof fakeClip> | null) {
+  class FakeOffline {
+    decodeAudioData() {
+      return clip === null ? Promise.reject(new Error('not decodable')) : Promise.resolve(clip)
+    }
+  }
+  vi.stubGlobal('OfflineAudioContext', FakeOffline)
+}
+
 beforeEach(() => {
+  server.use(http.get(audioHost, () => new HttpResponse(new Uint8Array([73, 68, 51, 4, 0]), { headers: { 'Content-Type': 'audio/mpeg' } })))
+  let made = 0
+  vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => `blob:preview-${++made}`, revokeObjectURL: () => undefined }))
+  stubWebAudio(null)
   playSpy = vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(function (this: HTMLMediaElement) {
     queueMicrotask(() => this.dispatchEvent(new Event('playing')))
     return Promise.resolve()
@@ -69,6 +97,7 @@ beforeEach(() => {
 afterEach(() => {
   resetPreviewPlaybackForTests()
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('PreviewControl', () => {
@@ -79,8 +108,9 @@ describe('PreviewControl', () => {
     fireEvent.click(play('Redbone'))
 
     await waitFor(() => expect(pause('Redbone')).toBeInTheDocument())
+    // The bytes were fetched once to be decoded and are played from that fetch (no second download).
     const element = playSpy.mock.contexts[0] as HTMLAudioElement
-    expect(element.src).toBe(previewUrl('one'))
+    expect(element.src).toBe('blob:preview-1')
   })
 
   it('FR_PREVIEW_01 pause stops it and play carries on without asking for a new address', async () => {
@@ -158,6 +188,8 @@ describe('PreviewControl', () => {
         return HttpResponse.json({ url: previewUrl(`n${calls}`), expiresAt: null })
       }),
     )
+    // The audio host refuses the first address (an expired signature), so it is played directly and fails; the second works.
+    server.use(http.get(audioHost, ({ request }) => (request.url.includes('n1') ? new HttpResponse(null, { status: 403 }) : new HttpResponse(new Uint8Array([1]), { headers: { 'Content-Type': 'audio/mpeg' } }))))
     // The audio fails to load the first time (an expired signature) and works the second time.
     playSpy.mockImplementation(function (this: HTMLMediaElement) {
       queueMicrotask(() => this.dispatchEvent(new Event(this.src.endsWith('n1.mp3?hdnea=exp=1791969375~hmac=00') ? 'error' : 'playing')))
@@ -283,6 +315,133 @@ describe('PreviewControl', () => {
     unmount()
 
     expect(pauseSpy.mock.calls.length).toBeGreaterThan(pauses)
+  })
+})
+
+describe('the waveform (FR-WAVE-01)', () => {
+  const slider = () => screen.getByRole('slider', { name: 'Preview position of Redbone' })
+
+  it('FR_WAVE_01 draws 160 bars from the decoded audio and plays the same bytes', async () => {
+    stubWebAudio(fakeClip())
+    servePreview(redbone.mbid)
+    const { container } = show(redbone)
+
+    fireEvent.click(play('Redbone'))
+
+    await waitFor(() => expect(slider()).toBeInTheDocument())
+    expect(container.querySelectorAll('svg rect')).toHaveLength(160)
+    expect(slider()).toHaveAttribute('aria-valuemax', '30')
+    expect(slider()).toHaveAttribute('aria-valuetext', '0:00 of 0:30')
+    const element = playSpy.mock.contexts[0] as HTMLAudioElement
+    expect(element.src).toBe('blob:preview-1')
+  })
+
+  it('FR_WAVE_01 the arrow keys, Page keys, Home and End seek, and the audio element is what moves', async () => {
+    stubWebAudio(fakeClip())
+    servePreview(redbone.mbid)
+    show(redbone)
+    fireEvent.click(play('Redbone'))
+    await waitFor(() => expect(slider()).toBeInTheDocument())
+    const element = playSpy.mock.contexts[0] as HTMLAudioElement
+
+    fireEvent.keyDown(slider(), { key: 'ArrowRight' })
+    expect(element.currentTime).toBe(1)
+    fireEvent.keyDown(slider(), { key: 'PageUp' })
+    expect(element.currentTime).toBe(6)
+    fireEvent.keyDown(slider(), { key: 'ArrowLeft' })
+    expect(element.currentTime).toBe(5)
+    fireEvent.keyDown(slider(), { key: 'End' })
+    expect(element.currentTime).toBe(30)
+    fireEvent.keyDown(slider(), { key: 'Home' })
+    expect(element.currentTime).toBe(0)
+    expect(slider()).toHaveAttribute('aria-valuetext', '0:00 of 0:30')
+  })
+
+  it('FR_WAVE_01 a click on the waveform seeks to that point', async () => {
+    stubWebAudio(fakeClip())
+    servePreview(redbone.mbid)
+    show(redbone)
+    fireEvent.click(play('Redbone'))
+    await waitFor(() => expect(slider()).toBeInTheDocument())
+    const element = playSpy.mock.contexts[0] as HTMLAudioElement
+    vi.spyOn(slider(), 'getBoundingClientRect').mockReturnValue({ left: 100, width: 400, top: 0, height: 44, right: 500, bottom: 44, x: 100, y: 0, toJSON: () => ({}) })
+    // jsdom has no pointer capture.
+    slider().setPointerCapture = () => undefined
+
+    fireEvent.pointerDown(slider(), { clientX: 300, pointerId: 1 })
+
+    expect(element.currentTime).toBe(15)
+    expect(slider()).toHaveAttribute('aria-valuetext', '0:15 of 0:30')
+  })
+
+  it('FR_WAVE_01 audio that cannot be decoded plays with a progress bar and no waveform', async () => {
+    stubWebAudio(null)
+    servePreview(redbone.mbid)
+    show(redbone)
+
+    fireEvent.click(play('Redbone'))
+
+    await waitFor(() => expect(pause('Redbone')).toBeInTheDocument())
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Preview position of Redbone' })).toBeInTheDocument()
+    expect((playSpy.mock.contexts[0] as HTMLAudioElement).src).toBe('blob:preview-1')
+  })
+
+  it('FR_WAVE_01 audio that cannot be fetched from the page plays from its own address, without a waveform', async () => {
+    stubWebAudio(fakeClip())
+    server.use(http.get(audioHost, () => HttpResponse.error()))
+    servePreview(redbone.mbid)
+    show(redbone)
+
+    fireEvent.click(play('Redbone'))
+
+    await waitFor(() => expect(pause('Redbone')).toBeInTheDocument())
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument()
+    expect((playSpy.mock.contexts[0] as HTMLAudioElement).src).toBe(previewUrl('one'))
+  })
+
+  it('NFR_MOTION_01 the draw-in of the waveform is declared only for no-preference, so reduced motion simply shows the bars', async () => {
+    stubWebAudio(fakeClip())
+    servePreview(redbone.mbid)
+    show(redbone)
+    fireEvent.click(play('Redbone'))
+    await waitFor(() => expect(slider()).toBeInTheDocument())
+
+    const unguarded: string[] = []
+    const visit = (rules: CSSRuleList, guarded: boolean) => {
+      for (const rule of Array.from(rules)) {
+        const nested = (rule as CSSGroupingRule).cssRules
+        if ('media' in rule && nested !== undefined) {
+          visit(nested, guarded || /prefers-reduced-motion:\s*(?:no-preference|reduce)/.test((rule as CSSMediaRule).media.mediaText))
+        } else if (!guarded && 'selectorText' in rule) {
+          const css = (rule as CSSStyleRule).cssText
+          if (/(?:^|[;{\s])animation[\w-]*\s*:/.test(css) && !/-Mui[A-Z]/.test((rule as CSSStyleRule).selectorText)) unguarded.push(css.slice(0, 120))
+        }
+      }
+    }
+    for (const sheet of Array.from(document.styleSheets)) visit(sheet.cssRules, false)
+
+    expect(unguarded).toEqual([])
+  })
+
+  it('NFR_MOTION_01 the song whose preview is playing is the one the orbit spins, and it stops with the sound', async () => {
+    servePreview(redbone.mbid)
+    function Probe() {
+      return <output aria-label="playing song">{usePlayingSong() ?? 'none'}</output>
+    }
+    render(
+      <Providers>
+        <PreviewControl song={redbone} />
+        <Probe />
+      </Providers>,
+    )
+    expect(screen.getByLabelText('playing song')).toHaveTextContent('none')
+
+    fireEvent.click(play('Redbone'))
+    await waitFor(() => expect(screen.getByLabelText('playing song')).toHaveTextContent(redbone.mbid))
+
+    fireEvent.click(pause('Redbone'))
+    await waitFor(() => expect(screen.getByLabelText('playing song')).toHaveTextContent('none'))
   })
 })
 

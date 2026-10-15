@@ -18,6 +18,7 @@ import { rolesOnSong, type Workspace } from '../graph/workspaceModel.ts'
 import { polarToXY, type NodeRef, type OrbitLayout, type OrbitNode, type RoleArc } from './orbitLayout.ts'
 import { PersonGlyph, recordRadius, personRadius, RecordGlyph } from './NodeGlyphs.tsx'
 import { OrbitMotion, type MotionNode } from './orbitMotion.ts'
+import { usePlayingSong } from '../preview/previewPlayback.ts'
 
 // The size a record and a person's disc are drawn at before the motion scales them (the prototype's values).
 const baseRadius = { graph: 22, song: recordRadius, person: personRadius, more: 12 } as const
@@ -51,6 +52,8 @@ interface OrbitSceneProps extends SceneHandlers {
  */
 // LEARN: LG-03R react-structure-d3-motion | React decides which elements exist and what they look like; the motion engine writes transform and opacity onto those elements through refs, and React never sets those two attributes in JSX, so a re-render cannot undo a frame of the animation
 export function OrbitScene({ workspace, centre, layout, focusId, svgRef, onChoose, onHover, onLeave, onMove }: OrbitSceneProps) {
+  // Changes only when playing starts or stops, so the orbit is not drawn again as the playhead moves.
+  const playingSong = usePlayingSong()
   const reduced = useReducedMotion()
 
   const elements = useRef(new Map<string, SVGElement>())
@@ -242,7 +245,12 @@ export function OrbitScene({ workspace, centre, layout, focusId, svgRef, onChoos
             artRelease={node.kind === 'song' ? workspace.songById.get(node.ref)?.artReleaseMbid : undefined}
             artGroup={node.kind === 'song' ? workspace.songById.get(node.ref)?.artReleaseGroupMbid : undefined}
             artDeezer={node.kind === 'song' ? workspace.songById.get(node.ref)?.deezerCoverMd5 : undefined}
-            spinning={(node.depth === 0 && node.kind !== 'graph') || workspace.songById.get(node.ref)?.creditsStatus === 'loading'}
+            spinning={
+              (node.depth === 0 && node.kind !== 'graph') ||
+              workspace.songById.get(node.ref)?.creditsStatus === 'loading' ||
+              // The record of the song whose preview is playing turns while it plays (FR-WAVE-01); the CSS stills it with reduced motion.
+              (node.kind === 'song' && node.ref === playingSong)
+            }
             dim={related !== null && !related.has(node.id)}
             leaving={!staying.has(node.id)}
             register={register}

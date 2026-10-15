@@ -8,6 +8,7 @@ import type { GraphNode } from '../graph/graphModel.ts'
 import { PersonGlyph, personRadius, RecordGlyph, recordRadius } from '../orbit/NodeGlyphs.tsx'
 import { OrbitSvg } from '../orbit/orbitStyles.ts'
 import { fitName } from '../orbit/labelFit.ts'
+import { useIsPlaying } from '../preview/previewPlayback.ts'
 import { fitMargins, type Constellation } from './constellationModel.ts'
 import { declutter, type LabelBox } from './declutter.ts'
 import type { LayoutController } from './LayoutController.ts'
@@ -346,6 +347,8 @@ interface NodeProps extends ConstellationHandlers {
 
 const ConstellationNode = memo(function ConstellationNode({ node, dim, register, stageRect, onChoose, onHover, onMove }: NodeProps) {
   const name = nameOf(node)
+  // The record of the song whose preview is playing turns while it plays (FR-WAVE-01); the stylesheet stills it with reduced motion.
+  const spinning = useIsPlaying(node.kind === 'song' ? node.mbid : '')
 
   function activate(event: KeyboardEvent) {
     if (event.key !== 'Enter' && event.key !== ' ') return
@@ -356,7 +359,7 @@ const ConstellationNode = memo(function ConstellationNode({ node, dim, register,
   return (
     <g
       ref={(element) => register(`n:${node.id}`, element)}
-      className={`nd${dim ? ' dim' : ''}${node.kind === 'person' && node.isHub ? '' : ''}`}
+      className={`nd${dim ? ' dim' : ''}${spinning ? ' is-spinning' : ''}`}
       data-id={node.id}
       data-big={node.r >= 9 ? '1' : '0'}
       tabIndex={0}

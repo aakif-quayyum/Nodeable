@@ -24,6 +24,19 @@ Other facts from the same response:
 - The URL is **signed and expires**: it carries `hdnea=exp=…~hmac=…`, and the expiry was 900 seconds after the request. A stored URL is useless within a quarter of an hour, which is why `previews` stores only the track id (section 8).
 - The Deezer API itself does not send an allow-origin header, so a browser cannot call it directly. That matches the design in which the Api resolves the track and returns the URL (`GET /api/v1/recordings/{mbid}/preview`).
 
+## Re-checked from the page (2026-10-14, M4 pull request 3)
+
+The decision asked for the check to be repeated at the start of the work on previews. The first check used Node's `fetch` with an `Origin` header, which proves what the server sends but not what a browser does with it, so this one ran in the browser pane, from the app's own origin (`http://localhost:5173`), on the signed URL the Api returned for a stored track:
+
+| Request, from the page | Result |
+| --- | --- |
+| `fetch(url, { mode: 'cors', credentials: 'omit' })`, body read as bytes | `200`, response type `cors`, `audio/mpeg`, 479,827 bytes: the page can read them |
+| `decodeAudioData` on those bytes | 29.99 s, 2 channels, 48 kHz |
+| the same with `Range: bytes=0-1023` | `206`, `Content-Range: bytes 0-1023/479827`, 1,024 bytes |
+| `fetch('https://api.deezer.com/track/…', { mode: 'cors' })` | refused by the browser (no allow-origin header), as before |
+
+The decision stands: nothing is stored for FR-WAVE-01 and no Worker job is needed. (`Access-Control-Allow-Origin` itself is not readable by a page, so the proof is that the body was.) The built behaviour, including what happens when this stops being true, is in section 10 of the spec.
+
 ## Decision
 
 1. **FR-WAVE-01 decodes in the browser.** The page fetches the preview audio itself (the URL comes from the Api's preview endpoint, resolved fresh from the stored track id, never stored), decodes it with Web Audio's `decodeAudioData`, folds it to mono and reduces it to a fixed number of peaks, and draws those with D3. The peaks are "precomputed" in that they are computed once, before the first frame is drawn, and not on every frame.
