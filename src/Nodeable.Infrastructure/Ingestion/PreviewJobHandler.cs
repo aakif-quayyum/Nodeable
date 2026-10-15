@@ -84,6 +84,7 @@ public sealed class PreviewJobHandler(IDeezerClient deezer, NodeableDbContext db
             ON CONFLICT (recording_mbid, provider) DO UPDATE
                 SET provider_track_id = EXCLUDED.provider_track_id, cover_md5 = EXCLUDED.cover_md5,
                     matched_by = EXCLUDED.matched_by, fetched_at = now()
+                WHERE previews.matched_by <> 'user_pick'
             """,
             cancellationToken);
 

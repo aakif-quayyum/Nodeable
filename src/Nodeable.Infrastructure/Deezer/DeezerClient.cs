@@ -112,7 +112,8 @@ public sealed class DeezerClient(HttpClient http) : IDeezerClient
                 NullIfEmpty(track.Preview),
                 NullIfEmpty(track.Album?.Md5Image ?? track.Md5Image),
                 NullIfEmpty(track.Artist?.Name),
-                track.Duration is > 0 ? track.Duration : null)
+                track.Duration is > 0 ? track.Duration : null,
+                NullIfEmpty(track.Album?.Title))
             : null;
 
     // Deezer sends "" for a missing preview or cover, which would otherwise read as a URL that is present.
@@ -131,7 +132,7 @@ public sealed class DeezerClient(HttpClient http) : IDeezerClient
 
     private sealed record ArtistResponse(string? Name);
 
-    private sealed record AlbumResponse([property: JsonPropertyName("md5_image")] string? Md5Image);
+    private sealed record AlbumResponse([property: JsonPropertyName("md5_image")] string? Md5Image, string? Title);
 
     private sealed record ErrorResponse(int? Code, string? Message);
 }

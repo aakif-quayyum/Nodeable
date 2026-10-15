@@ -273,6 +273,42 @@ public sealed class PreviewIngestionTests(PostgresFixture postgres) : IDisposabl
         preview.MatchedBy.Should().Be(PreviewMatch.TitleArtist);
     }
 
+    [Fact]
+    public async Task FR_PREVIEW_01_a_refresh_never_replaces_a_persons_pick()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        ServeRecording();
+        ServeDeezer($"/track/isrc:{Isrc}", "track-by-isrc.json");
+        await using var world = await WorldAsync();
+        await world.Queue(CrawlJobKind.Recording, _recordingMbid, CrawlPriority.Interactive);
+        await world.RunOnceAsync();
+
+        // A person chose a version before the preview job ran (or before a later refresh).
+        await using (var db = Context(world.ConnectionString))
+        {
+            db.Previews.Add(new Preview
+            {
+                RecordingMbid = _recordingMbid,
+                Provider = PreviewProvider.Deezer,
+                ProviderTrackId = "111",
+                CoverMd5 = "chosen",
+                MatchedBy = PreviewMatch.UserPick,
+                PickedAt = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync(ct);
+        }
+
+        await world.DrainAsync();
+        await world.Queue(CrawlJobKind.Preview, _recordingMbid, CrawlPriority.Scheduled);
+        await world.DrainAsync();
+
+        await using var check = Context(world.ConnectionString);
+        var row = await check.Previews.AsNoTracking().SingleAsync(ct);
+        row.ProviderTrackId.Should().Be("111", "the refresh found a different track by ISRC and left the person's choice alone");
+        row.MatchedBy.Should().Be(PreviewMatch.UserPick);
+        row.PickedAt.Should().NotBeNull();
+    }
+
     // ---- helpers ----
 
     private async Task<World> WorldAsync()

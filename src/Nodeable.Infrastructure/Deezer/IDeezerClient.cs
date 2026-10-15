@@ -11,6 +11,7 @@ namespace Nodeable.Infrastructure.Deezer;
 /// </param>
 /// <param name="CoverMd5">The ID of the album cover image (<c>album.md5_image</c>), or null when there is none.</param>
 /// <param name="ArtistName">The artist's name at Deezer (<c>artist.name</c>), or null when it is not given.</param>
+/// <param name="AlbumTitle">The album's title at Deezer (<c>album.title</c>), or null when it is not given.</param>
 /// <param name="DurationSeconds">
 /// The length of the <b>whole track</b> in seconds, not of the 30-second preview; null when Deezer sends none.
 /// </param>
@@ -20,7 +21,8 @@ public sealed record DeezerTrack(
     string? PreviewUrl,
     string? CoverMd5,
     string? ArtistName = null,
-    int? DurationSeconds = null);
+    int? DurationSeconds = null,
+    string? AlbumTitle = null);
 
 /// <summary>
 /// The Deezer calls of FR-PREVIEW-01 (spec section 10). A lookup returns null, and a search an empty list, when Deezer
