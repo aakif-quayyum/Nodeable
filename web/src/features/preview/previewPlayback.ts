@@ -208,6 +208,11 @@ export function playbackTime(): number {
   return audio?.currentTime ?? 0
 }
 
+/** True while this recording's preview is playing; only the two songs whose answer changes are drawn again. */
+export function useIsPlaying(songMbid: string): boolean {
+  return useSyncExternalStore(subscribe, () => state.phase === 'playing' && state.songMbid === songMbid)
+}
+
 /** The recording that is playing right now, or null. It changes only when playing starts or stops, not as time passes. */
 export function usePlayingSong(): string | null {
   return useSyncExternalStore(subscribe, () => (state.phase === 'playing' ? state.songMbid : null))

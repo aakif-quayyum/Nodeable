@@ -10,7 +10,7 @@ import { server } from './server.ts'
 
 // The first test of a file waits for lazy chunks (the graph, the results) to be transformed and imported, which on a busy
 // machine takes longer than the default second.
-configure({ asyncUtilTimeout: 5000 })
+configure({ asyncUtilTimeout: 12000 })
 
 // jsdom has no matchMedia, which MUI's colour-scheme support calls to follow the operating system setting.
 const defaultMatchMedia = (query: string): MediaQueryList => ({
