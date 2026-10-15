@@ -10,6 +10,8 @@ import { useRoleFilters } from '../../stores/roleFilters.ts'
 import { ConnectorCards } from '../connectors/ConnectorCards.tsx'
 import { LinerNotes } from '../notes/LinerNotes.tsx'
 import { OrbitView } from '../orbit/OrbitView.tsx'
+import { PersonDrawer } from '../person/PersonDrawer.tsx'
+import { usePersonDrawer } from '../person/usePersonDrawer.ts'
 import { Breadcrumbs, Caption, ConnectionChip, LegendChips, LiveChip, StageChips, StageHeading } from '../orbit/StageOverlays.tsx'
 import { rootRef } from '../orbit/orbitLayout.ts'
 import { useCentre } from '../orbit/useCentre.ts'
@@ -64,6 +66,7 @@ export function GraphView({ session }: { session: GraphSession }) {
   // The credits that have just arrived, for the liner notes to highlight (FR-NOTES-01).
   const freshCredits = useFreshCredits(snapshot)
 
+  const { personMbid, open: openDetails, close: closeDetails } = usePersonDrawer()
   const [textView, setTextView] = useState(false)
   const [peopleExpanded, setPeopleExpanded] = useState(false)
 
@@ -159,6 +162,7 @@ export function GraphView({ session }: { session: GraphSession }) {
                   workspace={workspace}
                   centre={centre}
                   onCentre={goTo}
+                  onDetails={openDetails}
                   onMore={() => {
                     setTextView(true)
                     setPeopleExpanded(true)
@@ -166,16 +170,16 @@ export function GraphView({ session }: { session: GraphSession }) {
                 />
                 <StageHeading>
                   <Breadcrumbs workspace={workspace} crumbs={crumbs} onGo={goTo} />
-                  <Caption workspace={workspace} centre={centre} onHide={(mbid) => hidePerson(session.id, mbid)} />
+                  <Caption workspace={workspace} centre={centre} onHide={(mbid) => hidePerson(session.id, mbid)} onDetails={openDetails} />
                 </StageHeading>
               </>
             ) : (
               <>
                 <Suspense fallback={<LinearProgress aria-label="Loading the constellation" sx={{ position: 'absolute', top: 0, left: 0, right: 0 }} />}>
-                  <ConstellationView workspace={workspace} onCentre={goTo} />
+                  <ConstellationView workspace={workspace} onCentre={goTo} onDetails={openDetails} />
                 </Suspense>
                 <StageHeading>
-                  <Caption workspace={workspace} centre={rootRef} constellation onHide={(mbid) => hidePerson(session.id, mbid)} />
+                  <Caption workspace={workspace} centre={rootRef} constellation onHide={(mbid) => hidePerson(session.id, mbid)} onDetails={openDetails} />
                 </StageHeading>
               </>
             )}
@@ -210,7 +214,7 @@ export function GraphView({ session }: { session: GraphSession }) {
               scrollPaddingTop: '48px',
             }}
           >
-            <ConnectorCards workspace={workspace} centre={centre} onCentre={goTo} onHide={(mbid) => hidePerson(session.id, mbid)} />
+            <ConnectorCards workspace={workspace} centre={centre} onCentre={goTo} onHide={(mbid) => hidePerson(session.id, mbid)} onDetails={openDetails} />
 
             <LinerNotes
               workspace={workspace}
@@ -220,6 +224,7 @@ export function GraphView({ session }: { session: GraphSession }) {
               textView={textView}
               onToggleTextView={() => setTextView((on) => !on)}
               onCentre={goTo}
+              onDetails={openDetails}
               onRemove={(song) => removeSong({ mbid: song.mbid, title: song.title, artist: song.artist })}
             />
 
@@ -235,6 +240,18 @@ export function GraphView({ session }: { session: GraphSession }) {
             )}
           </Box>
         </Box>
+      )}
+
+      {workspace !== null && (
+        <PersonDrawer
+          personMbid={personMbid}
+          workspace={workspace}
+          onClose={closeDetails}
+          onCentre={(mbid) => {
+            goTo({ type: 'person', id: mbid })
+            closeDetails()
+          }}
+        />
       )}
 
       <Snackbar

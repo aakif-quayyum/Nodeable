@@ -72,6 +72,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/people/{mbid}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A person's role summary and the years of their stored recordings (FR-PERSON-01). */
+        get: operations["GetPerson"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/people/{mbid}/recordings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A page of the stored recordings a person is credited on, newest first (FR-PERSON-01). */
+        get: operations["GetPersonRecordings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/status/crawl": {
         parameters: {
             query?: never;
@@ -253,6 +287,44 @@ export interface components {
             mbid: string;
             name: string;
         };
+        PersonProfile: {
+            /** Format: uuid */
+            mbid: string;
+            name: string;
+            type: null | string;
+            disambiguation: null | string;
+            roles: components["schemas"]["RoleSummaryItem"][];
+            /** Format: int32 */
+            recordingCount: number;
+            /** Format: int32 */
+            creditCount: number;
+            /** Format: int32 */
+            firstYear: null | number;
+            /** Format: int32 */
+            lastYear: null | number;
+        };
+        PersonRecordingItem: {
+            /** Format: uuid */
+            mbid: string;
+            title: string;
+            artist: string;
+            /** Format: int32 */
+            year: null | number;
+            roles: components["schemas"]["PersonRecordingRole"][];
+        };
+        PersonRecordingRole: {
+            role: components["schemas"]["CreditRole"];
+            detail: string;
+        };
+        PersonRecordingsPage: {
+            /** Format: int32 */
+            page: number;
+            /** Format: int32 */
+            pageSize: number;
+            /** Format: int32 */
+            total: number;
+            items: components["schemas"]["PersonRecordingItem"][];
+        };
         PickPreviewRequest: {
             trackId: string;
         };
@@ -287,6 +359,11 @@ export interface components {
         };
         /** @enum {unknown} */
         RecordingKind: "remix" | "edit" | "bootleg" | "mixtape" | null;
+        RoleSummaryItem: {
+            role: components["schemas"]["CreditRole"];
+            /** Format: int32 */
+            recordings: number;
+        };
         SearchResponse: {
             source: components["schemas"]["SearchSource"];
             results: components["schemas"]["SearchResultItem"][];
@@ -570,6 +647,98 @@ export interface operations {
             };
             /** @description Service Unavailable */
             503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetPerson: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                mbid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonProfile"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetPersonRecordings: {
+        parameters: {
+            query?: {
+                page?: number;
+                pageSize?: number;
+            };
+            header?: never;
+            path: {
+                mbid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonRecordingsPage"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -66,6 +66,7 @@ export function OrbitTooltip({ content, x, y, ref }: { content: TooltipContent; 
               {entry.text}
             </Line>
           ))}
+          <Line>Click to centre · Enter for details</Line>
         </>
       )}
     </Box>

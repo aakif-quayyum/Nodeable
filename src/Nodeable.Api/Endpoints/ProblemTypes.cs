@@ -29,6 +29,9 @@ public static class ProblemTypes
 
     public const string InvalidRequest = "/errors/invalid-request";
 
+    /// <summary>Nodeable has no stored person with that MBID (404, FR-PERSON-01).</summary>
+    public const string PersonNotFound = "/errors/person-not-found";
+
     /// <summary>The recording has no Deezer preview (404, FR-PREVIEW-01).</summary>
     public const string PreviewNotFound = "/errors/preview-not-found";
 

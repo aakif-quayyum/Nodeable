@@ -33,13 +33,15 @@ interface OrbitViewProps {
   onCentre: (ref: NodeRef) => void
   /** The "+N more" node was chosen: the Text view shows everyone. */
   onMore: () => void
+  /** Enter on a focused person, or "Details": the person drawer (FR-PERSON-01). */
+  onDetails: (personMbid: string) => void
 }
 
 /**
  * The orbit (FR-VIEW-01, FR-HUB-01) in its stage: it measures the stage, pans and zooms the drawing, and shows the
  * tooltip. What is drawn, and how it moves, is `OrbitScene`.
  */
-export function OrbitView({ workspace, centre, onCentre, onMore }: OrbitViewProps) {
+export function OrbitView({ workspace, centre, onCentre, onMore, onDetails }: OrbitViewProps) {
   const dotsId = useId()
   const svgRef = useRef<SVGSVGElement>(null)
   const worldRef = useRef<SVGGElement>(null)
@@ -217,6 +219,10 @@ export function OrbitView({ workspace, centre, onCentre, onMore }: OrbitViewProp
               focusId={hover?.id ?? null}
               svgRef={svgRef}
               onChoose={onChoose}
+              onDetails={(personMbid) => {
+                setHover(null)
+                onDetails(personMbid)
+              }}
               onHover={onHover}
               onLeave={onLeave}
               onMove={onMove}
