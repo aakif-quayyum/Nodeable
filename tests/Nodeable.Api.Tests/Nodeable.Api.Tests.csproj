@@ -26,4 +26,9 @@
     <None Include="..\Nodeable.Infrastructure.Tests\Fixtures\deezer\*.json" Link="Fixtures\deezer\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- A test that runs longer than a minute is named in the log, so a hung run says where it hung. -->
+    <Content Include="..\Shared\xunit.runner.json" Link="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

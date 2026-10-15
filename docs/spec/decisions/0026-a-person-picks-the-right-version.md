@@ -1,6 +1,6 @@
 # 0026. When no match is confident, a person picks the right version from Deezer's first results
 
-- **Status:** Proposed 2026-10-14 by the developer's instruction (the behaviour is built in a pull request that waits for approval); **the amendment to FR-PREVIEW-01 is awaiting approval.** Before launch, picks must need sign-in or an admin's approval (below).
+- **Status:** Accepted 2026-10-15. The developer approved the amendment to FR-PREVIEW-01 after trying it, with the condition kept: **before launch, picks must need sign-in or an admin's approval** (below).
 - **Date:** 2026-10-14
 - **Spec:** FR-PREVIEW-01 (amended), section 8 (`previews.matched_by`, `previews.picked_at`), section 9 (preview endpoints), section 10 (fetch plan, step 5), section 15 (risks); decisions 0021, 0022 and 0025
 
@@ -36,4 +36,4 @@ An anonymous pick changes what every visitor hears. Today it is limited per addr
 
 - A migration adds `previews.picked_at` and widens the CHECK constraint on `matched_by`.
 - Two endpoints and one hub path (`PreviewFound`, already added in M4 pull request 2) carry the feature; nothing else changes for the player.
-- The decision needs the developer's approval of the FR-PREVIEW-01 amendment before it is Accepted; the code is behind a pull request and nothing in `main` changes until then.
+- The pre-launch condition is a gate, not a todo that can be forgotten: it is on the list of things to settle before the site goes public (section 14 and the risk table in section 15).
