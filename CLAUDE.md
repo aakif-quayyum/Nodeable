@@ -26,6 +26,18 @@ Nodeable is a music discovery web app that maps the producers, songwriters, engi
 - Every new endpoint, job and external call is traced (spec section 11).
 - Keep secrets out of the repository. Use .NET user secrets locally.
 
+## Standing rules for how we work together
+
+- **Start here in a new session:** read `docs/dev/HANDOFF.md` (state, open PRs, open items, flaky tests), then the spec sections the task needs.
+- **Pull requests:** one feature branch per PR, merge commits, requirement ID in the commit message and test name. Open PRs push-notify the developer. Docs-only PRs say so; UI PRs show a screenshot (`docs/learning/images/`), backend-only PRs say so.
+- **Never merge until the developer says "merge".** Only exceptions: a security patch bump (green CI, no code changes; tell them afterwards) and a PR they have explicitly told you to merge on green. Check CI and PR state live (`gh`), never from memory.
+- **Local stack:** `dotnet run --project src/Nodeable.AppHost`, web pinned to port **5173**. For UI PRs keep it running for hot reload and hand over the URL plus 3 things to try. "pause" means stop the AppHost, Api, Worker, Vite and the containers (`docker rm -fv`, keep the `nodeable-postgres-data` volume); "resume" starts them again.
+- **Tests:** run only targeted tests locally (`-class` for a backend test class, `npm test -- <file>` for the web); CI runs the whole suite. Docker Desktop must be running for Testcontainers.
+- **Stop for decisions:** anything that needs a choice, a spec requirement change or a new ADR goes to the developer first. Spec edits that only record what was built are fine.
+- **Git history is not rewritten** (tags and guide permalinks depend on it). Future commits use the developer's GitHub noreply address once they give it; then remind them of the exact `git config user.email` command.
+- **Recommendations tie-break (PR 5, FR-REC-01):** more hubs on the candidate, then more of the graph's songs shared by those hubs, then title A to Z. Cache only; exclude songs already in the graph. Record it in the spec when PR 5 is built.
+- **Previews:** MusicBrainz is the only credit source; Genius is **not used** (terms). WhoSampled is a link-out only, never fetched, and any use of their data needs written permission.
+
 ## Learning anchors (spec section 16)
 
 At every key point in the code, add a comment in this exact format:
