@@ -214,6 +214,59 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
                     b.ToTable("graph_songs", (string)null);
                 });
 
+            modelBuilder.Entity("Nodeable.Domain.Entities.MetricRollup", b =>
+                {
+                    b.Property<string>("Resolution")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("resolution");
+
+                    b.Property<DateTimeOffset>("BucketStart")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("bucket_start");
+
+                    b.Property<string>("Metric")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("metric");
+
+                    b.Property<string>("Dimension")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("dimension");
+
+                    b.Property<long>("Count")
+                        .HasColumnType("bigint")
+                        .HasColumnName("count");
+
+                    b.Property<double?>("Last")
+                        .HasColumnType("double precision")
+                        .HasColumnName("last");
+
+                    b.Property<double?>("Max")
+                        .HasColumnType("double precision")
+                        .HasColumnName("max");
+
+                    b.Property<double?>("Min")
+                        .HasColumnType("double precision")
+                        .HasColumnName("min");
+
+                    b.Property<double?>("Sum")
+                        .HasColumnType("double precision")
+                        .HasColumnName("sum");
+
+                    b.HasKey("Resolution", "BucketStart", "Metric", "Dimension")
+                        .HasName("pk_metric_rollups");
+
+                    b.HasIndex("Resolution", "Metric", "BucketStart")
+                        .HasDatabaseName("ix_metric_rollups_resolution_metric_bucket_start");
+
+                    b.ToTable("metric_rollups", null, t =>
+                        {
+                            t.HasCheckConstraint("ck_metric_rollups_resolution", "resolution IN ('1m', '5m')");
+                        });
+                });
+
             modelBuilder.Entity("Nodeable.Domain.Entities.Person", b =>
                 {
                     b.Property<Guid>("Mbid")
@@ -452,6 +505,39 @@ namespace Nodeable.Infrastructure.Persistence.Migrations
 
                             t.HasCheckConstraint("ck_releases_date_precision", "date_precision IN ('year', 'month', 'day')");
                         });
+                });
+
+            modelBuilder.Entity("Nodeable.Domain.Entities.SloCheck", b =>
+                {
+                    b.Property<DateTimeOffset>("CheckedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("checked_at");
+
+                    b.Property<string>("Slo")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("slo");
+
+                    b.Property<bool>("Breached")
+                        .HasColumnType("boolean")
+                        .HasColumnName("breached");
+
+                    b.Property<double?>("Observed")
+                        .HasColumnType("double precision")
+                        .HasColumnName("observed");
+
+                    b.Property<double>("Target")
+                        .HasColumnType("double precision")
+                        .HasColumnName("target");
+
+                    b.Property<int>("WindowDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("window_days");
+
+                    b.HasKey("CheckedAt", "Slo")
+                        .HasName("pk_slo_checks");
+
+                    b.ToTable("slo_checks", (string)null);
                 });
 
             modelBuilder.Entity("Nodeable.Domain.Entities.Work", b =>

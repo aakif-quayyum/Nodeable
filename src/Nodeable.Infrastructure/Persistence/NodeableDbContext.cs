@@ -27,6 +27,10 @@ public class NodeableDbContext(DbContextOptions<NodeableDbContext> options) : Db
 
     public DbSet<CrawlJob> CrawlJobs => Set<CrawlJob>();
 
+    public DbSet<MetricRollup> MetricRollups => Set<MetricRollup>();
+
+    public DbSet<SloCheck> SloChecks => Set<SloCheck>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // pg_trgm powers the trigram index on recordings.title (spec section 8).

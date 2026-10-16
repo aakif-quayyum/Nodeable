@@ -23,6 +23,12 @@ internal static class InfrastructureTelemetry
         unit: "{request}",
         description: "Requests sent to external APIs, by source and HTTP status code (\"error\" when no response arrived).");
 
+    /// <summary>Time from sending an attempt to an external API to its response, by source and status code: the latency heatmap on /status.</summary>
+    public static readonly Histogram<double> ExternalRequestDuration = _meter.CreateHistogram<double>(
+        "external.request.duration",
+        unit: "s",
+        description: "Time of one HTTP attempt to an external API until its response arrived, by source and HTTP status code.");
+
     /// <summary>
     /// Lookups answered by the local cache (hit) or that had to go to an external API (miss). The cache hit ratio on the
     /// About page is hit over hit plus miss (spec section 11).

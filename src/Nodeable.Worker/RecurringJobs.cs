@@ -14,12 +14,21 @@ public sealed class RecurringJobs(IRecurringJobManager manager, IOptions<Refresh
     /// <summary>The id the refresh is stored under in Hangfire (the dashboard shows it).</summary>
     public const string CacheRefreshId = "cache-refresh";
 
+    /// <summary>The id of the metrics rollup's minute-by-minute housekeeping (NFR-OBS-02).</summary>
+    public const string RollupMaintenanceId = "rollup-maintenance";
+
     public Task StartAsync(CancellationToken cancellationToken)
     {
         manager.AddOrUpdate<RefreshStaleCacheJob>(
             CacheRefreshId,
             job => job.RunAsync(CancellationToken.None),
             refresh.Value.Cron,
+            new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+
+        manager.AddOrUpdate<RollupMaintenanceJob>(
+            RollupMaintenanceId,
+            job => job.RunAsync(CancellationToken.None),
+            Cron.Minutely(),
             new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
         return Task.CompletedTask;
     }

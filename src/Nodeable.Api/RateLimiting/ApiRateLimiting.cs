@@ -39,6 +39,10 @@ public sealed class ApiRateLimitOptions
     /// <summary>NFR-SEC-02: 60 recommendation reads per minute per IP address (FR-REC-01; each is a query of the cache, no external request).</summary>
     [Range(1, 100_000)]
     public int RecommendationPermitsPerMinute { get; set; } = 60;
+
+    /// <summary>NFR-SEC-02: 60 health checks per minute per IP address (a monitor asks every few minutes; the limit stops the endpoint being used to load the database).</summary>
+    [Range(1, 100_000)]
+    public int HealthPermitsPerMinute { get; set; } = 60;
 }
 
 public static class ApiRateLimiting
@@ -55,6 +59,8 @@ public static class ApiRateLimiting
     public const string PeoplePolicy = "people";
 
     public const string RecommendationPolicy = "recommendations";
+
+    public const string HealthPolicy = "health";
 
     public static IServiceCollection AddApiRateLimiting(this IServiceCollection services)
     {
@@ -75,6 +81,7 @@ public static class ApiRateLimiting
             limiter.AddPolicy(PreviewPickPolicy, context => PerClient(context, o => o.PreviewPickPermitsPerMinute));
             limiter.AddPolicy(PeoplePolicy, context => PerClient(context, o => o.PeoplePermitsPerMinute));
             limiter.AddPolicy(RecommendationPolicy, context => PerClient(context, o => o.RecommendationPermitsPerMinute));
+            limiter.AddPolicy(HealthPolicy, context => PerClient(context, o => o.HealthPermitsPerMinute));
         });
 
         return services;

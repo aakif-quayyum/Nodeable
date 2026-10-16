@@ -24,21 +24,20 @@ Written 2026-10-16 so a new session can continue without the conversation that p
 | docs | M4-start tool-version review recorded (decision 0013) | merged #47 |
 | test | Lazy-chunk waits back to 5 s / 10 s, chunks preloaded in the files that open them (partial fix, see Known flaky tests) | merged #48 |
 | 5 | Recommendations (FR-REC-01, 02), cache only | merged #49 |
-| 6 | 30-day refresh with Hangfire + Hangfire.PostgreSql (ADR 0028): hourly selection, delayed crawl jobs, credits MusicBrainz dropped removed, ISRC backfill for pre-M4 songs, dashboard dev-only | **open**, branch `m4/refresh`, waiting for CI and the developer's "merge" |
-| 7 | Rollup, status API, health, daily SLO check | not started |
+| 6 | 30-day refresh with Hangfire + Hangfire.PostgreSql (ADR 0028): hourly selection, delayed crawl jobs, credits MusicBrainz dropped removed, ISRC backfill, dashboard dev-only | merged #50 |
+| 7a | Rollup write path: migration, MeterListener recorder, flusher, Worker maintenance job, health endpoint | in progress, branch `m4/rollup` |
+| 7b | Status API (public and private metrics, Basic auth) and the daily SLO check; crawl freshness uses the queue-wait proxy | not started |
 | 8 | `/status` page and About with ECharts | not started |
 | 9 | CI arm64 images, image scan, OpenAPI diff | not started |
 | 10 | Oracle deployment (re-read Oracle Always Free limits first) | not started; needs the developer's account, keys and subdomain, plus the D7 seed albums |
 | 11 | Playwright end-to-end and k6 | not started |
 | 12 | LG-04 learning guide (all 12 sections, claims checked against code) and `v0.4.0` | not started |
 
-FR-SAMPLE-01 is **v2 and must not be built** until the developer approves #43 and says so.
+FR-SAMPLE-01 is approved and ADR 0027 is Accepted (2026-10-16), but it is **v2**: it is not built in M4. The WhoSampled search URL stays an open item in spec section 15.
 
 ## Open pull requests
 
-- **PR 6 refresh (`m4/refresh`).** Backend only. The Worker registers the recurring job `cache-refresh` (hourly, `7 * * * *` UTC); the Hangfire dashboard is at `http://localhost:<Api port>/hangfire` while the AppHost runs in Development (the port is in the Aspire dashboard; it is not proxied by Vite). The first real run queues up to 20 pre-M4 recordings (no ISRC) with random delays, which makes real MusicBrainz requests through the gate.
-
-
+- **PR 7a rollup write path (`m4/rollup`).** Backend only; see its pull request.
 
 ## Settled decisions (D1 to D8, 2026-10-14)
 
