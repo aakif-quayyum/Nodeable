@@ -33,7 +33,7 @@ public class SchemaTests(PostgresFixture postgres)
             .ToListAsync(ct);
 
         tables.Should().Equal(
-            "crawl_jobs", "credits", "graph_songs", "graphs", "people", "previews", "recording_releases", "recording_works", "recordings", "releases", "works");
+            "crawl_jobs", "credits", "graph_songs", "graphs", "metric_rollups", "people", "previews", "recording_releases", "recording_works", "recordings", "releases", "slo_checks", "works");
         views.Should().Equal("recording_people");
     }
 

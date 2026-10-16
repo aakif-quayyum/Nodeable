@@ -5,6 +5,7 @@ using Nodeable.Infrastructure.Crawling;
 using Nodeable.Infrastructure.Deezer;
 using Nodeable.Infrastructure.Graphs;
 using Nodeable.Infrastructure.Ingestion;
+using Nodeable.Infrastructure.Metrics;
 using Nodeable.Infrastructure.MusicBrainz;
 using Nodeable.Infrastructure.Persistence;
 using Nodeable.Infrastructure.Refresh;
@@ -55,6 +56,11 @@ builder.Services.AddHangfire(configuration => configuration
 // One job at a time is plenty: the only recurring job selects a batch and queues it, and the crawl queue does the slow work.
 builder.Services.AddHangfireServer(options => options.WorkerCount = 1);
 builder.Services.AddScoped<RefreshStaleCacheJob>();
+
+// The metrics rollup (NFR-OBS-02, decision 0023): this process flushes its own meters once a minute, and the Worker alone
+// does the housekeeping (queue sample, 5-minute fold, retention) in a recurring job.
+builder.Services.AddMetricsRollup();
+builder.Services.AddScoped<RollupMaintenanceJob>();
 builder.Services.AddHostedService<RecurringJobs>();
 
 var host = builder.Build();

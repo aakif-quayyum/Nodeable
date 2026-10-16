@@ -9,6 +9,7 @@ using Nodeable.Domain.Entities;
 using Nodeable.Domain.Enums;
 using Nodeable.Infrastructure.Crawling;
 using Nodeable.Infrastructure.Graphs;
+using Nodeable.Infrastructure.Metrics;
 using Nodeable.Infrastructure.MusicBrainz;
 using Nodeable.Infrastructure.Persistence;
 using Nodeable.Infrastructure.Tests.Crawling;
@@ -60,6 +61,7 @@ internal sealed class GraphTestHost : IAsyncDisposable
         services.AddSingleton<TimeProvider>(time);
 
         services.AddCrawling();
+        services.AddMetricsRollup();
         services.AddGraphEvents();
         services.AddGraphs();
         services.AddGraphJobEvents();

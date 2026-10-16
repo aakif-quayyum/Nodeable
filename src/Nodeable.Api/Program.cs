@@ -8,6 +8,7 @@ using Nodeable.Api.RateLimiting;
 using Nodeable.Infrastructure.Crawling;
 using Nodeable.Infrastructure.Deezer;
 using Nodeable.Infrastructure.Graphs;
+using Nodeable.Infrastructure.Metrics;
 using Nodeable.Infrastructure.MusicBrainz;
 using Nodeable.Infrastructure.Persistence;
 using Nodeable.Infrastructure.Search;
@@ -43,6 +44,10 @@ builder.Services.AddScoped<Nodeable.Infrastructure.Recommendations.Recommendatio
 // RFC 9457 Problem Details for every error the framework itself produces (404, 415, unhandled exceptions).
 builder.Services.AddProblemDetails();
 builder.Services.AddApiRateLimiting();
+
+// The health endpoint's checks, and this process's side of the metrics rollup: it flushes its own request counts and latency once a minute.
+builder.Services.AddScoped<IHealthProbe, DependencyHealthProbe>();
+builder.Services.AddMetricsRollup();
 
 // Scheduled jobs run in the Worker; the Api only serves their dashboard, and only in Development (decision 0028).
 builder.AddDevelopmentJobDashboard();

@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Nodeable.Api.RateLimiting;
 using Nodeable.Domain.Enums;
 using Nodeable.Infrastructure.Persistence;
 
@@ -18,6 +19,17 @@ public static class StatusEndpoints
             return TypedResults.Ok(new CrawlStatusResponse(queueDepth, FetchRatePerMinute: null, CacheHitRatio: null));
         })
         .WithName("GetCrawlStatus");
+
+        // The uptime monitor's URL (NFR-OBS-04): 200 with no body when PostgreSQL and Redis answer, 503 with no body when one does not.
+        // The body is empty on purpose: a public endpoint should not say which dependency is down.
+        status.MapGet("/health", async (IHealthProbe probe, CancellationToken cancellationToken) =>
+                await probe.IsHealthyAsync(cancellationToken) ? Results.Ok() : Results.StatusCode(StatusCodes.Status503ServiceUnavailable))
+            .RequireRateLimiting(ApiRateLimiting.HealthPolicy)
+            .WithName("GetHealth")
+            .WithSummary("200 when PostgreSQL and Redis answer, 503 when one does not; no body either way (NFR-OBS-04).")
+            .Produces(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status503ServiceUnavailable)
+            .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
         return app;
     }
