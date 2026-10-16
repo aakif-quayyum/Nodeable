@@ -1,6 +1,7 @@
 import { screen } from '@testing-library/react'
 import { http, HttpResponse } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it } from 'vitest'
+import { preloadConstellation, preloadGraphView } from '../test/lazyChunks.ts'
 import { FakeGraphHub } from '../test/fakeGraphHub.ts'
 import { renderAt } from '../test/renderApp.tsx'
 import { server } from '../test/server.ts'
@@ -62,6 +63,10 @@ function unguardedMotionRules(): { selector: string; css: string }[] {
 const ownRules = (rules: { selector: string }[]) => rules.filter((rule) => !/-Mui[A-Z]/.test(rule.selector))
 
 describe('reduced motion in the stylesheet', () => {
+  beforeAll(async () => {
+    await Promise.all([preloadGraphView(), preloadConstellation()])
+  })
+
   it('NFR_MOTION_01 declares no animation or transition of the app outside a no-preference block: landing and results', async () => {
     setReducedMotion(false)
     serveSearch()
