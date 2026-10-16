@@ -126,6 +126,14 @@ public class RecommendationReadModelTests(PostgresFixture postgres)
     }
 
     [Fact]
+    public void FR_REC_02_a_hub_with_many_roles_is_described_by_two_and_a_count()
+    {
+        var hub = new RecommendationHub(Id(1), "Ann Arranger", 3, [CreditRole.Instrument, CreditRole.Mixing, CreditRole.Producer, CreditRole.Vocal]);
+
+        RecommendationReadModel.ReasonFor([hub]).Should().Be("Credited with Ann Arranger (instrument, mixing +2, on 3 of your songs)");
+    }
+
+    [Fact]
     public void FR_REC_02_a_reason_names_three_hubs_and_counts_the_rest()
     {
         var hubs = Enumerable.Range(1, 5)

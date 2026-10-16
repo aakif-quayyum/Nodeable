@@ -15,6 +15,9 @@ public sealed class RecommendationReadModel(NodeableDbContext db)
     /// <summary>How many hubs a reason names before it says "and N more".</summary>
     private const int NamedHubs = 3;
 
+    /// <summary>How many roles a hub is described with before the rest are counted.</summary>
+    private const int NamedRoles = 2;
+
     // Rows are shaped by column alias: a keyless type is filled by name (as in GraphReadModel).
     private sealed class ScoredRow
     {
@@ -134,7 +137,10 @@ public sealed class RecommendationReadModel(NodeableDbContext db)
     private static string Describe(RecommendationHub hub)
     {
         var songs = hub.GraphSongs == 1 ? "1 of your songs" : $"{hub.GraphSongs} of your songs";
-        var roles = string.Join(", ", hub.Roles.Select(r => r.ToString().ToLowerInvariant()));
-        return $"{hub.Name} ({roles}, on {songs})";
+        // Two roles are enough to say what they did; a person with five is described by the count of the rest.
+        var roles = string.Join(", ", hub.Roles.Take(NamedRoles).Select(r => r.ToString().ToLowerInvariant()));
+        var extra = hub.Roles.Count - NamedRoles;
+        var more = extra > 0 ? $" +{extra}" : string.Empty;
+        return $"{hub.Name} ({roles}{more}, on {songs})";
     }
 }
