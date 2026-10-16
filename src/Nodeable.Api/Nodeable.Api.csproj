@@ -17,6 +17,10 @@
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
     <!-- AddRedisClient("redis"): the rate gate for the MusicBrainz search lives in Redis (decision 0018). -->
     <PackageReference Include="Aspire.StackExchange.Redis" />
+    <!-- The Hangfire dashboard, served in development only (decision 0028, D4); the Worker runs the jobs. -->
+    <PackageReference Include="Hangfire.AspNetCore" />
+    <PackageReference Include="Hangfire.PostgreSql" />
+    <PackageReference Include="Newtonsoft.Json" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.Extensions.ApiDescription.Server">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
