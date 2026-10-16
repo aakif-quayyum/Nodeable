@@ -106,6 +106,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/graphs/{id}/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Ranked recommendations with reasons, from the stored credits only (FR-REC-01, FR-REC-02). */
+        get: operations["GetRecommendations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/status/crawl": {
         parameters: {
             query?: never;
@@ -356,6 +373,31 @@ export interface components {
             status?: null | number;
             detail?: null | string;
             instance?: null | string;
+        };
+        RecommendationHub: {
+            /** Format: uuid */
+            mbid: string;
+            name: string;
+            /** Format: int32 */
+            graphSongs: number;
+            roles: components["schemas"]["CreditRole"][];
+        };
+        RecommendationItem: {
+            /** Format: uuid */
+            mbid: string;
+            title: string;
+            artist: string;
+            /** Format: int32 */
+            year: null | number;
+            /** Format: int32 */
+            hubCount: number;
+            /** Format: int32 */
+            sharedSongs: number;
+            reason: string;
+            hubs: components["schemas"]["RecommendationHub"][];
+        };
+        RecommendationsResponse: {
+            items: components["schemas"]["RecommendationItem"][];
         };
         /** @enum {unknown} */
         RecordingKind: "remix" | "edit" | "bootleg" | "mixtape" | null;
@@ -721,6 +763,68 @@ export interface operations {
             };
             /** @description Bad Request */
             400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetRecommendations: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: {
+                "X-Graph-Token"?: string;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecommendationsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -35,6 +35,10 @@ public sealed class ApiRateLimitOptions
     /// <summary>NFR-SEC-02: 120 person lookups per minute per IP address (FR-PERSON-01; each is a read of the cache, no external request).</summary>
     [Range(1, 100_000)]
     public int PeoplePermitsPerMinute { get; set; } = 120;
+
+    /// <summary>NFR-SEC-02: 60 recommendation reads per minute per IP address (FR-REC-01; each is a query of the cache, no external request).</summary>
+    [Range(1, 100_000)]
+    public int RecommendationPermitsPerMinute { get; set; } = 60;
 }
 
 public static class ApiRateLimiting
@@ -49,6 +53,8 @@ public static class ApiRateLimiting
     public const string PreviewPickPolicy = "preview-picks";
 
     public const string PeoplePolicy = "people";
+
+    public const string RecommendationPolicy = "recommendations";
 
     public static IServiceCollection AddApiRateLimiting(this IServiceCollection services)
     {
@@ -68,6 +74,7 @@ public static class ApiRateLimiting
             limiter.AddPolicy(PreviewPolicy, context => PerClient(context, o => o.PreviewPermitsPerMinute));
             limiter.AddPolicy(PreviewPickPolicy, context => PerClient(context, o => o.PreviewPickPermitsPerMinute));
             limiter.AddPolicy(PeoplePolicy, context => PerClient(context, o => o.PeoplePermitsPerMinute));
+            limiter.AddPolicy(RecommendationPolicy, context => PerClient(context, o => o.RecommendationPermitsPerMinute));
         });
 
         return services;

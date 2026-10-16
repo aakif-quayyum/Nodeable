@@ -13,5 +13,7 @@ export const crawlStatusFixture: CrawlStatus = {
 // Search is not part of the default state of any page: a test that searches says what comes back.
 export const handlers = [
   http.get('/api/v1/status/crawl', () => HttpResponse.json(crawlStatusFixture)),
+  // A graph with hubs asks for recommendations; most tests are not about them, so the default is none.
+  http.get('/api/v1/graphs/:id/recommendations', () => HttpResponse.json({ items: [] })),
   http.get('/api/v1/search/recordings', () => HttpResponse.json({ source: 'musicBrainz', results: [] })),
 ]

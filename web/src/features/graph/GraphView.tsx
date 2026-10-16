@@ -11,6 +11,7 @@ import { ConnectorCards } from '../connectors/ConnectorCards.tsx'
 import { LinerNotes } from '../notes/LinerNotes.tsx'
 import { OrbitView } from '../orbit/OrbitView.tsx'
 import { PersonDrawer } from '../person/PersonDrawer.tsx'
+import { Recommendations } from '../recommendations/Recommendations.tsx'
 import { usePersonDrawer } from '../person/usePersonDrawer.ts'
 import { Breadcrumbs, Caption, ConnectionChip, LegendChips, LiveChip, StageChips, StageHeading } from '../orbit/StageOverlays.tsx'
 import { rootRef } from '../orbit/orbitLayout.ts'
@@ -215,6 +216,8 @@ export function GraphView({ session }: { session: GraphSession }) {
             }}
           >
             <ConnectorCards workspace={workspace} centre={centre} onCentre={goTo} onHide={(mbid) => hidePerson(session.id, mbid)} onDetails={openDetails} />
+
+            {snapshot !== undefined && <Recommendations session={session} snapshot={snapshot} />}
 
             <LinerNotes
               workspace={workspace}

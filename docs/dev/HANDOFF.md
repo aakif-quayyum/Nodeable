@@ -22,8 +22,8 @@ Written 2026-10-16 so a new session can continue without the conversation that p
 | 4 | Person drawer (FR-PERSON-01) | merged #44 |
 | docs | FR-SAMPLE-01 "Built from" (v2) approved, ADR 0027 Accepted | merged #43 |
 | docs | M4-start tool-version review recorded (decision 0013) | merged #47 |
-| test | Lazy-chunk waits put back to 5 s / 10 s, chunks preloaded in the three test files that open them | this PR |
-| 5 | Recommendations (FR-REC-01, 02), cache only | next: plan awaiting approval |
+| test | Lazy-chunk waits back to 5 s / 10 s, chunks preloaded in the files that open them (partial fix, see Known flaky tests) | merged #48 |
+| 5 | Recommendations (FR-REC-01, 02), cache only | **open**, branch `m4/recommendations`, waiting for CI and the developer's "merge" |
 | 6 | 30-day refresh with Hangfire + Hangfire.PostgreSql (dashboard dev-only); backfills ISRCs and previews for pre-M4 songs | not started |
 | 7 | Rollup, status API, health, daily SLO check | not started |
 | 8 | `/status` page and About with ECharts | not started |
@@ -63,7 +63,7 @@ None besides the PR that carries this update.
 
 ## Known flaky tests and what has been tried
 
-- **Lazy chunks under load (fixed, 2026-10-16).** The Playwright suite already runs against a production build (`vite preview`), so it never had the problem; the Vitest jsdom tests import source through Vite's transform and cannot use a build. With the waits back at 5 s / 10 s the full suite failed on `spin.test.tsx` (first findByRole of the constellation), so the cause was the first transform of the lazy module graph under parallel load, not a render problem. `web/src/test/lazyChunks.ts` preloads the graph view and constellation in `beforeAll` of `spin.test.tsx`, `graph.test.tsx` and `motionCss.test.tsx`; five full-suite runs passed. If it fails again, preload in the file that fails; do not raise the waits.
+- **Lazy chunks and slow runs (partly fixed, 2026-10-16).** Playwright already runs against a production build (`vite preview`); the Vitest jsdom tests import source through Vite's transform and cannot use a build. #48 preloads the graph view and constellation in `beforeAll` of `spin.test.tsx`, `graph.test.tsx` and `motionCss.test.tsx` and puts the waits back to 5 s / 10 s; CI is green with that and five quiet local runs passed. **It is not a full fix:** later the same day, with a game running (CPU about 75 percent), the full suite took about 88 s instead of 30 s and 5 to 7 tests failed in different files, including ones with no lazy chunk beyond the preloaded ones (`sheet.test.tsx`, `landing.test.tsx`, `person.test.tsx`) and `graph.test.tsx` "starts new nodes folded", which asserts the first frame of a real-time animation and so races a slow query. Preloading every lazy chunk in `setup.ts` did not change that. So the cost is jsdom and the constellation render under CPU contention as well as the first transform (`spin.test.tsx` alone takes about 5 s when loaded). Next step if CI ever fails on it: make the animation test deterministic (fake the animation clock) rather than raise waits; run the web suite locally with nothing else heavy running.
 - **Backend CI job hung 20 minutes once** in the Infrastructure tests (#41), not reproduced. `tests/Shared/xunit.runner.json` sets `longRunningTestSeconds` 60, linked into the Infrastructure and Api test projects, so a hang now names the test.
 - **A jsdom test passed with a real bug present** (the pick dialog re-asked Deezer in a loop; `gcTime: 0` query re-created per render). Found only in a real browser; prefer a real-stack check for query-lifecycle behaviour.
 
