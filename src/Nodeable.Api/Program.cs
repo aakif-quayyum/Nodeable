@@ -37,6 +37,7 @@ builder.Services.AddCrawling();
 builder.Services.AddGraphEvents();
 builder.Services.AddGraphs();
 builder.Services.AddScoped<Nodeable.Infrastructure.People.PersonReadModel>();
+builder.Services.AddScoped<Nodeable.Infrastructure.Recommendations.RecommendationReadModel>();
 
 // RFC 9457 Problem Details for every error the framework itself produces (404, 415, unhandled exceptions).
 builder.Services.AddProblemDetails();
@@ -75,6 +76,7 @@ app.MapSearchEndpoints();
 app.MapGraphEndpoints();
 app.MapRecordingEndpoints();
 app.MapPeopleEndpoints();
+app.MapRecommendationEndpoints();
 
 // The one SignalR hub (spec section 9). Browsers connect to the same origin; Vite and Caddy proxy /hubs (decision 0004).
 // The build-time OpenAPI generator runs this startup code with no configuration. The hub is not part of the document,
