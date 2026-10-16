@@ -24,7 +24,7 @@ Written 2026-10-16 so a new session can continue without the conversation that p
 | docs | M4-start tool-version review recorded (decision 0013) | merged #47 |
 | test | Lazy-chunk waits back to 5 s / 10 s, chunks preloaded in the files that open them (partial fix, see Known flaky tests) | merged #48 |
 | 5 | Recommendations (FR-REC-01, 02), cache only | merged #49 |
-| 6 | 30-day refresh with Hangfire + Hangfire.PostgreSql (dashboard dev-only, hosted by the Api); backfills ISRCs and previews for pre-M4 songs; refresh removes credits MusicBrainz dropped (ADR 0028) | in progress, branch `m4/refresh` |
+| 6 | 30-day refresh with Hangfire + Hangfire.PostgreSql (ADR 0028): hourly selection, delayed crawl jobs, credits MusicBrainz dropped removed, ISRC backfill for pre-M4 songs, dashboard dev-only | **open**, branch `m4/refresh`, waiting for CI and the developer's "merge" |
 | 7 | Rollup, status API, health, daily SLO check | not started |
 | 8 | `/status` page and About with ECharts | not started |
 | 9 | CI arm64 images, image scan, OpenAPI diff | not started |
@@ -36,7 +36,9 @@ FR-SAMPLE-01 is **v2 and must not be built** until the developer approves #43 an
 
 ## Open pull requests
 
-None besides the PR that carries this update.
+- **PR 6 refresh (`m4/refresh`).** Backend only. The Worker registers the recurring job `cache-refresh` (hourly, `7 * * * *` UTC); the Hangfire dashboard is at `http://localhost:<Api port>/hangfire` while the AppHost runs in Development (the port is in the Aspire dashboard; it is not proxied by Vite). The first real run queues up to 20 pre-M4 recordings (no ISRC) with random delays, which makes real MusicBrainz requests through the gate.
+
+
 
 ## Settled decisions (D1 to D8, 2026-10-14)
 

@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
+using Nodeable.Api;
 using Nodeable.Api.Endpoints;
 using Nodeable.Api.RateLimiting;
 using Nodeable.Infrastructure.Crawling;
@@ -43,6 +44,9 @@ builder.Services.AddScoped<Nodeable.Infrastructure.Recommendations.Recommendatio
 builder.Services.AddProblemDetails();
 builder.Services.AddApiRateLimiting();
 
+// Scheduled jobs run in the Worker; the Api only serves their dashboard, and only in Development (decision 0028).
+builder.AddDevelopmentJobDashboard();
+
 builder.Services.AddOpenApi();
 
 // LEARN: LG-01 json-number-handling | ASP.NET's web defaults also accept numbers written as strings ("5"), and OpenAPI then describes every number as "integer or string"; Strict says numbers are numbers, so the generated TypeScript type is plain `number`
@@ -77,6 +81,7 @@ app.MapGraphEndpoints();
 app.MapRecordingEndpoints();
 app.MapPeopleEndpoints();
 app.MapRecommendationEndpoints();
+app.MapDevelopmentJobDashboard();
 
 // The one SignalR hub (spec section 9). Browsers connect to the same origin; Vite and Caddy proxy /hubs (decision 0004).
 // The build-time OpenAPI generator runs this startup code with no configuration. The hub is not part of the document,

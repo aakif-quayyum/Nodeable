@@ -22,7 +22,10 @@ public sealed class CrawlQueue(NodeableDbContext db, IOptions<CrawlOptions> opti
 
     private readonly CrawlOptions _options = options.Value;
 
-    public async Task<EnqueueResult> EnqueueAsync(CrawlJobKind kind, Guid targetMbid, int priority, CancellationToken cancellationToken = default)
+    public Task<EnqueueResult> EnqueueAsync(CrawlJobKind kind, Guid targetMbid, int priority, CancellationToken cancellationToken = default) =>
+        EnqueueAsync(kind, targetMbid, priority, TimeSpan.Zero, cancellationToken);
+
+    public async Task<EnqueueResult> EnqueueAsync(CrawlJobKind kind, Guid targetMbid, int priority, TimeSpan delay, CancellationToken cancellationToken = default)
     {
         using var activity = InfrastructureTelemetry.ActivitySource.StartActivity("crawl.enqueue");
         activity?.SetTag("crawl.kind", ToText(kind));
@@ -32,12 +35,13 @@ public sealed class CrawlQueue(NodeableDbContext db, IOptions<CrawlOptions> opti
         // request that is running), so the job's own span becomes a child of this one.
         var traceparent = TraceparentOf(activity ?? Activity.Current);
         var kindText = ToText(kind);
+        var delaySeconds = Math.Max(0, delay.TotalSeconds);
 
         // LEARN: LG-02 on-conflict-do-nothing | ON CONFLICT DO NOTHING lets the database's unique index decide "is this already queued?" atomically, so two requests at the same instant cannot both insert; the conflict target repeats the index's WHERE clause so only outstanding jobs count
         var inserted = await db.Database.ExecuteSqlAsync(
             $"""
             INSERT INTO crawl_jobs (kind, target_mbid, priority, status, attempts, run_after, traceparent)
-            VALUES ({kindText}, {targetMbid}, {priority}, 'pending', 0, now(), {traceparent})
+            VALUES ({kindText}, {targetMbid}, {priority}, 'pending', 0, now() + ({delaySeconds} * interval '1 second'), {traceparent})
             ON CONFLICT (kind, target_mbid) WHERE status IN ('pending', 'running') DO NOTHING
             """,
             cancellationToken);
