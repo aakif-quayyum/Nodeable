@@ -14,6 +14,11 @@
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
     <!-- AddRedisClient("redis"): the connection string comes from the AppHost's WithReference(redis). -->
     <PackageReference Include="Aspire.StackExchange.Redis" />
+    <!-- The Hangfire server and its PostgreSQL storage: recurring jobs such as the 30-day cache refresh (NFR-REL-03, decision 0028). -->
+    <PackageReference Include="Hangfire.NetCore" />
+    <PackageReference Include="Hangfire.PostgreSql" />
+    <!-- Hangfire.Core asks for Newtonsoft.Json 11.0.1, which has an advisory; the pin in Directory.Packages.props lifts it. -->
+    <PackageReference Include="Newtonsoft.Json" />
   </ItemGroup>
 
 </Project>

@@ -181,6 +181,61 @@ public sealed class CreditIngestionTests(PostgresFixture postgres) : IDisposable
     }
 
     [Fact]
+    public async Task NFR_REL_03_a_refresh_removes_a_musicbrainz_credit_that_musicbrainz_no_longer_returns_and_keeps_other_sources()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        Serve($"/ws/2/recording/{_recordingMbid:D}", "recording-lookup.json");
+        Serve($"/ws/2/work/{_workMbid:D}", "work-lookup.json");
+        await using var world = await WorldAsync();
+        await world.RequestSongAsync(_recordingMbid, "Redbone", "Childish Gambino");
+        await world.DrainAsync();
+
+        // Two credits MusicBrainz's answer does not contain: one it used to list, and one from another source.
+        var dropped = Guid.Parse("00000000-0000-4000-8000-0000000000a1");
+        var other = Guid.Parse("00000000-0000-4000-8000-0000000000a2");
+        await SqlAsync(world.ConnectionString, $"INSERT INTO people (mbid, name, fetched_at) VALUES ({dropped}, 'Dropped', now()), ({other}, 'Other', now())");
+        await SqlAsync(
+            world.ConnectionString,
+            $"""
+            INSERT INTO credits (person_mbid, subject_type, subject_mbid, role, detail, source) VALUES
+            ({dropped}, 'recording', {_recordingMbid}, 'producer', '', 'musicbrainz'),
+            ({other}, 'recording', {_recordingMbid}, 'producer', '', 'discogs')
+            """);
+        var before = await CountsAsync(world.ConnectionString);
+
+        await world.Queue(CrawlJobKind.Recording, _recordingMbid, CrawlPriority.Scheduled);
+        await world.DrainAsync();
+
+        await using var db = Context(world.ConnectionString);
+        (await db.Credits.AnyAsync(c => c.PersonMbid == dropped, ct)).Should().BeFalse("MusicBrainz no longer lists it");
+        (await db.Credits.AnyAsync(c => c.PersonMbid == other, ct)).Should().BeTrue("a credit from another source is not this fetch's to remove");
+        (await db.Credits.CountAsync(ct)).Should().Be(before.Credits - 1);
+    }
+
+    [Fact]
+    public async Task NFR_REL_03_a_refresh_changes_no_credit_when_musicbrainz_has_not_changed()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        Serve($"/ws/2/recording/{_recordingMbid:D}", "recording-lookup.json");
+        Serve($"/ws/2/work/{_workMbid:D}", "work-lookup.json");
+        await using var world = await WorldAsync();
+        await world.RequestSongAsync(_recordingMbid, "Redbone", "Childish Gambino");
+        await world.DrainAsync();
+        await using var first = Context(world.ConnectionString);
+        var creditsBefore = await first.Credits.AsNoTracking().OrderBy(c => c.SubjectMbid).ThenBy(c => c.PersonMbid).ThenBy(c => c.Role).ThenBy(c => c.Detail).ToListAsync(ct);
+        var fetchedBefore = (await first.Recordings.AsNoTracking().SingleAsync(ct)).FetchedAt;
+
+        await world.Queue(CrawlJobKind.Recording, _recordingMbid, CrawlPriority.Scheduled);
+        await world.DrainAsync();
+
+        await using var second = Context(world.ConnectionString);
+        var creditsAfter = await second.Credits.AsNoTracking().OrderBy(c => c.SubjectMbid).ThenBy(c => c.PersonMbid).ThenBy(c => c.Role).ThenBy(c => c.Detail).ToListAsync(ct);
+        creditsAfter.Select(c => (c.PersonMbid, c.SubjectType, c.SubjectMbid, c.Role, c.Detail))
+            .Should().Equal(creditsBefore.Select(c => (c.PersonMbid, c.SubjectType, c.SubjectMbid, c.Role, c.Detail)));
+        (await second.Recordings.AsNoTracking().SingleAsync(ct)).FetchedAt.Should().BeAfter(fetchedBefore, "the refresh rewrites fetched_at, which is what takes the row out of the stale set");
+    }
+
+    [Fact]
     public async Task FR_GRAPH_03_a_recording_without_a_producer_queues_one_release_fetch_and_stores_its_credits()
     {
         var ct = TestContext.Current.CancellationToken;

@@ -12,7 +12,7 @@ namespace Nodeable.Infrastructure.Ingestion;
 /// <param name="Inserted">Credits that were new.</param>
 /// <param name="Duplicates">Credits that were already stored (a re-crawl), or repeated within the response.</param>
 /// <param name="Roles">The roles credited in the response, for deciding what to fetch next.</param>
-public readonly record struct PersistedCredits(int Inserted, int Duplicates, IReadOnlySet<CreditRole> Roles);
+public readonly record struct PersistedCredits(int Inserted, int Duplicates, IReadOnlySet<CreditRole> Roles, int Removed = 0);
 
 /// <summary>
 /// Writes the people and credits of a MusicBrainz response (spec section 8). Every statement is an upsert or an
@@ -34,9 +34,14 @@ public sealed class CreditStore(NodeableDbContext db)
 
         if (credits.Count == 0)
         {
+            // A refresh can find that MusicBrainz now lists no artist for this subject: what we stored is then gone too.
+            var removedAll = await db.Database.ExecuteSqlAsync(
+                $"""DELETE FROM credits WHERE subject_type = {ToText(subjectType)} AND subject_mbid = {subjectMbid} AND source = 'musicbrainz'""",
+                cancellationToken);
             activity?.SetTag("credits.inserted", 0);
             activity?.SetTag("credits.duplicates", 0);
-            return new PersistedCredits(0, 0, new HashSet<CreditRole>());
+            activity?.SetTag("credits.removed", removedAll);
+            return new PersistedCredits(0, 0, new HashSet<CreditRole>(), removedAll);
         }
 
         // A person is credited many times in one response (a producer who also played bass), but an INSERT ... ON
@@ -71,11 +76,30 @@ public sealed class CreditStore(NodeableDbContext db)
             """,
             cancellationToken);
 
+        // Refreshing a row (NFR-REL-03, decision 0028) makes the stored credits match MusicBrainz again, so a credit it has
+        // dropped is removed. Only rows this fetch owns go: source 'musicbrainz' for this subject, so a credit added by a
+        // person (v2, source 'user') is never touched. On a first fetch there is nothing to remove.
+        // LEARN: LG-04 delete-not-in-unnest | The response is turned into a derived table with unnest() and the DELETE keeps every stored row that has a match in it (NOT EXISTS), so a whole-subject sync is one statement and a credit MusicBrainz dropped disappears in the same transaction that wrote the new ones
+        var removed = await db.Database.ExecuteSqlAsync(
+            $"""
+            DELETE FROM credits c
+            WHERE c.subject_type = {subjectTypeText} AND c.subject_mbid = {subjectMbid} AND c.source = 'musicbrainz'
+              AND NOT EXISTS (
+                SELECT 1
+                FROM unnest({credits.Select(x => x.Person.Id).ToArray()}::uuid[],
+                            {credits.Select(x => ToText(x.Mapped.Role)).ToArray()}::text[],
+                            {credits.Select(x => x.Mapped.Detail).ToArray()}::text[])
+                    AS t(person_mbid, role, detail)
+                WHERE t.person_mbid = c.person_mbid AND t.role = c.role AND t.detail = c.detail)
+            """,
+            cancellationToken);
+
         var duplicates = credits.Count - inserted;
         activity?.SetTag("credits.inserted", inserted);
         activity?.SetTag("credits.duplicates", duplicates);
+        activity?.SetTag("credits.removed", removed);
 
-        return new PersistedCredits(inserted, duplicates, credits.Select(c => c.Mapped.Role).ToHashSet());
+        return new PersistedCredits(inserted, duplicates, credits.Select(c => c.Mapped.Role).ToHashSet(), removed);
     }
 
     /// <summary>

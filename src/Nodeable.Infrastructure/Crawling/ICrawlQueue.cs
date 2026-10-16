@@ -37,7 +37,12 @@ public interface ICrawlQueue
     /// <summary>
     /// Adds a fetch, unless the same kind and target is already pending or running. The trace context of the current
     /// activity is stored on the job, so the background fetch appears in the trace of the request that asked for it.
+    /// A <paramref name="delay"/> keeps the job from being claimed until then: the cache refresh uses it to spread background
+    /// fetches across the hour instead of sending them in a burst (spec section 10, constraints).
     /// </summary>
+    Task<EnqueueResult> EnqueueAsync(CrawlJobKind kind, Guid targetMbid, int priority, TimeSpan delay, CancellationToken cancellationToken = default);
+
+    /// <summary>The same, to be claimed at once.</summary>
     Task<EnqueueResult> EnqueueAsync(CrawlJobKind kind, Guid targetMbid, int priority, CancellationToken cancellationToken = default);
 
     /// <summary>
