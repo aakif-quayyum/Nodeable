@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Nodeable.Api.RateLimiting;
 using Nodeable.Domain.Enums;
+using Nodeable.Infrastructure.Metrics;
 using Nodeable.Infrastructure.Persistence;
 
 namespace Nodeable.Api.Endpoints;
@@ -11,12 +12,13 @@ public static class StatusEndpoints
     {
         var status = app.MapGroup("/api/v1/status");
 
-        status.MapGet("/crawl", async (NodeableDbContext db, CancellationToken cancellationToken) =>
+        status.MapGet("/crawl", async (NodeableDbContext db, StatusMetricsReader metrics, CancellationToken cancellationToken) =>
         {
             var queueDepth = await db.CrawlJobs.CountAsync(job => job.Status == CrawlJobStatus.Pending, cancellationToken);
 
-            // Fetch rate and cache hit ratio need telemetry that does not exist before M2, so they are reported as unknown (null), never as a made-up 0 (spec principle 5).
-            return TypedResults.Ok(new CrawlStatusResponse(queueDepth, FetchRatePerMinute: null, CacheHitRatio: null));
+            // The other two figures come from the rollup (NFR-OBS-02) and stay null while unmeasured, never a made-up 0 (spec principle 5).
+            var (fetchRate, hitRatio) = await metrics.GetCrawlFiguresAsync(cancellationToken);
+            return TypedResults.Ok(new CrawlStatusResponse(queueDepth, fetchRate, hitRatio));
         })
         .WithName("GetCrawlStatus");
 

@@ -35,7 +35,7 @@ public class RecurringJobsTests
         await jobs.StartAsync(ct);
         await jobs.StartAsync(ct);
 
-        manager.Calls.Select(c => c.Id).Distinct().Should().HaveCount(2, "AddOrUpdate is keyed by id, so a restart replaces the entries instead of adding more");
+        manager.Calls.Select(c => c.Id).Distinct().Should().HaveCount(3, "AddOrUpdate is keyed by id, so a restart replaces the entries instead of adding more");
     }
 
     [Fact]
@@ -49,6 +49,20 @@ public class RecurringJobsTests
         var call = manager.Calls.Should().ContainSingle(c => c.Id == RecurringJobs.RollupMaintenanceId).Subject;
         call.Cron.Should().Be(Cron.Minutely());
         call.Job.Type.Should().Be<RollupMaintenanceJob>();
+    }
+
+    [Fact]
+    public async Task NFR_OBS_04_the_worker_registers_the_slo_check_once_a_day_in_utc()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var manager = new FakeManager();
+
+        await new RecurringJobs(manager, Options.Create(new RefreshOptions())).StartAsync(ct);
+
+        var call = manager.Calls.Should().ContainSingle(c => c.Id == RecurringJobs.SloCheckId).Subject;
+        call.Cron.Should().Be("17 3 * * *");
+        call.TimeZone.Should().Be(TimeZoneInfo.Utc);
+        call.Job.Type.Should().Be<SloCheckJob>();
     }
 
     private sealed record Call(string Id, Job Job, string Cron, TimeZoneInfo TimeZone);

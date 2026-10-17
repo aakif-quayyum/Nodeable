@@ -22,6 +22,12 @@ public static class RollupMetrics
     public const string QueueDepth = "queue.depth";
     public const string QueueOldestPending = "queue.oldest_pending";
 
+    /// <summary>
+    /// A process writes one of these every minute it is running, even when it has nothing else to add, so a minute with no
+    /// request in it (an idle Api, <c>0</c>) can be told from a minute in which the process was not there (<c>null</c>).
+    /// </summary>
+    public const string ProcessUp = "process.up";
+
     /// <summary>Upper bounds in seconds of MusicBrainz and Deezer response times; a measurement above the last goes in <c>inf</c>.</summary>
     public static readonly IReadOnlyList<double> ExternalLatencyBounds = [0.25, 0.5, 1, 2, 5];
 
@@ -57,6 +63,12 @@ public static class RollupMetrics
 
         return "inf";
     }
+
+    /// <summary>The labels of a dimension text, as a lookup: <c>"le=300,route=search"</c> gives <c>le</c> and <c>route</c>.</summary>
+    public static IReadOnlyDictionary<string, string> ParseDimension(string dimension) =>
+        dimension.Length == 0
+            ? new Dictionary<string, string>()
+            : dimension.Split(',').Select(pair => pair.Split('=', 2)).Where(parts => parts.Length == 2).ToDictionary(parts => parts[0], parts => parts[1]);
 
     /// <summary>The status class of an HTTP status code: <c>2xx</c>, <c>3xx</c>, <c>4xx</c> or <c>5xx</c>.</summary>
     public static string StatusClass(int status) => $"{status / 100}xx";

@@ -59,8 +59,9 @@ builder.Services.AddScoped<RefreshStaleCacheJob>();
 
 // The metrics rollup (NFR-OBS-02, decision 0023): this process flushes its own meters once a minute, and the Worker alone
 // does the housekeeping (queue sample, 5-minute fold, retention) in a recurring job.
-builder.Services.AddMetricsRollup();
+builder.Services.AddMetricsRollup("worker");
 builder.Services.AddScoped<RollupMaintenanceJob>();
+builder.Services.AddScoped<SloCheckJob>();
 builder.Services.AddHostedService<RecurringJobs>();
 
 var host = builder.Build();

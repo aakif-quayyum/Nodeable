@@ -46,8 +46,9 @@ builder.Services.AddProblemDetails();
 builder.Services.AddApiRateLimiting();
 
 // The health endpoint's checks, and this process's side of the metrics rollup: it flushes its own request counts and latency once a minute.
+builder.Services.AddOptions<StatusOptions>().BindConfiguration(StatusOptions.SectionName);
 builder.Services.AddScoped<IHealthProbe, DependencyHealthProbe>();
-builder.Services.AddMetricsRollup();
+builder.Services.AddMetricsRollup("api");
 
 // Scheduled jobs run in the Worker; the Api only serves their dashboard, and only in Development (decision 0028).
 builder.AddDevelopmentJobDashboard();
@@ -81,6 +82,7 @@ app.MapDefaultEndpoints();
 app.MapOpenApi();
 
 app.MapStatusEndpoints();
+app.MapStatusMetricsEndpoints();
 app.MapSearchEndpoints();
 app.MapGraphEndpoints();
 app.MapRecordingEndpoints();

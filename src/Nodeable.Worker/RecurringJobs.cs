@@ -17,6 +17,9 @@ public sealed class RecurringJobs(IRecurringJobManager manager, IOptions<Refresh
     /// <summary>The id of the metrics rollup's minute-by-minute housekeeping (NFR-OBS-02).</summary>
     public const string RollupMaintenanceId = "rollup-maintenance";
 
+    /// <summary>The id of the daily SLO check (NFR-OBS-04).</summary>
+    public const string SloCheckId = "slo-check";
+
     public Task StartAsync(CancellationToken cancellationToken)
     {
         manager.AddOrUpdate<RefreshStaleCacheJob>(
@@ -29,6 +32,13 @@ public sealed class RecurringJobs(IRecurringJobManager manager, IOptions<Refresh
             RollupMaintenanceId,
             job => job.RunAsync(CancellationToken.None),
             Cron.Minutely(),
+            new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
+
+        // Daily, in the small hours UTC and not on the hour, when the day's numbers are folded and the host is quiet.
+        manager.AddOrUpdate<SloCheckJob>(
+            SloCheckId,
+            job => job.RunAsync(CancellationToken.None),
+            "17 3 * * *",
             new RecurringJobOptions { TimeZone = TimeZoneInfo.Utc });
         return Task.CompletedTask;
     }
