@@ -4,6 +4,9 @@ using Microsoft.Extensions.Logging;
 
 namespace Nodeable.Infrastructure.Metrics;
 
+/// <summary>Which process a rollup writer is: <c>api</c> or <c>worker</c>. It labels the heartbeat.</summary>
+public sealed record RollupProcess(string Name);
+
 /// <summary>
 /// Once a minute, writes what the process's <see cref="RollupRecorder"/> saw into <c>metric_rollups</c> (decision 0023).
 /// The deltas of a minute go into that minute's bucket, so a crash loses at most the minute in progress. A write that
@@ -11,6 +14,7 @@ namespace Nodeable.Infrastructure.Metrics;
 /// </summary>
 public sealed partial class RollupFlusher(
     RollupRecorder recorder,
+    RollupProcess process,
     IServiceScopeFactory scopes,
     TimeProvider time,
     ILogger<RollupFlusher> logger) : BackgroundService
@@ -60,15 +64,14 @@ public sealed partial class RollupFlusher(
     public async Task FlushAsync(DateTimeOffset bucketStart, CancellationToken cancellationToken)
     {
         var deltas = recorder.Drain();
-        if (deltas.Count == 0)
-        {
-            return;
-        }
+
+        // LEARN: LG-04 heartbeat-null-vs-zero | Every flush also writes a process.up row, so "the Api was running and saw no request" (a 0) has a row to point at and "the Api was not running" (a null) does not; without it an idle minute and a missing process look the same
+        var heartbeat = new RollupDelta(RollupMetrics.ProcessUp, RollupMetrics.Dimension(("process", process.Name)), 1, null, null, null);
 
         try
         {
             await using var scope = scopes.CreateAsyncScope();
-            await scope.ServiceProvider.GetRequiredService<RollupWriter>().AddAsync(bucketStart, deltas, cancellationToken);
+            await scope.ServiceProvider.GetRequiredService<RollupWriter>().AddAsync(bucketStart, [.. deltas, heartbeat], cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

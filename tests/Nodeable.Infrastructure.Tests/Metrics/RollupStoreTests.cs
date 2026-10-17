@@ -86,13 +86,27 @@ public class RollupStoreTests(PostgresFixture postgres)
         using var meter = new Meter($"Nodeable.Test.{Guid.NewGuid():N}");
         using var recorder = new RollupRecorder(instrument => instrument.Meter == meter);
         meter.CreateCounter<long>("cache.lookups").Add(4, new KeyValuePair<string, object?>("entity", "recording"), new KeyValuePair<string, object?>("result", "miss"));
-        var flusher = new RollupFlusher(recorder, host.Provider.GetRequiredService<IServiceScopeFactory>(), TimeProvider.System, NullLogger<RollupFlusher>.Instance);
+        var flusher = new RollupFlusher(recorder, new RollupProcess("test"), host.Provider.GetRequiredService<IServiceScopeFactory>(), TimeProvider.System, NullLogger<RollupFlusher>.Instance);
 
         await flusher.FlushAsync(Minute(12, 3), Ct);
 
         var row = (await Rows(host, "1m", "cache.lookups")).Single();
         (row.BucketStart, row.Dimension, row.Count).Should().Be((Minute(12, 3), "entity=recording,result=miss", 4L));
         recorder.Drain().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task NFR_OBS_02_a_flush_with_nothing_recorded_still_writes_the_process_heartbeat_so_an_idle_minute_is_not_a_gap()
+    {
+        await using var host = await GraphTestHost.CreateAsync(postgres);
+        using var meter = new Meter($"Nodeable.Test.{Guid.NewGuid():N}");
+        using var recorder = new RollupRecorder(instrument => instrument.Meter == meter);
+        var flusher = new RollupFlusher(recorder, new RollupProcess("api"), host.Provider.GetRequiredService<IServiceScopeFactory>(), TimeProvider.System, NullLogger<RollupFlusher>.Instance);
+
+        await flusher.FlushAsync(Minute(12, 5), Ct);
+
+        var beat = (await Rows(host, "1m", RollupMetrics.ProcessUp)).Single();
+        (beat.BucketStart, beat.Dimension, beat.Count).Should().Be((Minute(12, 5), "process=api", 1L));
     }
 
     [Fact]
@@ -103,7 +117,7 @@ public class RollupStoreTests(PostgresFixture postgres)
         using var recorder = new RollupRecorder(instrument => instrument.Meter == meter);
         meter.CreateCounter<long>("cache.lookups").Add(4, new KeyValuePair<string, object?>("entity", "recording"), new KeyValuePair<string, object?>("result", "miss"));
         var broken = new ServiceCollection().AddScoped<RollupWriter>(_ => throw new InvalidOperationException("database away")).BuildServiceProvider();
-        var failing = new RollupFlusher(recorder, broken.GetRequiredService<IServiceScopeFactory>(), TimeProvider.System, NullLogger<RollupFlusher>.Instance);
+        var failing = new RollupFlusher(recorder, new RollupProcess("test"), broken.GetRequiredService<IServiceScopeFactory>(), TimeProvider.System, NullLogger<RollupFlusher>.Instance);
 
         await failing.FlushAsync(Minute(12, 4), Ct);
 

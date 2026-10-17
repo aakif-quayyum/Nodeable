@@ -29,6 +29,9 @@ public static class ProblemTypes
 
     public const string InvalidRequest = "/errors/invalid-request";
 
+    /// <summary>The operator password is missing or wrong on a private status endpoint (401, NFR-OBS-03).</summary>
+    public const string Unauthorized = "/errors/unauthorized";
+
     /// <summary>Nodeable has no stored person with that MBID (404, FR-PERSON-01).</summary>
     public const string PersonNotFound = "/errors/person-not-found";
 

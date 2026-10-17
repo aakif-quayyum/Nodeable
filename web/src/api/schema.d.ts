@@ -156,6 +156,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/status/public/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The crawler's series for the About page, bucketed to the chart width; no password (FR-ABOUT-01, NFR-OBS-03). */
+        get: operations["GetPublicMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/status/private/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Every panel of /status with the SLO thresholds and breach annotations; HTTP Basic (NFR-OBS-03, decision 0023). */
+        get: operations["GetPrivateMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/graphs": {
         parameters: {
             query?: never;
@@ -316,6 +350,30 @@ export interface components {
             songs: number;
             roles: components["schemas"]["CreditRole"][];
         };
+        MetricHeatmap: {
+            bounds: string[];
+            cells: number[][];
+        };
+        MetricSeries: {
+            id: string;
+            label: string;
+            unit: string;
+            points: (null | number)[];
+        };
+        MetricsResponse: {
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** Format: int32 */
+            stepSeconds: number;
+            resolution: string;
+            times: string[];
+            series: components["schemas"]["MetricSeries"][];
+            heatmap: null | components["schemas"]["MetricHeatmap"];
+            slos: null | components["schemas"]["SloStatus"][];
+            breaches: null | components["schemas"]["SloBreach"][];
+        };
         PersonItem: {
             /** Format: uuid */
             mbid: string;
@@ -464,6 +522,28 @@ export interface components {
             artReleaseMbid?: null | string;
             /** Format: uuid */
             artReleaseGroupMbid?: null | string;
+        };
+        SloBreach: {
+            /** Format: date-time */
+            at: string;
+            slo: string;
+            /** Format: double */
+            observed: null | number;
+            /** Format: double */
+            target: number;
+            text: string;
+        };
+        SloStatus: {
+            slo: string;
+            label: string;
+            /** Format: double */
+            target: number;
+            atLeast: boolean;
+            /** Format: double */
+            observed: null | number;
+            breached: boolean;
+            /** Format: date-time */
+            checkedAt: null | string;
         };
         /** @enum {unknown} */
         SongStatus: "loading" | "none" | "partial" | "complete";
@@ -920,6 +1000,99 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    GetPublicMetrics: {
+        parameters: {
+            query?: {
+                range?: string;
+                width?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+        };
+    };
+    GetPrivateMetrics: {
+        parameters: {
+            query?: {
+                range?: string;
+                from?: string;
+                to?: string;
+                width?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MetricsResponse"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ProblemDetails"];
+                };
             };
         };
     };

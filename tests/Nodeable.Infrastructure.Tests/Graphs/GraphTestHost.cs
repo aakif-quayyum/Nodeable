@@ -61,7 +61,7 @@ internal sealed class GraphTestHost : IAsyncDisposable
         services.AddSingleton<TimeProvider>(time);
 
         services.AddCrawling();
-        services.AddMetricsRollup();
+        services.AddMetricsRollup("test");
         services.AddGraphEvents();
         services.AddGraphs();
         services.AddGraphJobEvents();

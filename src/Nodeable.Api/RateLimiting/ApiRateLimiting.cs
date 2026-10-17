@@ -43,6 +43,14 @@ public sealed class ApiRateLimitOptions
     /// <summary>NFR-SEC-02: 60 health checks per minute per IP address (a monitor asks every few minutes; the limit stops the endpoint being used to load the database).</summary>
     [Range(1, 100_000)]
     public int HealthPermitsPerMinute { get; set; } = 60;
+
+    /// <summary>NFR-SEC-02: 60 reads of the public metrics per minute per IP address (each is one query of the rollup).</summary>
+    [Range(1, 100_000)]
+    public int StatusPublicPermitsPerMinute { get; set; } = 60;
+
+    /// <summary>NFR-SEC-02: 20 requests to the private status endpoints per minute per IP address, wrong passwords included, which is what slows guessing.</summary>
+    [Range(1, 100_000)]
+    public int StatusPrivatePermitsPerMinute { get; set; } = 20;
 }
 
 public static class ApiRateLimiting
@@ -61,6 +69,10 @@ public static class ApiRateLimiting
     public const string RecommendationPolicy = "recommendations";
 
     public const string HealthPolicy = "health";
+
+    public const string StatusPublicPolicy = "status-public";
+
+    public const string StatusPrivatePolicy = "status-private";
 
     public static IServiceCollection AddApiRateLimiting(this IServiceCollection services)
     {
@@ -82,6 +94,8 @@ public static class ApiRateLimiting
             limiter.AddPolicy(PeoplePolicy, context => PerClient(context, o => o.PeoplePermitsPerMinute));
             limiter.AddPolicy(RecommendationPolicy, context => PerClient(context, o => o.RecommendationPermitsPerMinute));
             limiter.AddPolicy(HealthPolicy, context => PerClient(context, o => o.HealthPermitsPerMinute));
+            limiter.AddPolicy(StatusPublicPolicy, context => PerClient(context, o => o.StatusPublicPermitsPerMinute));
+            limiter.AddPolicy(StatusPrivatePolicy, context => PerClient(context, o => o.StatusPrivatePermitsPerMinute));
         });
 
         return services;
