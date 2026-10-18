@@ -21,6 +21,10 @@ export const routes: RouteObject[] = [
 
       { path: 'about', lazy: () => import('../features/about/AboutPage.tsx') },
 
+      // The operator's page (NFR-OBS-03). It is reached by its address only, has no link in the header, and loads the chart
+      // code on its own, so no other page pays for it.
+      { path: 'status', lazy: () => import('../features/status/StatusPage.tsx') },
+
       { path: '*', Component: NotFoundPage },
     ],
   },
