@@ -26,8 +26,9 @@ Written 2026-10-16 so a new session can continue without the conversation that p
 | 5 | Recommendations (FR-REC-01, 02), cache only | merged #49 |
 | 6 | 30-day refresh with Hangfire + Hangfire.PostgreSql (ADR 0028): hourly selection, delayed crawl jobs, credits MusicBrainz dropped removed, ISRC backfill, dashboard dev-only | merged #50 |
 | 7a | Rollup write path: migration, MeterListener recorder, flusher, Worker maintenance job, health endpoint | merged #51 |
-| 7b | Status API (public and private metrics, Basic auth), the daily SLO check and a per-minute heartbeat; crawl freshness uses the queue-wait proxy | **open**, branch `m4/status-api`, waiting for CI and the developer's "merge" |
-| 8 | `/status` page and About with ECharts | not started |
+| 7b | Status API (public and private metrics, Basic auth), the daily SLO check and a per-minute heartbeat; crawl freshness uses the queue-wait proxy | merged #62 |
+| 8a | `/status` page and the chart foundation (ECharts, SVG renderer, in-page sign-in) | in progress, branch `m4/status-page` |
+| 8b | About page: architecture diagram without the Collector, live crawler panels from the public metrics | not started |
 | 9 | CI arm64 images, image scan, OpenAPI diff | not started |
 | 10 | Oracle deployment (re-read Oracle Always Free limits first) | not started; needs the developer's account, keys and subdomain, plus the D7 seed albums |
 | 11 | Playwright end-to-end and k6 | not started |
@@ -37,7 +38,7 @@ FR-SAMPLE-01 is approved and ADR 0027 is Accepted (2026-10-16), but it is **v2**
 
 ## Open pull requests
 
-- **PR 7b status API (`m4/status-api`).** Backend only. To read the private metrics locally set `Status:OperatorPassword` (for example `dotnet user-secrets set Status:OperatorPassword <value> --project src/Nodeable.Api`, or the environment variable `Status__OperatorPassword` before starting the AppHost) and call `/api/v1/status/private/metrics` on the Api's own port with Basic auth, user `operator`. Unset, every private request is 401. The first daily `slo-check` runs at 03:17 UTC; until then `slos` have no observed value.
+- **PR 8a status page (`m4/status-page`).** UI; see its pull request. The sign-in form needs the operator password (`Status:OperatorPassword`, see the 7b notes below).
 
 ## Settled decisions (D1 to D8, 2026-10-14)
 
