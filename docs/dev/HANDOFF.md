@@ -38,7 +38,7 @@ FR-SAMPLE-01 is approved and ADR 0027 is Accepted (2026-10-16), but it is **v2**
 
 ## Open pull requests
 
-- **PR 8a status page (`m4/status-page`).** UI; see its pull request. The sign-in form needs the operator password (`Status:OperatorPassword`, see the 7b notes below).
+- **PR 8a status page (`m4/status-page`).** UI. To use `/status` locally set `Status:OperatorPassword` (for example `dotnet user-secrets set Status:OperatorPassword <value> --project src/Nodeable.Api`, or the environment variable `Status__OperatorPassword` before starting the AppHost) and type it in the page's sign-in form (user `operator`). Unset, every private request is 401. The first daily `slo-check` runs at 03:17 UTC; until then the SLO strip says not measured yet.
 
 ## Settled decisions (D1 to D8, 2026-10-14)
 
