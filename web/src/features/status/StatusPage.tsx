@@ -3,7 +3,7 @@ import Box from '@mui/material/Box'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import { useChartScheme } from '../../charts/useChartScheme.ts'
 import { timeSeriesOption } from '../../charts/options.ts'
 import { useReducedMotion } from '../../motion/useReducedMotion.ts'
@@ -17,30 +17,10 @@ import { fetchPrivateMetrics, StatusRequestError } from './statusApi.ts'
 import { StatusControls } from './StatusControls.tsx'
 import { type MetricsResponse, type Range, rangeLabels, seriesOf, type ZoomWindow, zoomFromBrush } from './statusModel.ts'
 import { buildTiles } from './tiles.ts'
+import { useContainerWidth, widthFor } from './useChartWidth.ts'
 
 /** Charts in this group share one crosshair (echarts.connect). */
 const crosshairGroup = 'status-panels'
-
-/** About three pixels a point is plenty for a line; the Api cuts the window into at most this many steps (10 to 600). */
-function widthFor(containerPixels: number): number {
-  const wanted = Math.round(containerPixels / 3 / 20) * 20
-  return Math.min(600, Math.max(20, wanted))
-}
-
-function useContainerWidth() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [pixels, setPixels] = useState(960)
-  useEffect(() => {
-    const element = ref.current
-    if (element === null || typeof ResizeObserver === 'undefined') return undefined
-    const observer = new ResizeObserver(() => {
-      if (element.clientWidth > 0) setPixels(element.clientWidth)
-    })
-    observer.observe(element)
-    return () => observer.disconnect()
-  }, [])
-  return { ref, pixels }
-}
 
 /**
  * The operator's status page (NFR-OBS-03, decision 0023): the rollup drawn as stat tiles and time-series panels with a

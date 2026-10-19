@@ -4,10 +4,9 @@ import FormControl from '@mui/material/FormControl'
 import InputLabel from '@mui/material/InputLabel'
 import MenuItem from '@mui/material/MenuItem'
 import Select from '@mui/material/Select'
-import ToggleButton from '@mui/material/ToggleButton'
-import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
-import { type Range, rangeLabels, ranges, refreshChoices } from './statusModel.ts'
+import { RangeToggle } from './RangeToggle.tsx'
+import { type Range, refreshChoices } from './statusModel.ts'
 
 interface StatusControlsProps {
   range: Range
@@ -24,21 +23,7 @@ interface StatusControlsProps {
 export function StatusControls({ range, onRange, refreshMs, onRefresh, zoomed, onResetZoom, updatedAt, onSignOut }: StatusControlsProps) {
   return (
     <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 2 }}>
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        value={zoomed ? null : range}
-        onChange={(_, next: Range | null) => {
-          if (next !== null) onRange(next)
-        }}
-        aria-label="Time range"
-      >
-        {ranges.map((r) => (
-          <ToggleButton key={r} value={r}>
-            {rangeLabels[r]}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
+      <RangeToggle value={zoomed ? null : range} onChange={onRange} />
 
       <FormControl size="small" sx={{ minWidth: 150 }}>
         <InputLabel id="status-refresh-label">Refresh</InputLabel>

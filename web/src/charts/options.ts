@@ -121,7 +121,7 @@ export function gaugeOption(seconds: number | null, { scheme, reducedMotion }: C
         pointer: { show: seconds !== null, width: 5, itemStyle: { color: t.fg } },
         axisTick: { show: false },
         splitLine: { length: 14, lineStyle: { color: t.bg, width: 2 } },
-        axisLabel: { distance: 20, color: t.muted, formatter: (value: number) => (value % 300 === 0 ? formatSeconds(value) : '') },
+        axisLabel: { distance: 20, color: t.muted, formatter: (value: number) => (value % 300 === 0 ? (value === 0 ? '0' : `${value / 60} min`) : '') },
         detail: { valueAnimation: false, offsetCenter: [0, '60%'], fontSize: 18, color: t.fg, formatter: () => (seconds === null ? 'not measured' : formatSeconds(seconds)) },
         data: [{ value: seconds ?? 0 }],
       },

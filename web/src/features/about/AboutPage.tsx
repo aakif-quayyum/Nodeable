@@ -1,74 +1,68 @@
-import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
-import Card from '@mui/material/Card'
-import CardContent from '@mui/material/CardContent'
+import Link from '@mui/material/Link'
 import Skeleton from '@mui/material/Skeleton'
 import Typography from '@mui/material/Typography'
-import { useCrawlStatus } from './useCrawlStatus.ts'
+import { lazy, Suspense } from 'react'
+import { ArchitectureDiagram } from './ArchitectureDiagram.tsx'
 
-// Unmeasured is not zero (spec principle 5): null from the Api means the Worker has not recorded the figure yet.
-const NOT_MEASURED = 'Not measured yet'
+// The charts are a separate chunk: the text and the diagram paint first, and the chart code is fetched only by someone who
+// reads this far (ADR 0002; the same chunk as the status page).
+// LEARN: LG-04 lazy-in-page-chunk | React.lazy inside a page defers a heavy part to its own chunk and Suspense shows a fallback while it downloads, so the cheap part of the page (text, the diagram) is usable at once and the charting library is paid for only when this page is read
+const CrawlerPanels = lazy(() => import('./CrawlerPanels.tsx').then((module) => ({ default: module.CrawlerPanels })))
 
-function formatRate(perMinute: number | null) {
-  return perMinute === null ? NOT_MEASURED : `${perMinute.toFixed(1)} per minute`
-}
+const repositoryUrl = 'https://github.com/aakif-quayyum/Nodeable'
+export const specUrl = `${repositoryUrl}/blob/main/docs/spec/nodeable-spec.md`
 
-function formatRatio(ratio: number | null) {
-  return ratio === null ? NOT_MEASURED : `${Math.round(ratio * 100)}%`
-}
-
-// The architecture diagram and the full live crawl panel arrive in M4 (FR-ABOUT-01).
-export function Component() {
-  const status = useCrawlStatus()
-
+function ExternalLink({ href, children }: { href: string; children: string }) {
   return (
-    <>
-      <Typography variant="h1" gutterBottom>
-        About Nodeable
-      </Typography>
-      <Typography color="text.secondary" sx={{ mb: 3 }}>
-        Nodeable maps the producers, songwriters, engineers and session musicians behind the songs you love.
-      </Typography>
+    <Link href={href} target="_blank" rel="noopener noreferrer">
+      {children}
+    </Link>
+  )
+}
 
-      <Card variant="outlined" component="section" aria-labelledby="crawl-status-heading" sx={{ maxWidth: 480 }}>
-        <CardContent>
-          <Typography variant="h2" id="crawl-status-heading" sx={{ fontSize: '1.25rem', fontWeight: 600 }} gutterBottom>
-            Crawl status
-          </Typography>
+/** The About page (FR-ABOUT-01, US-08): what Nodeable is made of, how its crawler is doing right now, and where the code is. */
+export function Component() {
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 4 }}>
+      <Box>
+        <Typography variant="h1" gutterBottom>
+          About Nodeable
+        </Typography>
+        <Typography color="text.secondary">
+          Nodeable maps the producers, songwriters, engineers and session musicians behind the songs you love.
+        </Typography>
+      </Box>
 
-          {/* A polite live region tells screen reader users when the figures arrive without interrupting them. */}
-          <Box aria-live="polite" aria-busy={status.isPending}>
-            {status.isPending && <Skeleton variant="rounded" height={72} />}
+      <Box component="section" aria-labelledby="architecture-heading" sx={{ display: 'grid', gap: 2 }}>
+        <Typography id="architecture-heading" variant="h2" sx={{ fontSize: 24 }}>
+          How it works
+        </Typography>
+        <Typography color="text.secondary" sx={{ fontSize: 14.5 }}>
+          Two small services share a database and a rate gate. Adding a song returns at once; a background worker fetches the credits from
+          MusicBrainz, one request a second, and the page fills in as they arrive.
+        </Typography>
+        <ArchitectureDiagram />
+      </Box>
 
-            {status.isError && <Alert severity="error">Could not load crawl status. Try again in a moment.</Alert>}
+      <Box component="section" aria-labelledby="crawler-heading" sx={{ display: 'grid', gap: 2 }}>
+        <Typography id="crawler-heading" variant="h2" sx={{ fontSize: 24 }}>
+          How the crawler is doing right now
+        </Typography>
+        <Suspense fallback={<Skeleton variant="rounded" height={260} aria-label="Loading the crawler's numbers" />}>
+          <CrawlerPanels />
+        </Suspense>
+      </Box>
 
-            {status.isSuccess && (
-              <Box component="dl" sx={{ m: 0, display: 'grid', gridTemplateColumns: 'auto 1fr', columnGap: 3, rowGap: 1 }}>
-                <Typography component="dt" color="text.secondary">
-                  Queue
-                </Typography>
-                <Typography component="dd" sx={{ m: 0 }}>
-                  {status.data.queueDepth} {status.data.queueDepth === 1 ? 'job' : 'jobs'} waiting
-                </Typography>
-
-                <Typography component="dt" color="text.secondary">
-                  Fetch rate
-                </Typography>
-                <Typography component="dd" sx={{ m: 0 }}>
-                  {formatRate(status.data.fetchRatePerMinute)}
-                </Typography>
-
-                <Typography component="dt" color="text.secondary">
-                  Cache hit ratio
-                </Typography>
-                <Typography component="dd" sx={{ m: 0 }}>
-                  {formatRatio(status.data.cacheHitRatio)}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-        </CardContent>
-      </Card>
-    </>
+      <Box component="section" aria-labelledby="code-heading" sx={{ display: 'grid', gap: 1 }}>
+        <Typography id="code-heading" variant="h2" sx={{ fontSize: 24 }}>
+          Read the code
+        </Typography>
+        <Typography sx={{ fontSize: 14.5 }}>
+          Nodeable is a portfolio project, built to learn C#, .NET, TypeScript and modern observability tooling. Everything is written down:{' '}
+          <ExternalLink href={repositoryUrl}>the code on GitHub</ExternalLink> and <ExternalLink href={specUrl}>the specification</ExternalLink>.
+        </Typography>
+      </Box>
+    </Box>
   )
 }

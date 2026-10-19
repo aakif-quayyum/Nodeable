@@ -31,6 +31,13 @@ export interface StatusQuery {
   width: number
 }
 
+/** The crawler's series for the About page: no password, and no Authorization header is ever sent. */
+export async function fetchPublicMetrics(range: Range, width: number, signal?: AbortSignal): Promise<MetricsResponse> {
+  const { data, response } = await apiClient.GET('/api/v1/status/public/metrics', { params: { query: { range, width } }, signal })
+  if (data === undefined) throw new StatusRequestError(response.status)
+  return data
+}
+
 export async function fetchPrivateMetrics(password: string, query: StatusQuery, signal?: AbortSignal): Promise<MetricsResponse> {
   const { data, response } = await apiClient.GET('/api/v1/status/private/metrics', {
     params: { query: { range: query.zoom === null ? query.range : undefined, from: query.zoom?.from, to: query.zoom?.to, width: query.width } },
