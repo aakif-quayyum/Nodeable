@@ -28,8 +28,8 @@ Written 2026-10-16 so a new session can continue without the conversation that p
 | 7a | Rollup write path: migration, MeterListener recorder, flusher, Worker maintenance job, health endpoint | merged #51 |
 | 7b | Status API (public and private metrics, Basic auth), the daily SLO check and a per-minute heartbeat; crawl freshness uses the queue-wait proxy | merged #62 |
 | 8a | `/status` page and the chart foundation (ECharts, SVG renderer, in-page sign-in) | merged #63 |
-| 8b | About page: architecture diagram without the Collector, live crawler panels from the public metrics, links | in progress, branch `m4/about-page` |
-| 9 | CI arm64 images, image scan, OpenAPI diff | not started |
+| 8b | About page: architecture diagram without the Collector, live crawler panels from the public metrics, links | merged #64 |
+| 9 | CI images for arm64 and amd64 (distroless runtime), image scan, OpenAPI diff with a committed contract file; no registry push (PR 10) | in progress, branch `m4/ci-images` |
 | 10 | Oracle deployment (re-read Oracle Always Free limits first) | not started; needs the developer's account, keys and subdomain, plus the D7 seed albums |
 | 11 | Playwright end-to-end and k6 | not started |
 | 12 | LG-04 learning guide (all 12 sections, claims checked against code) and `v0.4.0` | not started |
@@ -38,7 +38,7 @@ FR-SAMPLE-01 is approved and ADR 0027 is Accepted (2026-10-16), but it is **v2**
 
 ## Open pull requests
 
-- **PR 8b About page (`m4/about-page`).** UI. The About page needs no password. To sign in to `/status` locally set `Status:OperatorPassword` (for example `dotnet user-secrets set Status:OperatorPassword <value> --project src/Nodeable.Api`, or the environment variable `Status__OperatorPassword` before starting the AppHost) and type it in the sign-in form (user `operator`). Unset, every private request is 401.
+- **PR 9 CI images (`m4/ci-images`).** CI and Dockerfiles only; see its pull request. To sign in to `/status` locally set `Status:OperatorPassword` (for example `dotnet user-secrets set Status:OperatorPassword <value> --project src/Nodeable.Api`, or the environment variable `Status__OperatorPassword` before starting the AppHost) and type it in the sign-in form (user `operator`). Unset, every private request is 401. The About page needs no password.
 
 ## Settled decisions (D1 to D8, 2026-10-14)
 
