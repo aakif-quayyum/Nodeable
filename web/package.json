@@ -15,7 +15,7 @@
     "test:watch": "vitest",
     "e2e": "playwright test",
     "preview": "vite preview",
-    "gen:api": "dotnet build ../src/Nodeable.Api && openapi-typescript ../src/Nodeable.Api/obj/openapi/Nodeable.Api.json -o src/api/schema.d.ts"
+    "gen:api": "dotnet build ../src/Nodeable.Api && node ../tools/ci/write-openapi.mjs && openapi-typescript ../src/Nodeable.Api/obj/openapi/Nodeable.Api.json -o src/api/schema.d.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

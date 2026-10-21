@@ -27,3 +27,14 @@ updates:
     directory: /
     schedule:
       interval: weekly
+
+  # Decision 0029: the base images of the three Dockerfiles. A new base image brings the operating system's security fixes,
+  # which the image scan in CI would otherwise find one by one.
+  - package-ecosystem: docker
+    directories:
+      - /src/Nodeable.Api
+      - /src/Nodeable.Worker
+      - /web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5

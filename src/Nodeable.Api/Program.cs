@@ -53,7 +53,12 @@ builder.Services.AddMetricsRollup("api");
 // Scheduled jobs run in the Worker; the Api only serves their dashboard, and only in Development (decision 0028).
 builder.AddDevelopmentJobDashboard();
 
-builder.Services.AddOpenApi();
+// LEARN: LG-04 oasdiff-version-rule | The document's info.version is set from one constant instead of the assembly's version, so it changes only when someone edits it, and the CI diff can say "a breaking change is allowed only when this number changed"
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
+{
+    document.Info.Version = ApiContract.Version;
+    return Task.CompletedTask;
+}));
 
 // LEARN: LG-01 json-number-handling | ASP.NET's web defaults also accept numbers written as strings ("5"), and OpenAPI then describes every number as "integer or string"; Strict says numbers are numbers, so the generated TypeScript type is plain `number`
 builder.Services.ConfigureHttpJsonOptions(options =>

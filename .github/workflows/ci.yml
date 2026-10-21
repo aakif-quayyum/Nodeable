@@ -224,9 +224,128 @@ jobs:
         working-directory: web
         run: npm run gen:api
 
-      # Principle 6: if the Api's contract changed, the committed types must change in the same pull request.
-      - name: Fail if the generated types changed
-        run: git diff --exit-code -- web/src/api/schema.d.ts
+      # Principle 6: if the Api's contract changed, the committed types and the committed contract file (docs/api/openapi.json,
+      # which `gen:api` also writes) must change in the same pull request.
+      - name: Fail if the generated types or the contract file changed
+        run: git diff --exit-code -- web/src/api/schema.d.ts docs/api/openapi.json
+
+      # Spec section 13, step 3: a breaking change to the contract fails the pull request unless info.version changed too
+      # (ApiContract.Version). The base branch's committed file is the "before"; it does not exist in the first pull request
+      # that adds the file, and the script says so and passes. The base branch name goes through an environment variable, not
+      # into the script text.
+      - name: Compare the contract with the base branch
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch --no-tags --depth=1 origin "$BASE_REF"
+          mkdir -p "$RUNNER_TEMP/base"
+          git show "FETCH_HEAD:docs/api/openapi.json" > "$RUNNER_TEMP/base/openapi.json" || rm -f "$RUNNER_TEMP/base/openapi.json"
+          node tools/ci/check-openapi-breaking.mjs "$RUNNER_TEMP/base/openapi.json" docs/api/openapi.json
+
+  # Spec section 13, CI step 4 (decisions 0024 and 0029): each image is built for both architectures, checked, and scanned.
+  # The production host is arm64 (Oracle Ampere), the runners are amd64, so arm64 is built the cheap way: the SDK stage runs
+  # natively and publishes for arm64 (see the Dockerfiles), and only the final stage is emulated. Nothing is pushed here: a
+  # registry and a place to pull from arrive with the deployment pull request. Like the gitleaks job, the tools run from
+  # their official images at fixed versions, so there is no third-party action to trust.
+  images:
+    name: Image ${{ matrix.image }} (build for arm64 and amd64, check, scan)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: api
+            file: src/Nodeable.Api/Dockerfile
+            context: .
+            non_root: true
+          - image: worker
+            file: src/Nodeable.Worker/Dockerfile
+            context: .
+            non_root: true
+          # Caddy's own image runs as root so the deployment's Caddy can bind ports 80 and 443; this image holds static files.
+          - image: web
+            file: web/Dockerfile
+            context: web
+            non_root: false
+    steps:
+      - uses: actions/checkout@v7
+
+      # Lets the amd64 runner run arm64 containers for the checks below. The tag is a fixed QEMU version.
+      - name: Register QEMU for arm64
+        run: docker run --privileged --rm tonistiigi/binfmt:qemu-v10.2.3 --install arm64
+
+      - name: Create a builder
+        run: docker buildx create --name nodeable --driver docker-container --use
+
+      # Layers are cached on disk between runs (a plain directory, so no extra action's runtime variables are needed). A run
+      # writes a new cache and swaps it in, so the cache does not grow without bound.
+      - uses: actions/cache@v5
+        with:
+          path: ${{ runner.temp }}/buildx-cache
+          key: images-${{ matrix.image }}-${{ hashFiles(matrix.file, 'Directory.Packages.props', 'web/package-lock.json') }}
+          restore-keys: images-${{ matrix.image }}-
+
+      - name: Build for both architectures
+        env:
+          CACHE: ${{ runner.temp }}/buildx-cache
+        run: |
+          for arch in amd64 arm64; do
+            docker buildx build --builder nodeable --platform "linux/$arch" \
+              -f "${{ matrix.file }}" -t "nodeable-${{ matrix.image }}:$arch" \
+              --cache-from "type=local,src=$CACHE/$arch" --cache-to "type=local,dest=$CACHE-new/$arch,mode=max" \
+              --load "${{ matrix.context }}"
+          done
+          rm -rf "$CACHE" && mv "$CACHE-new" "$CACHE"
+
+      # The image is for the right machine: the .NET host reports its architecture (it runs under QEMU for arm64), and the
+      # web image holds the built site. A wrong-architecture image would fail on the Oracle host and nowhere before it.
+      - name: Check the architecture
+        run: |
+          for arch in amd64 arm64; do
+            image="nodeable-${{ matrix.image }}:$arch"
+            if [ "${{ matrix.image }}" = "web" ]; then
+              # The single quotes are on purpose: the command is for the shell inside the container, not this one.
+              # shellcheck disable=SC2016
+              docker run --rm --platform "linux/$arch" --entrypoint /bin/sh "$image" -c 'test -f /srv/index.html && uname -m'
+            else
+              docker run --rm --platform "linux/$arch" --entrypoint dotnet "$image" --info | tee info.txt
+              expected=$([ "$arch" = "arm64" ] && echo arm64 || echo x64)
+              grep -E "^\s*Architecture:\s+$expected\s*$" info.txt
+            fi
+          done
+
+      - name: Check that the app does not run as root
+        if: matrix.non_root
+        run: |
+          for arch in amd64 arm64; do
+            user=$(docker image inspect --format '{{.Config.User}}' "nodeable-${{ matrix.image }}:$arch")
+            echo "$arch runs as: $user"
+            if [ -z "$user" ] || [ "$user" = "root" ] || [ "$user" = "0" ]; then echo "::error::The $arch image runs as root"; exit 1; fi
+          done
+
+      # High and critical findings that have a fix fail the build; one with no fix yet cannot be acted on and is left out. An
+      # exception is written in .trivyignore with a reason and an expiry date, never by loosening this step.
+      - name: Scan for vulnerabilities
+        run: |
+          for arch in amd64 arm64; do
+            docker save "nodeable-${{ matrix.image }}:$arch" -o "image-$arch.tar"
+            docker run --rm -v "$GITHUB_WORKSPACE:/work" -w /work aquasec/trivy:0.75.0 image --input "image-$arch.tar" \
+              --severity HIGH,CRITICAL --ignore-unfixed --exit-code 1 --no-progress --ignorefile .trivyignore
+          done
+
+  # The workflow files are code that nothing else checks: actionlint finds a misspelt key or a bad expression before a run
+  # does. It runs from its official image at a fixed version.
+  workflow-lint:
+    name: Workflows (actionlint)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Lint the workflow files
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/repo" -w /repo rhysd/actionlint:1.7.12 -color
 
   # Spec section 12 (performance budgets) and NFR-PERF-04: Lighthouse performance of the production build's home page
   # must be 90 or better. Three runs, median score, on the mobile profile (slow 4G, a slowed CPU), which is the
@@ -263,6 +382,8 @@ jobs:
       - name: Show the scores
         if: always()
         run: |
+          # The single quotes are on purpose: the program is JavaScript, and its ${...} are not the shell's.
+          # shellcheck disable=SC2016
           node -e '
             const fs = require("fs");
             const manifest = JSON.parse(fs.readFileSync("lighthouse-report/manifest.json", "utf8"));
