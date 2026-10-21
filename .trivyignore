@@ -5,3 +5,12 @@
 #   CVE-2026-12345 exp:2026-12-31   # why it does not apply to Nodeable, who decided, what would fix it
 #
 # An entry past its expiry date stops applying, so the build fails again and the entry has to be looked at.
+
+# Accepted 2026-10-21 by the developer, for the Web image only. Caddy 2.11.7 (the newest caddy:2-alpine) is built with Go 1.26.8
+# and golang.org/x/net 0.59.0, which have three denial-of-service findings fixed in Go 1.26.9 and x/net 0.60.0: crafted HTTP Range
+# headers, excessive HTTP/2 SETTINGS frames, and repeated ECH outer extensions in crypto/tls. There is no newer Caddy image yet.
+# Nothing is deployed until the deployment pull request (PR 10), which must re-check for a fixed Caddy image first and, if there
+# is still none, build Caddy with the patched Go and x/net (xcaddy) instead of deploying this one. Not listed: any other finding.
+CVE-2026-78667 exp:2026-11-10
+CVE-2026-78669 exp:2026-11-10
+CVE-2026-97031 exp:2026-11-10

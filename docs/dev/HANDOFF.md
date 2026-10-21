@@ -40,6 +40,8 @@ FR-SAMPLE-01 is approved and ADR 0027 is Accepted (2026-10-16), but it is **v2**
 
 - **PR 9 CI images (`m4/ci-images`).** CI and Dockerfiles only; see its pull request. To sign in to `/status` locally set `Status:OperatorPassword` (for example `dotnet user-secrets set Status:OperatorPassword <value> --project src/Nodeable.Api`, or the environment variable `Status__OperatorPassword` before starting the AppHost) and type it in the sign-in form (user `operator`). Unset, every private request is 401. The About page needs no password.
 
+- **Caddy CVEs accepted until 2026-11-10 (decision 0029).** `.trivyignore` lists CVE-2026-78667, CVE-2026-78669 and CVE-2026-97031 (denial of service in the Go standard library and `golang.org/x/net` of Caddy 2.11.7). **Before PR 10 deploys anything, re-check for a fixed `caddy:2-alpine` image; if there still is none, build Caddy with the patched Go and x/net (`xcaddy`) in `web/Dockerfile` and remove the entries.** The entries stop applying on 2026-11-10 and the `images` job fails again.
+
 ## Settled decisions (D1 to D8, 2026-10-14)
 
 - D1 store Deezer `cover_md5`.
