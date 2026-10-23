@@ -15,7 +15,7 @@ ARG XNET_VERSION=v0.60.0
 ARG XCADDY_VERSION=v0.4.7
 ARG ALPINE_VERSION=3.23
 
-FROM --platform=$BUILDPLATFORM node:24-alpine AS build
+FROM --platform=$BUILDPLATFORM node:25-alpine AS build
 WORKDIR /app
 
 COPY package.json package-lock.json ./
