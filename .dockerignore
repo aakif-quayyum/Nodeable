@@ -1,0 +1,22 @@
+# What a docker build does not need from the repository root: it keeps the context small and the layers stable.
+**/bin/
+**/obj/
+**/node_modules/
+**/TestResults/
+**/coverage/
+.git/
+.github/
+docs/
+tests/
+tools/
+src/Nodeable.AppHost/
+web/dist/
+# web/e2e is needed: the web build is `tsc -b`, which type-checks the end-to-end project too.
+web/test-results/
+graphify-out/
+*.md
+!web/README.md
+.env
+.env.*
+**/secrets.json
+**/appsettings.*.local.json

@@ -1,0 +1,2149 @@
+{
+  "openapi": "3.1.1",
+  "info": {
+    "title": "Nodeable.Api | v1",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/api/v1/search/recordings": {
+      "get": {
+        "tags": [
+          "SearchEndpoints"
+        ],
+        "summary": "Search recordings by title and optional artist, cache first, then MusicBrainz (FR-SEARCH-01, FR-SEARCH-02).",
+        "operationId": "SearchRecordings",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "artist",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/{mbid}/preview": {
+      "get": {
+        "tags": [
+          "RecordingEndpoints"
+        ],
+        "summary": "A fresh, short-lived address for a recording's 30-second Deezer preview, or 404 (FR-PREVIEW-01).",
+        "operationId": "GetRecordingPreview",
+        "parameters": [
+          {
+            "name": "mbid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/{mbid}/preview/candidates": {
+      "get": {
+        "tags": [
+          "RecordingEndpoints"
+        ],
+        "summary": "The first Deezer results for a recording, for choosing the right version (FR-PREVIEW-01).",
+        "operationId": "GetPreviewCandidates",
+        "parameters": [
+          {
+            "name": "mbid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PreviewCandidatesResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/recordings/{mbid}/preview/pick": {
+      "post": {
+        "tags": [
+          "RecordingEndpoints"
+        ],
+        "summary": "Stores a person's choice of Deezer track for a recording that has no preview (FR-PREVIEW-01).",
+        "operationId": "PickRecordingPreview",
+        "parameters": [
+          {
+            "name": "mbid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PickPreviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PickPreviewResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Entity",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{mbid}": {
+      "get": {
+        "tags": [
+          "PeopleEndpoints"
+        ],
+        "summary": "A person's role summary and the years of their stored recordings (FR-PERSON-01).",
+        "operationId": "GetPerson",
+        "parameters": [
+          {
+            "name": "mbid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonProfile"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{mbid}/recordings": {
+      "get": {
+        "tags": [
+          "PeopleEndpoints"
+        ],
+        "summary": "A page of the stored recordings a person is credited on, newest first (FR-PERSON-01).",
+        "operationId": "GetPersonRecordings",
+        "parameters": [
+          {
+            "name": "mbid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PersonRecordingsPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/graphs/{id}/recommendations": {
+      "get": {
+        "tags": [
+          "RecommendationEndpoints"
+        ],
+        "summary": "Ranked recommendations with reasons, from the stored credits only (FR-REC-01, FR-REC-02).",
+        "operationId": "GetRecommendations",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Graph-Token",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 20
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecommendationsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/status/crawl": {
+      "get": {
+        "tags": [
+          "Nodeable.Api"
+        ],
+        "operationId": "GetCrawlStatus",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CrawlStatusResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/status/health": {
+      "get": {
+        "tags": [
+          "Nodeable.Api"
+        ],
+        "summary": "200 when PostgreSQL and Redis answer, 503 when one does not; no body either way (NFR-OBS-04).",
+        "operationId": "GetHealth",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable"
+          }
+        }
+      }
+    },
+    "/api/v1/status/public/metrics": {
+      "get": {
+        "tags": [
+          "StatusMetricsEndpoints"
+        ],
+        "summary": "The crawler's series for the About page, bucketed to the chart width; no password (FR-ABOUT-01, NFR-OBS-03).",
+        "operationId": "GetPublicMetrics",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/status/private/metrics": {
+      "get": {
+        "tags": [
+          "StatusMetricsEndpoints"
+        ],
+        "summary": "Every panel of /status with the SLO thresholds and breach annotations; HTTP Basic (NFR-OBS-03, decision 0023).",
+        "operationId": "GetPrivateMetrics",
+        "parameters": [
+          {
+            "name": "range",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MetricsResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/graphs": {
+      "post": {
+        "tags": [
+          "GraphEndpoints"
+        ],
+        "summary": "Create an anonymous graph and return its token once (FR-GRAPH-01).",
+        "operationId": "CreateGraph",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CreateGraphRequest"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateGraphResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/graphs/{id}": {
+      "get": {
+        "tags": [
+          "GraphEndpoints"
+        ],
+        "summary": "The graph with its songs, people, credits, hubs and crawl progress (FR-GRAPH-01, FR-HUB-01).",
+        "operationId": "GetGraph",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Graph-Token",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GraphSnapshot"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/graphs/{id}/songs": {
+      "post": {
+        "tags": [
+          "GraphEndpoints"
+        ],
+        "summary": "Add a recording by MBID; 202 with the song node while its credits are fetched (FR-GRAPH-02).",
+        "operationId": "AddSong",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Graph-Token",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddSongRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddSongResponse"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AddSongResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Bad Gateway",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/graphs/{id}/songs/{mbid}": {
+      "delete": {
+        "tags": [
+          "GraphEndpoints"
+        ],
+        "summary": "Remove a song from a graph (FR-GRAPH-01).",
+        "operationId": "RemoveSong",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "mbid",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "X-Graph-Token",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetails"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AddSongRequest": {
+        "required": [
+          "recordingMbid"
+        ],
+        "type": "object",
+        "properties": {
+          "recordingMbid": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
+      "AddSongResponse": {
+        "required": [
+          "song",
+          "pendingJobs"
+        ],
+        "type": "object",
+        "properties": {
+          "song": {
+            "$ref": "#/components/schemas/GraphSongItem"
+          },
+          "pendingJobs": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "CrawlProgressItem": {
+        "required": [
+          "queued",
+          "done",
+          "failed",
+          "etaSeconds"
+        ],
+        "type": "object",
+        "properties": {
+          "queued": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "done": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "failed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "etaSeconds": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "CrawlStatusResponse": {
+        "required": [
+          "queueDepth",
+          "fetchRatePerMinute",
+          "cacheHitRatio"
+        ],
+        "type": "object",
+        "properties": {
+          "queueDepth": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fetchRatePerMinute": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "cacheHitRatio": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          }
+        }
+      },
+      "CreateGraphRequest": {
+        "required": [
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "CreateGraphResponse": {
+        "required": [
+          "id",
+          "name",
+          "anonToken"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "anonToken": {
+            "type": "string"
+          }
+        }
+      },
+      "CreditLevel": {
+        "enum": [
+          "recording",
+          "work",
+          "release"
+        ]
+      },
+      "CreditRole": {
+        "enum": [
+          "producer",
+          "songwriter",
+          "mixing",
+          "engineering",
+          "instrument",
+          "vocal",
+          "other"
+        ]
+      },
+      "CreditsStatus": {
+        "enum": [
+          "none",
+          "partial",
+          "complete",
+          null
+        ]
+      },
+      "GraphCreditItem": {
+        "required": [
+          "songMbid",
+          "personMbid",
+          "role",
+          "detail",
+          "level"
+        ],
+        "type": "object",
+        "properties": {
+          "songMbid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "personMbid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "role": {
+            "$ref": "#/components/schemas/CreditRole"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "level": {
+            "$ref": "#/components/schemas/CreditLevel"
+          }
+        }
+      },
+      "GraphSnapshot": {
+        "required": [
+          "id",
+          "name",
+          "seq",
+          "songs",
+          "people",
+          "credits",
+          "hubs",
+          "crawl"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "songs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GraphSongItem"
+            }
+          },
+          "people": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonItem"
+            }
+          },
+          "credits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GraphCreditItem"
+            }
+          },
+          "hubs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/HubItem"
+            }
+          },
+          "crawl": {
+            "$ref": "#/components/schemas/CrawlProgressItem"
+          }
+        }
+      },
+      "GraphSongItem": {
+        "required": [
+          "mbid",
+          "title",
+          "artist",
+          "year",
+          "creditsStatus",
+          "addedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "mbid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "year": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "creditsStatus": {
+            "$ref": "#/components/schemas/SongStatus"
+          },
+          "addedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "artReleaseMbid": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "artReleaseGroupMbid": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "hasPreview": {
+            "type": "boolean",
+            "default": false
+          },
+          "deezerCoverMd5": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "HubItem": {
+        "required": [
+          "personMbid",
+          "songs",
+          "roles"
+        ],
+        "type": "object",
+        "properties": {
+          "personMbid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "songs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditRole"
+            }
+          }
+        }
+      },
+      "MetricHeatmap": {
+        "required": [
+          "bounds",
+          "cells"
+        ],
+        "type": "object",
+        "properties": {
+          "bounds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cells": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          }
+        }
+      },
+      "MetricSeries": {
+        "required": [
+          "id",
+          "label",
+          "unit",
+          "points"
+        ],
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "points": {
+            "type": "array",
+            "items": {
+              "type": [
+                "null",
+                "number"
+              ],
+              "format": "double"
+            }
+          }
+        }
+      },
+      "MetricsResponse": {
+        "required": [
+          "from",
+          "to",
+          "stepSeconds",
+          "resolution",
+          "times",
+          "series",
+          "heatmap",
+          "slos",
+          "breaches"
+        ],
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "to": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stepSeconds": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resolution": {
+            "type": "string"
+          },
+          "times": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          "series": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MetricSeries"
+            }
+          },
+          "heatmap": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MetricHeatmap"
+              }
+            ]
+          },
+          "slos": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SloStatus"
+            }
+          },
+          "breaches": {
+            "type": [
+              "null",
+              "array"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/SloBreach"
+            }
+          }
+        }
+      },
+      "PersonItem": {
+        "required": [
+          "mbid",
+          "name"
+        ],
+        "type": "object",
+        "properties": {
+          "mbid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "PersonProfile": {
+        "required": [
+          "mbid",
+          "name",
+          "type",
+          "disambiguation",
+          "roles",
+          "recordingCount",
+          "creditCount",
+          "firstYear",
+          "lastYear"
+        ],
+        "type": "object",
+        "properties": {
+          "mbid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "disambiguation": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RoleSummaryItem"
+            }
+          },
+          "recordingCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "creditCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "firstYear": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "lastYear": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          }
+        }
+      },
+      "PersonRecordingItem": {
+        "required": [
+          "mbid",
+          "title",
+          "artist",
+          "year",
+          "roles"
+        ],
+        "type": "object",
+        "properties": {
+          "mbid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "year": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonRecordingRole"
+            }
+          }
+        }
+      },
+      "PersonRecordingRole": {
+        "required": [
+          "role",
+          "detail"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/CreditRole"
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      },
+      "PersonRecordingsPage": {
+        "required": [
+          "page",
+          "pageSize",
+          "total",
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "page": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "pageSize": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PersonRecordingItem"
+            }
+          }
+        }
+      },
+      "PickPreviewRequest": {
+        "required": [
+          "trackId"
+        ],
+        "type": "object",
+        "properties": {
+          "trackId": {
+            "type": "string"
+          }
+        }
+      },
+      "PickPreviewResponse": {
+        "required": [
+          "hasPreview",
+          "deezerCoverMd5"
+        ],
+        "type": "object",
+        "properties": {
+          "hasPreview": {
+            "type": "boolean"
+          },
+          "deezerCoverMd5": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PreviewCandidateItem": {
+        "required": [
+          "trackId",
+          "title",
+          "artist",
+          "album",
+          "durationSeconds",
+          "coverMd5"
+        ],
+        "type": "object",
+        "properties": {
+          "trackId": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "album": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "durationSeconds": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "coverMd5": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "PreviewCandidatesResponse": {
+        "required": [
+          "candidates"
+        ],
+        "type": "object",
+        "properties": {
+          "candidates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PreviewCandidateItem"
+            }
+          }
+        }
+      },
+      "PreviewResponse": {
+        "required": [
+          "url",
+          "expiresAt"
+        ],
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "expiresAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "ProblemDetails": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "title": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "status": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "detail": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "instance": {
+            "type": [
+              "null",
+              "string"
+            ]
+          }
+        }
+      },
+      "RecommendationHub": {
+        "required": [
+          "mbid",
+          "name",
+          "graphSongs",
+          "roles"
+        ],
+        "type": "object",
+        "properties": {
+          "mbid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string"
+          },
+          "graphSongs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CreditRole"
+            }
+          }
+        }
+      },
+      "RecommendationItem": {
+        "required": [
+          "mbid",
+          "title",
+          "artist",
+          "year",
+          "hubCount",
+          "sharedSongs",
+          "reason",
+          "hubs"
+        ],
+        "type": "object",
+        "properties": {
+          "mbid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "year": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "hubCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "sharedSongs": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "hubs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecommendationHub"
+            }
+          }
+        }
+      },
+      "RecommendationsResponse": {
+        "required": [
+          "items"
+        ],
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RecommendationItem"
+            }
+          }
+        }
+      },
+      "RecordingKind": {
+        "enum": [
+          "remix",
+          "edit",
+          "bootleg",
+          "mixtape",
+          null
+        ]
+      },
+      "RoleSummaryItem": {
+        "required": [
+          "role",
+          "recordings"
+        ],
+        "type": "object",
+        "properties": {
+          "role": {
+            "$ref": "#/components/schemas/CreditRole"
+          },
+          "recordings": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "SearchResponse": {
+        "required": [
+          "source",
+          "results"
+        ],
+        "type": "object",
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/SearchSource"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchResultItem"
+            }
+          }
+        }
+      },
+      "SearchResultItem": {
+        "required": [
+          "mbid",
+          "title",
+          "artist",
+          "firstReleaseTitle",
+          "year",
+          "score",
+          "creditsStatus",
+          "versions"
+        ],
+        "type": "object",
+        "properties": {
+          "mbid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "firstReleaseTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "year": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "score": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "creditsStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreditsStatus"
+              }
+            ]
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SearchVersionItem"
+            }
+          },
+          "artReleaseMbid": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "artReleaseGroupMbid": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "kind": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RecordingKind"
+              }
+            ]
+          }
+        }
+      },
+      "SearchSource": {
+        "enum": [
+          "cache",
+          "musicBrainz"
+        ]
+      },
+      "SearchVersionItem": {
+        "required": [
+          "mbid",
+          "title",
+          "artist",
+          "firstReleaseTitle",
+          "year",
+          "score",
+          "kind",
+          "note",
+          "creditsStatus"
+        ],
+        "type": "object",
+        "properties": {
+          "mbid": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string"
+          },
+          "artist": {
+            "type": "string"
+          },
+          "firstReleaseTitle": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "year": {
+            "type": [
+              "null",
+              "integer"
+            ],
+            "format": "int32"
+          },
+          "score": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/VersionKind"
+          },
+          "note": {
+            "type": [
+              "null",
+              "string"
+            ]
+          },
+          "creditsStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CreditsStatus"
+              }
+            ]
+          },
+          "artReleaseMbid": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          },
+          "artReleaseGroupMbid": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "uuid"
+          }
+        }
+      },
+      "SloBreach": {
+        "required": [
+          "at",
+          "slo",
+          "observed",
+          "target",
+          "text"
+        ],
+        "type": "object",
+        "properties": {
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "slo": {
+            "type": "string"
+          },
+          "observed": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "target": {
+            "type": "number",
+            "format": "double"
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      },
+      "SloStatus": {
+        "required": [
+          "slo",
+          "label",
+          "target",
+          "atLeast",
+          "observed",
+          "breached",
+          "checkedAt"
+        ],
+        "type": "object",
+        "properties": {
+          "slo": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "target": {
+            "type": "number",
+            "format": "double"
+          },
+          "atLeast": {
+            "type": "boolean"
+          },
+          "observed": {
+            "type": [
+              "null",
+              "number"
+            ],
+            "format": "double"
+          },
+          "breached": {
+            "type": "boolean"
+          },
+          "checkedAt": {
+            "type": [
+              "null",
+              "string"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "SongStatus": {
+        "enum": [
+          "loading",
+          "none",
+          "partial",
+          "complete"
+        ]
+      },
+      "VersionKind": {
+        "enum": [
+          "live",
+          "remaster",
+          "compilation",
+          "other"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "SearchEndpoints"
+    },
+    {
+      "name": "RecordingEndpoints"
+    },
+    {
+      "name": "PeopleEndpoints"
+    },
+    {
+      "name": "RecommendationEndpoints"
+    },
+    {
+      "name": "Nodeable.Api"
+    },
+    {
+      "name": "StatusMetricsEndpoints"
+    },
+    {
+      "name": "GraphEndpoints"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+# Vulnerabilities the image scan is told to accept (spec section 13, decision 0029). The scan fails the build on a high or
+# critical finding that has a fix; a finding with no fix yet is not reported at all. Add a line here only for a finding that
+# cannot be fixed by updating the base image or a package, and give the reason and a date to look again, in this form:
+#
+#   CVE-2026-12345 exp:2026-12-31   # why it does not apply to Nodeable, who decided, what would fix it
+#
+# An entry past its expiry date stops applying, so the build fails again and the entry has to be looked at.
+

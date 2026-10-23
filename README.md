@@ -40,11 +40,21 @@ This removes the volume and any container still using it; the next run starts em
 dotnet test                                   # backend; needs Docker
 cd web && npm test                            # frontend
 cd web && npm run lint && npm run typecheck   # frontend checks
-cd web && npm run gen:api                     # regenerate TypeScript types from the Api's OpenAPI document
+cd web && npm run gen:api                     # regenerate TypeScript types and docs/api/openapi.json from the Api's OpenAPI document
 dotnet format Nodeable.slnx --verify-no-changes
 ```
 
 The same checks run in GitHub Actions on every pull request.
+
+Container images (decision 0029; CI builds each for `linux/amd64` and `linux/arm64`, checks it and scans it):
+
+```bash
+docker build -f src/Nodeable.Api/Dockerfile -t nodeable-api .       # from the repository root
+docker build -f src/Nodeable.Worker/Dockerfile -t nodeable-worker .
+docker build -t nodeable-web web
+```
+
+Add `--platform linux/arm64` for the production architecture (it needs QEMU, which Docker Desktop includes). The API contract is committed at `docs/api/openapi.json`; a breaking change to it fails CI unless `ApiContract.Version` changes.
 
 ## Documentation
 
