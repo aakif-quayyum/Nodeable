@@ -281,7 +281,7 @@ jobs:
 
       # Layers are cached on disk between runs (a plain directory, so no extra action's runtime variables are needed). A run
       # writes a new cache and swaps it in, so the cache does not grow without bound.
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/buildx-cache
           key: images-${{ matrix.image }}-${{ hashFiles(matrix.file, 'Directory.Packages.props', 'web/package-lock.json') }}
