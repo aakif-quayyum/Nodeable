@@ -29,8 +29,8 @@ Written 2026-10-16 so a new session can continue without the conversation that p
 | 7b | Status API (public and private metrics, Basic auth), the daily SLO check and a per-minute heartbeat; crawl freshness uses the queue-wait proxy | merged #62 |
 | 8a | `/status` page and the chart foundation (ECharts, SVG renderer, in-page sign-in) | merged #63 |
 | 8b | About page: architecture diagram without the Collector, live crawler panels from the public metrics, links | merged #64 |
-| 9 | CI images for arm64 and amd64 (distroless runtime), image scan, OpenAPI diff with a committed contract file; no registry push (PR 10) | in progress, branch `m4/ci-images` |
-| 10 | Oracle deployment (re-read Oracle Always Free limits first) | not started; needs the developer's account, keys and subdomain, plus the D7 seed albums |
+| 9 | CI images for arm64 and amd64 (distroless runtime), image scan, OpenAPI diff with a committed contract file; no registry push (PR 10) | merged #65 |
+| 10 | Oracle deployment (re-read Oracle Always Free limits first) | in progress, branch `m4/oracle-deploy`: setup checklist first (`docs/dev/oracle-setup-checklist.md`); no Terraform runs until the developer says the checklist is done |
 | 11 | Playwright end-to-end and k6 | not started |
 | 12 | LG-04 learning guide (all 12 sections, claims checked against code) and `v0.4.0` | not started |
 
@@ -38,7 +38,7 @@ FR-SAMPLE-01 is approved and ADR 0027 is Accepted (2026-10-16), but it is **v2**
 
 ## Open pull requests
 
-- **PR 9 CI images (`m4/ci-images`).** CI and Dockerfiles only; see its pull request. To sign in to `/status` locally set `Status:OperatorPassword` (for example `dotnet user-secrets set Status:OperatorPassword <value> --project src/Nodeable.Api`, or the environment variable `Status__OperatorPassword` before starting the AppHost) and type it in the sign-in form (user `operator`). Unset, every private request is 401. The About page needs no password.
+- **PR 10 Oracle deployment (`m4/oracle-deploy`).** Waiting for the developer to finish `docs/dev/oracle-setup-checklist.md` before any Terraform runs. To sign in to `/status` locally set `Status:OperatorPassword` (for example `dotnet user-secrets set Status:OperatorPassword <value> --project src/Nodeable.Api`, or the environment variable `Status__OperatorPassword` before starting the AppHost) and type it in the sign-in form (user `operator`). Unset, every private request is 401. The About page needs no password.
 
 - **Caddy is built from source (decision 0029).** The upstream `caddy:2-alpine` lagged behind Go's security fixes, so `web/Dockerfile` builds Caddy with `xcaddy`; `.trivyignore` has no entries and none is to be added for it. **Bumping the Caddy build:** the versions are the `ARG`s at the top of `web/Dockerfile` (`GO_VERSION`, `CADDY_VERSION`, `XNET_VERSION`, `XCADDY_VERSION`, `ALPINE_VERSION`). When the `Image web` job fails on a Go or `golang.org/x/net` finding, raise `GO_VERSION` to the newest patch release (the `golang` image tag) and `XNET_VERSION` to the fixed one the finding names, build both architectures (`docker build --platform linux/arm64 -t nodeable-web web`), check `docker run --rm --entrypoint caddy nodeable-web version`, and scan them (the command is in the `images` job). Dependabot cannot bump these arguments, so check <https://github.com/caddyserver/caddy/releases> when starting PR 10 and at each release. Once upstream `caddy` ships on a fixed Go, the build can go back to the official image.
 
