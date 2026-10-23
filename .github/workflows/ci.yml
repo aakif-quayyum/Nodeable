@@ -264,11 +264,11 @@ jobs:
             file: src/Nodeable.Worker/Dockerfile
             context: .
             non_root: true
-          # Caddy's own image runs as root so the deployment's Caddy can bind ports 80 and 443; this image holds static files.
+          # Caddy is built from source in this Dockerfile (decision 0029) and runs as the user caddy.
           - image: web
             file: web/Dockerfile
             context: web
-            non_root: false
+            non_root: true
     steps:
       - uses: actions/checkout@v7
 
