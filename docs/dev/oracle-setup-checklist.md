@@ -107,7 +107,7 @@ Choose a passphrase when asked and keep it in your password manager. This makes 
 ### 2.3 OCI API key (lets Terraform act as you)
 
 1. Console, top-right profile icon, **My profile**.
-2. Under **Resources** (left), **API keys**, then **Add API key**.
+2. Click the **Tokens and keys** tab in the row across the top of the page (older consoles show **Resources, API keys** on the left instead), then in **API keys** click **Add API key**.
 3. Choose **Generate API key pair**, click **Download private key** and save it as `C:\Users\User\.oci\nodeable_api_key.pem` (create the `.oci` folder first). Click **Add**.
 4. A "Configuration file preview" opens. Copy its text into a new file `C:\Users\User\.oci\config` **on your computer**, and change the `key_file=` line to `C:\Users\User\.oci\nodeable_api_key.pem`. The file holds your user OCID, fingerprint, tenancy OCID and region.
 5. Restrict the key file to yourself:
