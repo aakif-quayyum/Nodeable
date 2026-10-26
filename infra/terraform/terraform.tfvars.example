@@ -1,0 +1,22 @@
+# Copy this file to terraform.tfvars (same folder) and fill in the values yourself.
+# terraform.tfvars is ignored by git (*.tfvars in .gitignore); this example file is the only one committed.
+# None of these values is a secret, but the repository is public, so they stay on your machine.
+# The OCI API key itself is NOT here: Terraform reads it from C:\Users\User\.oci\config (docs/dev/oracle-setup-checklist.md, step 2.3).
+
+# Profile icon, "Tenancy: <name>", copy the OCID. Starts with ocid1.tenancy.oc1..
+tenancy_ocid = ""
+
+# Identity & Security, Compartments, nodeable, copy the OCID. Starts with ocid1.compartment.oc1..
+compartment_ocid = ""
+
+# Your home region identifier.
+region = "ap-hyderabad-1"
+
+# The single line inside C:\Users\User\.ssh\nodeable_oracle.pub (the public key, not the private one).
+ssh_public_key = ""
+
+# Object Storage namespace: Storage, Buckets, nodeable-tfstate, "Namespace".
+namespace = ""
+
+# The DuckDNS name for the site; the dashboard name is added in the deployment pull request.
+domain = "nodeable.duckdns.org"
