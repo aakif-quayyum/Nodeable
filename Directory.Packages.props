@@ -30,7 +30,7 @@
     <!-- GHSA-qhrr-8q5h-9q3h (MessagePack, nested arrays can pass buffer limits): Aspire.Hosting pulls 2.5.302 into the AppHost; 2.5.303 is the fix. -->
     <PackageVersion Include="MessagePack" Version="2.5.303" />
     <PackageVersion Include="MessagePack.Annotations" Version="2.5.303" />
-    <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.ApiDescription.Server" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.10.0" />
     <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.12" />
