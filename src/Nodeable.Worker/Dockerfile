@@ -7,7 +7,7 @@
 # The Worker is a generic host with no web server, but it uses the ASP.NET Core shared framework through the Infrastructure
 # and ServiceDefaults projects (SignalR's Redis backplane, health checks), so its runtime is the ASP.NET one too.
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 ARG TARGETARCH
 WORKDIR /src
 
