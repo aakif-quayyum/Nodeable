@@ -7,7 +7,7 @@
 # (TARGETARCH), so an arm64 image is compiled natively on an amd64 runner instead of under emulation. Only the final
 # stage, which copies files, is for the target.
 
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:11.0 AS build
 ARG TARGETARCH
 WORKDIR /src
 
